@@ -1,0 +1,147 @@
+import { Fighter, move } from './Fighter.js';
+
+// Las frases se leen de izquierda a derecha. La pausa crea una trampa de tiempo,
+// reverso cubre la espalda, suelo recorre el piso y arco describe una parábola.
+const repertoire = {
+  washington: ['punta alto', 'carga pausa punta', 'alto punta', 'bajo reverso'],
+  lincoln: ['martillo toque', 'alto martillo', 'gancho martillo', 'pausa barrido'],
+  teddy: ['toque carga', 'carga carga martillo', 'gancho carga', 'bajo martillo'],
+  fdr: ['bajo toque', 'suelo pausa alto', 'alto suelo', 'reverso suelo'],
+  eisenhower: ['alto reverso', 'rayo pausa suelo', 'gancho rayo', 'suelo reverso'],
+  kennedy: ['alto toque', 'arco rayo', 'alto arco', 'arco suelo'],
+  sanmartin: ['punta pausa punta', 'punta carga punta', 'punta alto carga', 'reverso bajo'],
+  juarez: ['martillo bajo', 'martillo pausa reverso', 'martillo alto', 'bajo pausa alto'],
+  cardenas: ['toque bajo', 'suelo arco', 'suelo gancho', 'suelo pausa suelo'],
+  ohiggins: ['carga punta', 'carga punta alto', 'carga alto', 'reverso carga'],
+  sarmiento: ['toque alto', 'arco pausa rayo', 'arco alto', 'rayo reverso'],
+  alfaro: ['martillo carga', 'suelo carga martillo', 'carga gancho', 'martillo suelo'],
+  batlle: ['bajo alto', 'reverso pausa martillo', 'reverso gancho', 'suelo pausa reverso'],
+  vargas: ['martillo pausa toque', 'martillo suelo martillo', 'martillo gancho', 'barrido martillo'],
+  kubitschek: ['alto pausa bajo', 'arco pausa arco', 'arco reverso', 'suelo alto'],
+  allende: ['toque martillo', 'gancho pausa carga', 'gancho bajo', 'martillo pausa bajo'],
+  sucre: ['punta toque', 'punta pausa carga', 'alto pausa punta', 'bajo punta'],
+  artigas: ['carga bajo', 'carga reverso punta', 'carga reverso', 'barrido carga'],
+  mujica: ['bajo pausa toque', 'bajo pausa martillo', 'bajo gancho', 'pausa bajo carga'],
+  degaulle: ['punta reverso', 'rayo suelo rayo', 'rayo gancho', 'barrido rayo'],
+  mitterrand: ['reverso punta', 'punta reverso alto', 'punta reverso', 'reverso pausa punta'],
+  chirac: ['martillo reverso', 'reverso carga martillo', 'martillo reverso', 'martillo barrido'],
+  masaryk: ['alto pausa toque', 'arco alto rayo', 'rayo alto', 'arco pausa bajo'],
+  havel: ['reverso toque', 'reverso pausa carga', 'reverso alto', 'bajo carga reverso'],
+  walesa: ['gancho toque', 'gancho martillo suelo', 'gancho pausa alto', 'bajo gancho carga'],
+  pertini: ['punta bajo', 'alto punta reverso', 'punta gancho', 'barrido punta'],
+  kekkonen: ['carga toque', 'gancho carga bajo', 'carga pausa gancho', 'bajo pausa carga'],
+  mandela: ['gancho bajo', 'martillo pausa gancho', 'alto gancho', 'bajo pausa reverso'],
+  sankara: ['carga alto', 'carga bajo carga', 'carga punta', 'barrido pausa carga'],
+  nkrumah: ['alto punta', 'arco suelo arco', 'arco gancho', 'rayo pausa suelo'],
+  nyerere: ['reverso bajo', 'suelo pausa martillo', 'bajo alto', 'suelo martillo'],
+  ataturk: ['punta carga', 'punta bajo reverso', 'punta pausa alto', 'bajo reverso punta'],
+  sunyatsen: ['reverso alto', 'reverso punta gancho', 'reverso punta', 'barrido reverso'],
+  kalam: ['toque pausa alto', 'rayo arco rayo', 'arco rayo', 'arco bajo'],
+  lula: ['toque gancho', 'suelo pausa carga', 'gancho pausa reverso', 'bajo martillo suelo'],
+};
+
+const labels = {
+  washington: ['Toque de orden', 'Cruce del río', 'Retaguardia continental'],
+  lincoln: ['Golpe de mazo', 'Alzada de la Unión', 'Surco abierto'],
+  teddy: ['Hombro de bisonte', 'Carga de la colina', 'Pisada del parque'],
+  fdr: ['Toque de cubierta', 'Elevador de obras', 'Segunda línea'],
+  eisenhower: ['Señal de flanco', 'Puente aéreo', 'Cobertura aliada'],
+  kennedy: ['Cuenta regresiva', 'Órbita lunar', 'Módulo de retorno'],
+  sanmartin: ['Finta de granadero', 'Paso de los Andes', 'Retirada de Maipú'],
+  juarez: ['Golpe de acta', 'Tribuna alta', 'Recurso de amparo'],
+  cardenas: ['Toque soberano', 'Torre de sondeo', 'Veta profunda'],
+  ohiggins: ['Punta de vanguardia', 'Ladera andina', 'Carga de retaguardia'],
+  sarmiento: ['Tiza rápida', 'Faro de escuela', 'Última lección'],
+  alfaro: ['Biela motriz', 'Viaducto', 'Traviesa de acero'],
+  batlle: ['Doble moción', 'Tribuna cívica', 'Sesión aplazada'],
+  vargas: ['Prensa de taller', 'Grúa industrial', 'Rodillo de acero'],
+  kubitschek: ['Compás de arquitecto', 'Arco del Palacio', 'Eje monumental'],
+  allende: ['Toque de campana', 'Tribuna popular', 'Réplica cívica'],
+  sucre: ['Punta de Ayacucho', 'Paso del cóndor', 'Finta de Pichincha'],
+  artigas: ['Sable de rienda', 'Salto de posta', 'Giro de estribo'],
+  mujica: ['Golpe de azada', 'Surco ascendente', 'Contrapie de la chacra'],
+  degaulle: ['Saludo de flanco', 'Enlace aéreo', 'Línea de radio'],
+  mitterrand: ['Finta de tribuna', 'Arco de cristal', 'Réplica tardía'],
+  chirac: ['Toque de escudo', 'Escalinata del Elíseo', 'Vuelta de guardia'],
+  masaryk: ['Péndulo de Praga', 'Luz del castillo', 'Arco del reloj'],
+  havel: ['Cambio de escena', 'Tramoya', 'Mutis por el foro'],
+  walesa: ['Gancho de astillero', 'Grúa del Báltico', 'Turno de relevo'],
+  pertini: ['Punta alpina', 'Cresta de la cordillera', 'Viraje de ladera'],
+  kekkonen: ['Bastón de salida', 'Salto de esquí', 'Cambio de pista'],
+  mandela: ['Gancho de apertura', 'Ascenso de la plaza', 'Segunda campana'],
+  sankara: ['Paso de vanguardia', 'Impulso íntegro', 'Giro de patrulla'],
+  nkrumah: ['Toque de estrella', 'Cenit solar', 'Eco de horizonte'],
+  nyerere: ['Giro de bastón', 'Círculo comunitario', 'Raíz compartida'],
+  ataturk: ['Punta de apertura', 'Paso de Anatolia', 'Sable de retorno'],
+  sunyatsen: ['Réplica del bastón', 'Escalón republicano', 'Giro de asamblea'],
+  kalam: ['Toque de ignición', 'Etapa orbital', 'Cápsula de retorno'],
+  lula: ['Golpe de asamblea', 'Ascenso del sindicato', 'Turno de fábrica'],
+};
+
+function book(jab, neutral, up, down) {
+  return { jab, neutral, up, down };
+}
+const lift = (name, phrase, vy, vx = 0, effect = '') => move(name, phrase, { launch: { vy, vx }, effect });
+
+const threeThrusts = move('Tres estocadas', 'punta punta punta');
+for (const phase of threeThrusts.ph.slice(0, 2)) {
+  phase.bk = 0.45;
+  phase.ks = 0.015;
+  phase.mv = 1.6;
+}
+
+const phalanx = move('Empuje Falange', 'barrido suelo');
+const frontWave = phalanx.sp[0];
+frontWave.p.life = 15;
+frontWave.p.bk = 9;
+phalanx.sp.push({ ...frontWave, p: { ...frontWave.p, back: true } });
+
+const featured = {
+  bolivar: book(
+    threeThrusts,
+    move('Onda Patriótica', 'onda'),
+    lift('Salto de Campaña', 'punta alto', -17, 7, 'ledge'),
+    move('Decreto de Guerra', '', { effect: 'seal', dur: 22 }),
+  ),
+  robinson: book(
+    move('Compás del cetro', 'toque alto toque'),
+    move('Orbe de Pulso', 'orbe'),
+    lift('Levitación Cuántica', '', -2, 0, 'hover'),
+    move('Campo Escudo', '', { effect: 'barrier', dur: 24 }),
+  ),
+  cesar: book(
+    move('Pomo y filo', 'toque punta'),
+    move('Gladius Voraz', 'carga punta', { pierce: true }),
+    lift('Ascenso del Senado', 'gancho alto', -18, 0, 'standard'),
+    move('Formación Testudo', '', { effect: 'testudo', dur: 36 }),
+  ),
+  alejandro: book(
+    move('Regatón de sarissa', 'bajo reverso punta'),
+    move('Estocada de Caballería', 'sarissa'),
+    lift('Vuelo de Bucéfalo', 'carga alto punta', -16, 8, 'horse'),
+    phalanx,
+  ),
+  aquiles: book(
+    move('Talón alado', 'bajo alto toque'),
+    move('Corte de los Mirmidones', 'cruce retorno cruce'),
+    lift('Salto Divino', 'alto pausa gancho', -22, 0, 'olympus'),
+    move('Furia de Tesalia', '', { effect: 'rage', dur: 23 }),
+  ),
+};
+
+export function movesFor(data) {
+  if (data.isCustom) return null; // El editor mantiene sus ataques configurados.
+  if (featured[data.id]) return new Fighter(featured[data.id]);
+  const phrases = repertoire[data.id];
+  if (!phrases) return null;
+  const [jab, neutral, up, down] = phrases;
+  const [jabName, upName, downName] = labels[data.id];
+  return new Fighter(
+    book(
+      move(jabName, jab),
+      move(data.sigName, neutral),
+      lift(upName, up, -data.stats.jumpForce - 3, up.startsWith('carga') ? 6 : 1),
+      move(downName, down),
+    ),
+  );
+}

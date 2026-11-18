@@ -1,55 +1,21 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Presidential Brawl">
-  <meta name="theme-color" content="#10131c">
-  <title>Presidential Brawl</title>
-  <link rel="manifest" href="./manifest.json">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%2310131c'/%3E%3Ccircle cx='256' cy='225' r='148' fill='%23ffcc33'/%3E%3Ctext x='256' y='285' font-family='system-ui,Arial,sans-serif' font-weight='900' font-size='175' text-anchor='middle' fill='%2310131c'%3EPB%3C/text%3E%3Ctext x='256' y='452' font-family='system-ui,Arial,sans-serif' font-weight='900' font-size='64' text-anchor='middle' fill='%23ffffff'%3EBRAWL%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./css/mobile-app.css">
-</head>
-<body>
-  <div id="w" class="crt">
-    <canvas id="c" width="640" height="360"></canvas>
-    <div id="ui"></div>
-
-    <!-- Controles Táctiles Mobile-First: Floating Joystick + Botones en Arco Ergonómico -->
-    <div id="tc">
-      <div id="sb">
-        <div id="kn"></div>
-      </div>
-      <div id="bt">
-        <div class="tb" data-b="a">👊<small>LIGERO</small></div>
-        <div class="tb" data-b="u">▲<small>SALTO</small></div>
-        <div class="tb" data-b="x">⚡<small>DASH</small></div>
-        <div class="tb" data-b="h">★<small>PESADO</small></div>
-        <div class="tb" data-b="c">👑<small>ULT</small></div>
-      </div>
-    </div>
-
-    <!-- Barra de Herramientas -->
-    <div id="tools">
-      <span id="gpt"></span>
-      <button id="tgl">📱 Táctil</button>
-      <button id="mus">🎵 Música ON</button>
-      <button id="crt">📺 CRT</button>
-      <button id="pz">⏸ Pausa</button>
-    </div>
-
-    <!-- Aviso de Rotación Horizontal -->
-    <div id="rot">🔄 Gira tu teléfono en horizontal para jugar mejor</div>
-  </div>
-
-  <!-- Arquitectura MVC -->
-  <script src="./js/models/GameData.js"></script>
-  <script src="./js/views/Renderer.js"></script>
-  <script src="./js/models/Fighter.js"></script>
-  <script src="./js/controllers/TouchAndInput.js"></script>
-  <script src="./js/main.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Presidential Brawl: Apex Edition</title>
+    <meta name="description" content="Arcade brawler-shooter 2D en pixel art moderno con animación anatómica procedural, campaña Cumbre Mundial y configuración completa." />
+    <meta property="og:title" content="Presidential Brawl: Apex Edition" />
+    <meta property="og:description" content="Arcade brawler-shooter 2D en pixel art moderno con animación anatómica procedural, campaña Cumbre Mundial y configuración completa." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0b0e17" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-[#0b0e17] text-[#eef2ff] overflow-hidden select-none">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

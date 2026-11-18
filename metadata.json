@@ -1,0 +1,8 @@
+{
+  "name": "Presidential Brawl: Apex Edition",
+  "description": "Arcade brawler-shooter 2D en pixel art moderno con animación anatómica procedural, campaña Cumbre Mundial y configuración completa.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

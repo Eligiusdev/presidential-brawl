@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Chakra Petch', system-ui, sans-serif;
+    --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #0a1020;
+    color: #eef2ff;
+    font-family: var(--font-body);
+    overflow: hidden;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.pixel-canvas {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Subtle CRT & PVM overlays applied only when configured */
+.crt-scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.24) 0px,
+    rgba(0, 0, 0, 0.24) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.crt-pvm::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.28) 0px,
+      rgba(0, 0, 0, 0.28) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 0.03) 0px,
+      rgba(0, 255, 0, 0.03) 1px,
+      rgba(0, 120, 255, 0.03) 2px,
+      transparent 3px
+    ),
+    radial-gradient(circle at center, transparent 58%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* Custom scrollbar for config modal */
+.arcade-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.arcade-scroll::-webkit-scrollbar-track {
+  background: #101522;
+}
+.arcade-scroll::-webkit-scrollbar-thumb {
+  background: #334268;
+  border-radius: 3px;
+}
+
+@keyframes hudUltGlow {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(255, 204, 51, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(255, 204, 51, 0.78);
+  }
+}
+
+.hud-ult-glow {
+  animation: hudUltGlow 1.6s ease-in-out infinite;
+}
