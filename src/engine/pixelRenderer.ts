@@ -1,3 +1,4 @@
+import { paintSprite, spriteAction, spritePortrait } from './fighterSprites';
 import { drawEffects, drawStrike, drawShot, shotTouches, strikeBox } from '../combat/effects.js';
 import { PIXEL_PRESET_DIMS } from '../config/defaultConfig';
 import { ColorRamp, GameConfig, PlatformDef, PresidentData, StageDef } from '../types/game';
@@ -42,6 +43,9 @@ export interface RenderFighterState {
   dead: number;
   inv: number;
   stun: number;
+  maxStun?: number;
+  jumpTick?: number;
+  koVisual?: { x: number; tick: number };
   dashT: number;
   dashCD: number;
   vote: number;
@@ -70,7 +74,7 @@ export interface RenderFighterState {
   atk: {
     spec: {
       k: string;
-      individual?: boolean; effect?: string;
+      individual?: boolean; downSpecial?: boolean; effect?: string;
       moveKind?: string;
       dur: number;
       heavy?: boolean;
@@ -511,103 +515,11 @@ class CpsSpriteRasterizer {
   }
 }
 
-export class PixelRenderer {
-  private offCanvas: HTMLCanvasElement;
-  private offCtx: CanvasRenderingContext2D;
-  private lightCanvas: HTMLCanvasElement;
-  private lightCtx: CanvasRenderingContext2D;
+// Fixed gameplay geometry. Its buffers and poses are independent of the art atlas.
+export class LegacyFighterGeometry {
   private spriteRas = new CpsSpriteRasterizer();
-  private pxW = 640;
-  private pxH = 360;
-  private camX = 720;
-  private camY = 425;
-  private camZoom = 1.25;
   private poseMemory = new Map<number, JointPose>();
 
-  constructor() {
-    this.offCanvas = document.createElement('canvas');
-    this.offCanvas.width = this.pxW;
-    this.offCanvas.height = this.pxH;
-    const ctx = this.offCanvas.getContext('2d', { alpha: false });
-    if (!ctx) throw new Error('2D context unavailable');
-    this.offCtx = ctx;
-    this.offCtx.imageSmoothingEnabled = false;
-
-    this.lightCanvas = document.createElement('canvas');
-    this.lightCanvas.width = this.pxW;
-    this.lightCanvas.height = this.pxH;
-    const lCtx = this.lightCanvas.getContext('2d');
-    if (!lCtx) throw new Error('Light 2D context unavailable');
-    this.lightCtx = lCtx;
-    this.lightCtx.imageSmoothingEnabled = false;
-  }
-
-  private syncBufferSize(cfg: GameConfig) {
-    const dim = PIXEL_PRESET_DIMS[cfg.video.pixelPreset] || PIXEL_PRESET_DIMS.modern;
-    if (this.pxW !== dim.w || this.pxH !== dim.h) {
-      this.pxW = dim.w;
-      this.pxH = dim.h;
-      this.offCanvas.width = dim.w;
-      this.offCanvas.height = dim.h;
-      this.offCtx.imageSmoothingEnabled = false;
-      this.lightCanvas.width = dim.w;
-      this.lightCanvas.height = dim.h;
-      this.lightCtx.imageSmoothingEnabled = false;
-    }
-  }
-
-  private updateCamera(world: WorldRenderContext) {
-    const alive = world.fighters.filter((f) => f.dead <= 0);
-    if (alive.length === 0) {
-      this.camX += (720 - this.camX) * 0.1;
-      this.camY += (425 - this.camY) * 0.1;
-      this.camZoom += (1.1 - this.camZoom) * 0.1;
-      return;
-    }
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-    for (const f of alive) {
-      const fx = clamp(f.cx, -120, 1560);
-      const fy = clamp(f.y + f.h * 0.5, -140, 820);
-      minX = Math.min(minX, fx);
-      maxX = Math.max(maxX, fx);
-      minY = Math.min(minY, fy);
-      maxY = Math.max(maxY, fy);
-    }
-    const spanX = Math.max(540, maxX - minX + 420);
-    const spanY = Math.max(305, maxY - minY + 280);
-    const targetZoom = clamp(Math.min(1440 / spanX, 810 / spanY), 0.82, 1.76);
-
-    const midX = (minX + maxX) * 0.5 * 0.82 + 720 * 0.18;
-    const midY = (minY + maxY) * 0.5 * 0.78 + 425 * 0.22 - 20;
-    const halfViewW = 720 / targetZoom;
-    const halfViewH = 405 / targetZoom;
-    const targetX = clamp(midX, Math.min(720, halfViewW - 140), Math.max(720, 1580 - halfViewW));
-    const targetY = clamp(midY, Math.min(405, halfViewH - 180), Math.max(405, 860 - halfViewH));
-
-    this.camX += (targetX - this.camX) * 0.12;
-    this.camY += (targetY - this.camY) * 0.12;
-    this.camZoom += (targetZoom - this.camZoom) * 0.1;
-  }
-
-  private sx(v: number): number {
-    return Math.round(((v - this.camX) * this.camZoom + 720) * (this.pxW / 1440));
-  }
-  private sy(v: number): number {
-    return Math.round(((v - this.camY) * this.camZoom + 405) * (this.pxH / 810));
-  }
-  private sw(v: number): number {
-    return Math.max(1, Math.round(v * this.camZoom * (this.pxW / 1440)));
-  }
-
-  private pxRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, col: string) {
-    ctx.fillStyle = col;
-    ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
-  }
-
-  // Heroic 16-bit CPS-1 Proportions (6.5 to 7 heads tall inside 104x112 sprite grid!)
   private computeTargetPose(f: RenderFighterState, T: number): JointPose {
     const an = f.d.anatomy;
     const hScale = an.heightScale;
@@ -1378,7 +1290,7 @@ export class PixelRenderer {
     };
   }
 
-  private solveBlendedPose(f: RenderFighterState, T: number, memKey?: number): JointPose {
+  protected solveBlendedPose(f: RenderFighterState, T: number, memKey?: number): JointPose {
     const target = this.computeTargetPose(f, T);
     if (memKey === undefined) return target;
     const prev = this.poseMemory.get(memKey);
@@ -1924,7 +1836,7 @@ export class PixelRenderer {
     }
   }
 
-  private rasterBody(f:RenderFighterState, pose:JointPose, T:number, isFlash:boolean, bodyOnly:boolean) {
+  protected rasterBody(f:RenderFighterState, pose:JointPose, T:number, isFlash:boolean, bodyOnly:boolean) {
     const p=f.d.palette, an=f.d.anatomy;
     const ras = this.spriteRas;
     ras.clear();
@@ -2002,7 +1914,7 @@ export class PixelRenderer {
     return false;
   }
 
-  private fightingPose(f:RenderFighterState,T:number) {
+  protected fightingPose(f:RenderFighterState,T:number) {
     const pose=this.computeTargetPose(f,T);
     const attack=f.atk;
     const phase=attack?.spec.individual && attack.spec.ph.find(p=>p.hb && attack.t>=p.a[0] && attack.t<=p.a[1]);
@@ -2021,6 +1933,104 @@ export class PixelRenderer {
     return {x:f.cx+foot.x*(92/74)*f.squashX-5,y:f.y+f.h+foot.y*(92/74)*f.squashY-6,w:10,h:9};
   }
 
+}
+
+export class PixelRenderer extends LegacyFighterGeometry {
+  private offCanvas: HTMLCanvasElement;
+  private offCtx: CanvasRenderingContext2D;
+  private lightCanvas: HTMLCanvasElement;
+  private lightCtx: CanvasRenderingContext2D;
+  private pxW = 640;
+  private pxH = 360;
+  private camX = 720;
+  private camY = 425;
+  private camZoom = 1.25;
+
+  constructor() {
+    super();
+    this.offCanvas = document.createElement('canvas');
+    this.offCanvas.width = this.pxW;
+    this.offCanvas.height = this.pxH;
+    const ctx = this.offCanvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('2D context unavailable');
+    this.offCtx = ctx;
+    this.offCtx.imageSmoothingEnabled = false;
+
+    this.lightCanvas = document.createElement('canvas');
+    this.lightCanvas.width = this.pxW;
+    this.lightCanvas.height = this.pxH;
+    const lCtx = this.lightCanvas.getContext('2d');
+    if (!lCtx) throw new Error('Light 2D context unavailable');
+    this.lightCtx = lCtx;
+    this.lightCtx.imageSmoothingEnabled = false;
+  }
+
+  private syncBufferSize(cfg: GameConfig) {
+    const dim = PIXEL_PRESET_DIMS[cfg.video.pixelPreset] || PIXEL_PRESET_DIMS.modern;
+    if (this.pxW !== dim.w || this.pxH !== dim.h) {
+      this.pxW = dim.w;
+      this.pxH = dim.h;
+      this.offCanvas.width = dim.w;
+      this.offCanvas.height = dim.h;
+      this.offCtx.imageSmoothingEnabled = false;
+      this.lightCanvas.width = dim.w;
+      this.lightCanvas.height = dim.h;
+      this.lightCtx.imageSmoothingEnabled = false;
+    }
+  }
+
+  private updateCamera(world: WorldRenderContext) {
+    const alive = world.fighters.filter((f) => f.dead <= 0);
+    if (alive.length === 0) {
+      this.camX += (720 - this.camX) * 0.1;
+      this.camY += (425 - this.camY) * 0.1;
+      this.camZoom += (1.1 - this.camZoom) * 0.1;
+      return;
+    }
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const f of alive) {
+      const fx = clamp(f.cx, -120, 1560);
+      const fy = clamp(f.y + f.h * 0.5, -140, 820);
+      minX = Math.min(minX, fx);
+      maxX = Math.max(maxX, fx);
+      minY = Math.min(minY, fy);
+      maxY = Math.max(maxY, fy);
+    }
+    const spanX = Math.max(540, maxX - minX + 420);
+    const spanY = Math.max(305, maxY - minY + 280);
+    const targetZoom = clamp(Math.min(1440 / spanX, 810 / spanY), 0.82, 2.15);
+
+    const midX = (minX + maxX) * 0.5 * 0.82 + 720 * 0.18;
+    const midY = (minY + maxY) * 0.5 * 0.78 + 425 * 0.22 - 20;
+    const halfViewW = 720 / targetZoom;
+    const halfViewH = 405 / targetZoom;
+    const targetX = clamp(midX, Math.min(720, halfViewW - 140), Math.max(720, 1580 - halfViewW));
+    const targetY = clamp(midY, Math.min(405, halfViewH - 180), Math.max(405, 860 - halfViewH));
+
+    this.camX += (targetX - this.camX) * 0.12;
+    this.camY += (targetY - this.camY) * 0.12;
+    this.camZoom += (targetZoom - this.camZoom) * 0.1;
+  }
+
+  private sx(v: number): number {
+    return Math.round(((v - this.camX) * this.camZoom + 720) * (this.pxW / 1440));
+  }
+  private sy(v: number): number {
+    return Math.round(((v - this.camY) * this.camZoom + 405) * (this.pxH / 810));
+  }
+  private sw(v: number): number {
+    return Math.max(1, Math.round(v * this.camZoom * (this.pxW / 1440)));
+  }
+
+  private pxRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, col: string) {
+    ctx.fillStyle = col;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+  }
+
+  // Heroic 16-bit CPS-1 Proportions (6.5 to 7 heads tall inside 104x112 sprite grid!)
   public drawAnatomicalCharacter(
     ctx: CanvasRenderingContext2D,
     f: RenderFighterState,
@@ -2082,23 +2092,18 @@ export class PixelRenderer {
       );
     }
 
-    // 4. Solve Heroic Pose & Rasterize into 104x112 CPS-1 Pixel Buffer
-    const pose = (f as {moves?:unknown}).moves ? this.fightingPose(f,T) : this.solveBlendedPose(f, T, memKey);
-    const ras = this.rasterBody(f,pose,T,isFlash,false);
-
-    // Chromatic 1px Pixel-Art Outline Pass + ImageData Upload
-    ras.applyChromaticOutline(useOutline && !isFlash);
-    ras.flushToContext();
-
-    // Composite Crisp Integer Sprite onto Target Buffer
     ctx.translate(Math.round(rootX), Math.round(rootY));
     ctx.scale(f.squashX, f.squashY);
-    const drawW = Math.round(SPR_W * pxScale);
-    const drawH = Math.round(SPR_H * pxScale);
-    const drawX = Math.round(-ANCHOR_X * pxScale);
-    const drawY = Math.round(-ANCHOR_Y * pxScale);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(ras.canvas, drawX, drawY, drawW, drawH);
+    const [clip, tick] = spriteAction(f, T);
+    if (!paintSprite(ctx, f.d, clip, tick, f.face, pxScale)) {
+      const pose = (f as {moves?:unknown}).moves ? this.fightingPose(f,T) : this.solveBlendedPose(f, T, memKey);
+      const ras = this.rasterBody(f, pose, T, isFlash, false);
+      ras.applyChromaticOutline(useOutline && !isFlash);
+      ras.flushToContext();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(ras.canvas, Math.round(-ANCHOR_X * pxScale), Math.round(-ANCHOR_Y * pxScale),
+        Math.round(SPR_W * pxScale), Math.round(SPR_H * pxScale));
+    }
 
     // Reload bar above fighter
     if (f.reloadT > 0) {
@@ -3022,6 +3027,22 @@ export class PixelRenderer {
     // 16-Bit CPS-1 Sprites scaled proportionally to dynamic Smash camera!
     const pxScale = (92 / 74) * this.camZoom * (W / 1440);
     for (const f of world.fighters) {
+      // A short KO vignette at the platform edge. The lost fighter is already out of play.
+      if (f.dead > 0 && f.koVisual && world.T - f.koVisual.tick < 29) {
+        ctx.save();
+        ctx.translate(sx(f.koVisual.x), sy(world.main.y));
+        ctx.globalAlpha = Math.min(1, (29 - world.T + f.koVisual.tick) / 8);
+        paintSprite(ctx, f.d, 'defeat', world.T - f.koVisual.tick, f.face, pxScale);
+        ctx.restore();
+        continue;
+      }
+      if (world.cine?.f === f) {
+        ctx.save();
+        ctx.translate(sx(f.cx), sy(f.y + f.h));
+        const drawn = paintSprite(ctx, f.d, 'ultimate', world.cine.t, f.face, pxScale);
+        ctx.restore();
+        if (drawn) continue;
+      }
       this.drawAnatomicalCharacter(ctx, f, world.T, pxScale, sx(f.cx), sy(f.y + f.h), cfg.video.pixelOutlines, f.pi);
     }
 
@@ -3429,6 +3450,15 @@ if (portraitCharOff) {
 export function renderPresidentPortrait(canvas: HTMLCanvasElement, d: PresidentData, time = 0) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
+  const portrait = spritePortrait(d);
+  if (portrait) {
+    if (canvas.width !== portrait.width || canvas.height !== portrait.height) {
+      canvas.width = portrait.width;
+      canvas.height = portrait.height;
+    }
+    ctx.drawImage(portrait, 0, 0);
+    return;
+  }
   const W = 48;
   const H = 48;
   if (canvas.width !== W || canvas.height !== H) {
