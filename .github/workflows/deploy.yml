@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Presidential Brawl Pages
 
 on:
   push:
@@ -25,13 +25,36 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
       - name: Setup Pages
+        id: pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Build game for GitHub Pages
+        run: npm run build -- --base="${{ steps.pages.outputs.base_path }}/"
+
+      - name: Check production entrypoint
+        shell: bash
+        run: |
+          test -f dist/index.html
+          test -d dist/assets
+          if grep -q '/src/main.tsx' dist/index.html; then
+            echo "::error::Production HTML still points to uncompiled TypeScript"
+            exit 1
+          fi
+
+      - name: Upload compiled game
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: dist
 
       - name: Deploy to GitHub Pages
         id: deployment
