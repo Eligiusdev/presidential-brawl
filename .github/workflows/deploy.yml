@@ -40,7 +40,7 @@ jobs:
         run: npm ci
 
       - name: Build game for GitHub Pages
-        run: npm run build:gh-pages
+        run: npm run build
 
       - name: Check production entrypoint
         shell: bash
