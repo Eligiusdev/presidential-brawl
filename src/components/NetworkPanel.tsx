@@ -33,7 +33,7 @@ export function NetworkPanel({canvas,onInput}:{canvas:RefObject<HTMLCanvasElemen
   const leave=async()=>{if(!session)return;setBusy(true);try{await roomRequest(`/${session.code}`,session,undefined,'DELETE');setSession(null);held.current.clear();setImage('');inputCallback.current([]);}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
   const press=(action:PlayerAction,active:boolean)=>{if(!session)return;if(active)held.current.add(action);else held.current.delete(action);send(session,[...held.current]);};
   if(!open)return <button className="network-launch" onClick={()=>setOpen(true)}>Conectar otra pantalla</button>;
-  const link=session?`${location.origin}/?room=${session.code}`:'';
+  const link=session?`${location.origin}${import.meta.env.BASE_URL}?room=${session.code}`:'';
   return <section className={`network-panel ${session?.role==='guest'?'network-controller':''}`} aria-label="Sala entre pantallas">
     <div className="network-heading"><strong>APEX · MULTIPANTALLA</strong>{session?.role!=='guest'&&<button aria-label="Cerrar panel" onClick={()=>setOpen(false)}>×</button>}</div>
     {!session?<><p>Juega desde el equipo principal y conecta un móvil como mando de J2.</p><button disabled={busy} onClick={()=>connect(true)}>Crear sala</button><label>Código de sala<input value={code} maxLength={10} onChange={e=>setCode(e.target.value.toUpperCase())} autoCapitalize="characters" placeholder="Código de 10 caracteres"/></label><button disabled={busy||code.trim().length!==10} onClick={()=>connect(false)}>Conectar como J2</button></>:<>

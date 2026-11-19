@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: presidential-brawl-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.0.0
+      - key: ALLOWED_ORIGINS
+        value: https://eligiusdev.github.io

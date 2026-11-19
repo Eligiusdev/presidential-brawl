@@ -4,6 +4,7 @@ import { createRoomsApp } from './rooms.mjs';
 const app=createRoomsApp();
 const port=Number(process.env.PORT) || (process.argv.includes('--dev') ? 3001 : 3000);
 const dist=fileURLToPath(new URL('../dist/',import.meta.url));
+app.get('/health',(_req,res)=>res.status(200).json({status:'ok'}));
 app.use(express.static(dist));
 app.get('*',(req,res)=>res.sendFile(`${dist}/index.html`));
 app.listen(port,'0.0.0.0',()=>console.log('Presidential Brawl: servidor disponible en puerto '+port));

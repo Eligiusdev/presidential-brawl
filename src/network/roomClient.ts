@@ -1,12 +1,14 @@
 import type { PlayerAction } from '../types/game';
 export type RoomSession = {code:string;token:string;role:'host'|'guest'};
+const apiBase=(import.meta.env.VITE_ROOM_API_BASE_URL||'').replace(/\/+$/,'');
+const roomsUrl=(path:string)=>`${apiBase}/api/rooms${path}`;
 export async function roomRequest(path:string, session?:RoomSession, body?:unknown, method = 'POST') {
-  const res=await fetch('/api/rooms'+path,{method,headers:{'Content-Type':'application/json',...(session?{Authorization:`Bearer ${session.token}`}:{})},body:body===undefined?undefined:JSON.stringify(body)});
-  if(!res.ok) {let error='No se pudo conectar al backend. Inicia npm run dev:server o npm start.'; try {error=(await res.json()).error||error;} catch{} throw new Error(error);}
+  const res=await fetch(roomsUrl(path),{method,headers:{'Content-Type':'application/json',...(session?{Authorization:`Bearer ${session.token}`}:{})},body:body===undefined?undefined:JSON.stringify(body)});
+  if(!res.ok) {let error='No se pudo conectar al backend. Comprueba que el servicio de salas esté en línea.'; try {error=(await res.json()).error||error;} catch{} throw new Error(error);}
   return res.status===204 ? null : res.json();
 }
 export async function roomEvents(session:RoomSession, signal:AbortSignal, onInput:(actions:PlayerAction[])=>void,onFrame:(image:string)=>void) {
-  const response=await fetch(`/api/rooms/${session.code}/events`,{headers:{Authorization:`Bearer ${session.token}`},signal});
+  const response=await fetch(roomsUrl(`/${session.code}/events`),{headers:{Authorization:`Bearer ${session.token}`},signal});
   if(!response.ok||!response.body) throw new Error('La sala no está disponible');
   const reader=response.body.getReader(), decoder=new TextDecoder();
   let pending='';

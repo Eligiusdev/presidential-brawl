@@ -29,7 +29,14 @@ En Windows usa `npm.cmd` si PowerShell bloquea `npm.ps1`.
 5. En el equipo principal entra a selección, desactiva la IA para jugar **J1 vs J2**, elige los personajes y comienza. J1 usa el teclado o un mando; J2 usa los botones del móvil.
 6. Mantén la pestaña del equipo principal visible. Puedes ocultar su panel con × sin cerrar la sala. **Salir de la sala** sí la cierra o desconecta el mando.
 
-La vista del móvil es una secuencia JPEG de aproximadamente 6 fps; el equipo principal conserva su renderizado normal. No lleva audio ni HUD HTML al móvil. La latencia depende de la red y este transporte está pensado para probar en una red local. Para jugar por Internet hace falta alojar este servidor Node detrás de HTTPS con soporte SSE sin buffering. Una publicación estática de `dist` no proporciona las salas. No se ha desplegado este backend en un servicio externo.
+La vista del móvil es una secuencia JPEG de aproximadamente 6 fps; el equipo principal conserva su renderizado normal. No lleva audio ni HUD HTML al móvil. GitHub Pages sirve la interfaz, pero no ejecuta el backend. Para conectar móviles por Internet, el backend se puede desplegar como servicio Node en Render usando el `render.yaml` incluido:
+
+1. En Render crea un **Blueprint** y conecta este repositorio. Revisa y despliega el servicio `presidential-brawl-api`.
+2. Cuando Render muestre la URL del servicio (por ejemplo, `https://presidential-brawl-api.onrender.com`), abre **Settings → Secrets and variables → Actions → Variables** del repositorio en GitHub y crea `ROOM_API_BASE_URL` con esa URL, sin `/` al final.
+3. En GitHub Actions vuelve a ejecutar **Presidential Brawl Pages** desde `main`. El build usará esa URL para las salas y el móvil.
+4. Abre el juego desde `https://eligiusdev.github.io/presidential-brawl/`, crea una sala y comparte el enlace generado.
+
+El servicio permite solicitudes del origen de GitHub Pages configurado en `ALLOWED_ORIGINS`. El plan gratuito de Render puede suspenderse cuando no tiene actividad, por lo que la primera conexión tras una pausa puede tardar en despertar.
 
 Las salas viven en memoria: se pierden al reiniciar y caducan tras 30 minutos sin actividad. Solo aceptan un mando J2. Los tokens de host y mando tienen permisos distintos y no se incluyen en el enlace de invitación; quien tenga el código puede ocupar el puesto J2 mientras esté libre. Las entradas se liberan automáticamente si dejan de llegar durante 700 ms.
 

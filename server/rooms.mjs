@@ -3,14 +3,28 @@ import { randomBytes } from 'node:crypto';
 
 const actions = new Set(['left','right','jump','down','light','heavy','dash','ult','reload']);
 const token = () => randomBytes(24).toString('hex');
-export function createRoomsApp() {
+export function createRoomsApp({allowedOrigins = process.env.ALLOWED_ORIGINS ?? ''} = {}) {
   const app = express();
   const rooms = new Map();
+  const corsOrigins = new Set(allowedOrigins.split(',').map(origin => origin.trim()).filter(Boolean));
   app.disable('x-powered-by');
   app.use('/api', (req,res,next) => {
     res.set('Cache-Control','no-store');
     const origin = req.get('origin');
-    if (origin && new URL(origin).host !== req.get('host')) return res.status(403).json({error:'Origen no permitido'});
+    if (origin) {
+      let sameHost = false;
+      try {
+        sameHost = new URL(origin).host === req.get('host');
+      } catch {
+        return res.status(403).json({error:'Origen no permitido'});
+      }
+      if (!sameHost && !corsOrigins.has(origin)) return res.status(403).json({error:'Origen no permitido'});
+      res.set('Access-Control-Allow-Origin',origin);
+      res.vary('Origin');
+      res.set('Access-Control-Allow-Methods','GET, POST, DELETE, OPTIONS');
+      res.set('Access-Control-Allow-Headers','Content-Type, Authorization');
+    }
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
   });
   app.use(express.json({limit:'180kb'}));
