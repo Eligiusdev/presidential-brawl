@@ -160,3 +160,12 @@ const [calm, other] = setup('aquiles');
 e.hurt(other, calm, dmg, 1);
 check(Math.abs(enragedSpeed / Math.hypot(other.vx, other.vy) - 1.55) < 1e-8, 'rage knockback');
 console.log({ fighters: e.roster.length, commands: activated, uniqueBySlot: signatures.map((s) => s.size) });
+
+setup('bolivar');
+const x1=e.fighters[0].x, x2=e.fighters[1].x;
+e.setRemoteActions(['right']);
+step(4);
+check(e.fighters[1].x>x2,'mando remoto mueve J2');
+check(e.fighters[0].x===x1,'mando remoto no mueve J1');
+e.setRemoteActions([]);
+check(!e.remoteKeys.right,'soltar mando remoto');

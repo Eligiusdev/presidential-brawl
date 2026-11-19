@@ -1,40 +1,78 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Presidential Brawl · Apex Edition
 
-# Run and deploy your AI Studio app
+Versión de continuación del archivo Apex: conserva los 40 luchadores, 160 comandos, física, audio procedural, campaña, editor y repeticiones. Incorpora un backend Node/Express para conectar un móvil como mando de J2 y recibir una vista remota de la partida. La simulación se ejecuta en el equipo principal: esta versión no implementa rollback ni un servidor de combate autoritativo.
 
-This contains everything you need to run your app locally.
+## Plantel arcade
 
-View your app in AI Studio: https://ai.studio/apps/53af389c-fae8-49f6-a380-ab6bca67a09a
+Los 40 luchadores oficiales tienen arte animado en selección y combate. Se incluyen los atlas, las ilustraciones y la compilación local en `dist`. [Guía del plantel y comprobaciones](docs/PLANTEL.md)
 
-## Run Locally
+## Piloto de Aquiles
 
-**Prerequisites:**  Node.js
+Selecciona a Aquiles en Combate Versus para ver la nueva guardia y jugar con el atlas. La guía reúne los movimientos, archivos modificados, pruebas y pasos para migrar otro personaje. [Guía del piloto](docs/AQUILES.md)
 
+## Ejecutar y jugar desde dos dispositivos
 
-1. Install dependencies:
-   `npm install`
-2. Run the app:
-   `npm run dev`
+Requiere Node.js 24. En la carpeta del proyecto:
 
-## Combate de Apex
+```bash
+npm ci
+npm run build
+npm start
+```
 
-Para jugar esta versión en Windows con Node 24, abre PowerShell en la carpeta que contiene `package.json` y ejecuta `npm.cmd ci` y `npm.cmd run dev`. Abre la dirección local que muestra Vite. La simulación de combate funciona sin una clave de API. Elige **Entrenamiento** para experimentar con alcance, ventanas activas y retroceso.
+En Windows usa `npm.cmd` si PowerShell bloquea `npm.ps1`.
 
-| Acción | J1 | J2 | Mando estándar (Xbox) |
-| --- | --- | --- | --- |
-| Jab sin dirección | J | U | X |
-| Especial neutro | K | I | B |
-| Recuperación | W + K | ↑ + I | ↑ + B |
-| Especial abajo | S + K | ↓ + I | ↓ + B |
+1. En el equipo principal abre `http://localhost:3000`.
+2. Para conectar el móvil, abre el juego usando la IP del equipo en la misma red, por ejemplo `http://192.168.1.20:3000`. Permite el puerto 3000 en el firewall de la red privada si hace falta.
+3. Pulsa **Conectar otra pantalla → Crear sala**. Copia el enlace que contiene el código y ábrelo en el móvil. Si creaste la sala desde localhost, sustituye localhost por la IP del equipo antes de compartirlo.
+4. En el móvil pulsa **Conectar como J2**.
+5. En el equipo principal entra a selección, desactiva la IA para jugar **J1 vs J2**, elige los personajes y comienza. J1 usa el teclado o un mando; J2 usa los botones del móvil.
+6. Mantén la pestaña del equipo principal visible. Puedes ocultar su panel con × sin cerrar la sala. **Salir de la sala** sí la cierra o desconecta el mando.
 
-Mantén la dirección y pulsa especial, o pulsa ambos a la vez. El especial arriba vuelve a estar disponible al aterrizar. Las acciones de teclado se pueden reasignar. Con un arma de fuego equipada, el botón de ligero dispara. En Vídeo puedes activar la visualización de colisiones.
+La vista del móvil es una secuencia JPEG de aproximadamente 6 fps; el equipo principal conserva su renderizado normal. No lleva audio ni HUD HTML al móvil. La latencia depende de la red y este transporte está pensado para probar en una red local. Para jugar por Internet hace falta alojar este servidor Node detrás de HTTPS con soporte SSE sin buffering. Una publicación estática de `dist` no proporciona las salas. No se ha desplegado este backend en un servicio externo.
 
-### Cómo editar un luchador
+Las salas viven en memoria: se pierden al reiniciar y caducan tras 30 minutos sin actividad. Solo aceptan un mando J2. Los tokens de host y mando tienen permisos distintos y no se incluyen en el enlace de invitación; quien tenga el código puede ocupar el puesto J2 mientras esté libre. Las entradas se liberan automáticamente si dejan de llegar durante 700 ms.
 
-- `src/combat/Fighter.js` contiene los cuatro métodos del luchador y convierte cada frase en ventanas de preparación, impacto y recuperación a 60 ticks por segundo.
-- `src/combat/roster.js` asocia cada identificador con sus cuatro movimientos. Las cinco fichas destacadas especifican sus efectos y el resto del roster combina fases de ataque, pausas, avances, golpes por detrás y trayectorias de proyectil.
-- `src/combat/effects.js` implementa los campos, el sello, la furia, el dibujo de impactos y la geometría del orbe. El motor resuelve los golpes después de mover a ambos jugadores. El cuerpo vulnerable se obtiene del mismo raster anatómico que usa Canvas. Las capas y los brillos son decorativos.
-- En `src/engine/gameEngine.ts` se aplican los controles, daño, contraataques y rebotes. Los personajes creados con el editor conservan su configuración previa. Las repeticiones nuevas usan la versión 2.
-- `npm test` ejercita el motor, dibuja los 160 comandos sobre Canvas y comprueba las interacciones especiales. `npm run lint` comprueba los tipos y `npm run build` genera la versión de producción.
+## Desarrollo
+
+En dos terminales:
+
+```bash
+npm run dev:server
+npm run dev
+```
+
+Vite sirve la interfaz en el puerto 3000 y reenvía `/api` al backend en el puerto 3001. No ejecutes `npm start` al mismo tiempo que Vite en el puerto 3000.
+
+## Controles
+
+| Acción | J1 | J2 local |
+| --- | --- | --- |
+| Movimiento / salto / abajo | A D / W / S | Flechas |
+| Golpe | J | U |
+| Especial | K | I |
+| Esquivar | L | O |
+| Ultimate | C o Espacio | M o Enter |
+| Recargar | R | / |
+
+Mantén arriba o abajo al pulsar especial para las variantes. Los controles pueden reasignarse en configuración.
+
+## Cambios visuales
+
+La selección muestra figuras completas de mayor tamaño, con las no seleccionadas atenuadas y las elegidas a color. La cámara permite acercarse más cuando los luchadores están juntos; se mantiene el alejamiento cuando se separan. No se cambian el tamaño físico ni las colisiones de los luchadores. Se elimina el uso de `__dirname` de la configuración de Vite.
+
+## Verificación
+
+```bash
+npm test
+npm run test:rooms
+npm run lint
+npm run build
+```
+
+Las pruebas de combate recorren los 160 comandos y sus interacciones especiales. Las pruebas de salas comprueban tokens, exclusividad del mando, transmisión SSE, liberación por desconexión, validación de entradas y cierre. La prueba automática del backend usa clientes HTTP; sigue pendiente probar físicamente PC y móvil juntos.
+
+## Referencias consultadas
+
+- Manual oficial de Street Fighter 6, selección y controles: https://game.capcom.com/manual/SF6/en/ps5/page/8/2
+- Recomendaciones de seguridad de Express: https://expressjs.com/en/advanced/best-practice-security/

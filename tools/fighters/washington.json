@@ -1,0 +1,31 @@
+{
+  "fighterId": "washington",
+  "sheet": "tools/sheets/washington_sheet.png",
+  "background": "magenta",
+  "poseCount": 25,
+  "referencePose": 22,
+  "referenceHeightPx": 108,
+  "visualScale": 0.8846,
+  "portraitPose": 22,
+  "portraitCrop": 0.36,
+  "outDir": "public/assets/fighters/washington",
+  "atlasCols": 5,
+  "paletteSpec": {"keyLight":"#f2e3b5","rimLight":"#fff3c4","outline":"#10142b","primary":"#1d3566","secondary":"#d9c9a0","cloth":"#16274d"},
+  "animations": {
+    "idle":{"loop":true,"frames":[[22,150],[0,140],[1,150],[0,140]]},
+    "walk":{"loop":true,"frames":[[2,115],[3,115],[4,115],[3,115]]},
+    "run":{"loop":true,"frames":[[5,78],[2,74],[4,78],[3,74]]},
+    "jump_start":{"loop":false,"frames":[[6,65],[7,120]]},
+    "jump_up":{"loop":true,"frames":[[7,160]]},
+    "jump_fall":{"loop":true,"frames":[[9,160]]},
+    "land":{"loop":false,"frames":[[6,85],[0,70]]},
+    "crouch":{"loop":true,"frames":[[6,160]]},
+    "attack_light":{"loop":false,"frames":[[11,55],[13,115],[1,65]]},
+    "attack_special":{"loop":false,"frames":[[15,55],[16,180],[19,125],[0,65]]},
+    "special_up":{"loop":false,"frames":[[6,50],[17,250],[9,140]]},
+    "special_down":{"loop":false,"frames":[[15,65],[18,220],[6,95]]},
+    "hurt":{"loop":false,"frames":[[14,160],[19,90]]},
+    "defeat":{"loop":false,"frames":[[20,130],[21,400]]},
+    "victory":{"loop":false,"frames":[[23,95],[24,450]]}
+  }
+}

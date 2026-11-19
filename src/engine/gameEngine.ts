@@ -20,6 +20,7 @@ import {
   CrowdMood,
   CrowdParticle,
   CrowdState,
+  LegacyFighterGeometry,
   PixelRenderer,
   RenderFighterState,
   RenderItem,
@@ -132,6 +133,8 @@ class FighterSim implements RenderFighterState {
   gunCD = 0;
   airJ = 2;
   dropT = 0;
+  jumpTick = -30;
+  koVisual?: { x: number; tick: number };
   dead = 0;
   wall = 0;
   on = false;
@@ -161,7 +164,7 @@ class FighterSim implements RenderFighterState {
   atk: {
     spec: {
       k: string;
-      individual?: boolean; effect?: string; pierce?: boolean;
+      individual?: boolean; downSpecial?: boolean; effect?: string; pierce?: boolean;
       moveKind?: string;
       dur: number;
       heavy?: boolean;
@@ -270,6 +273,8 @@ class FighterSim implements RenderFighterState {
     this.upSpecUsed = false;
     this.moveKind = '';
     this.dropT = 0;
+    this.koVisual = undefined;
+    this.jumpTick = -30;
     this.dead = 0;
     this.wall = 0;
     this.on = first;
@@ -296,8 +301,10 @@ class FighterSim implements RenderFighterState {
 }
 
 export class GameEngine {
+  private collision = new LegacyFighterGeometry();
   private renderer = new PixelRenderer();
   private keys: Record<string, boolean> = {};
+  private remoteKeys: Partial<Record<PlayerAction, boolean>> = {};
   private touchKeys: Partial<Record<PlayerAction, boolean>> = {};
   private gpState = [false, false];
 
@@ -429,6 +436,11 @@ export class GameEngine {
   clearAllInputs() {
     this.keys = {};
     this.touchKeys = {};
+    this.remoteKeys = {};
+  }
+
+  setRemoteActions(actions: PlayerAction[]) {
+    for (const action of ACTIONS_ORDER) this.remoteKeys[action] = actions.includes(action);
   }
 
   setTouchAction(action: PlayerAction, active: boolean) {
@@ -694,7 +706,8 @@ export class GameEngine {
     const check = (action: PlayerAction) =>
       map[action].some((c) => Boolean(this.keys[c])) ||
       Boolean(this.keys[prefix + action]) ||
-      (pi === 0 && Boolean(this.touchKeys[action]));
+      (pi === 0 && Boolean(this.touchKeys[action])) ||
+      (pi === 1 && Boolean(this.remoteKeys[action]));
 
     return {
       left: check('left'),
@@ -1692,6 +1705,7 @@ export class GameEngine {
 
         if (just.jump && !(f.moves && just.heavy)) {
           if (f.on) {
+            f.jumpTick = this.T;
             f.vy = -f.S.jumpForce;
             f.on = false;
             f.fastFall = false;
@@ -1699,6 +1713,7 @@ export class GameEngine {
             f.squashY = 1.26;
             sound.jump();
           } else if (f.wall !== 0 && !f.on) {
+            f.jumpTick = this.T;
             f.vy = -f.S.jumpForce * 0.95;
             f.vx = -f.wall * 7.8;
             f.face = -f.wall;
@@ -1709,6 +1724,7 @@ export class GameEngine {
             this.burst(f.cx, f.y + f.h * 0.48, '#fff', 6);
           } else if (f.airJ > 0) {
             f.airJ--;
+            f.jumpTick = this.T;
             f.vy = -f.S.jumpForce * 0.92;
             f.fastFall = false;
             f.squashX = 0.84;
@@ -1903,7 +1919,7 @@ export class GameEngine {
               const mk = up ? 'upSpec' : just.heavy ? 'sig' : 'jab';
               activate(f, m, this);
               f.moveKind = mk;
-              f.atk = {spec:{...m, individual:true, moveKind:mk, k:just.heavy?'h':'l',
+              f.atk = {spec:{...m, individual:true, downSpecial:just.heavy && i.down, moveKind:mk, k:just.heavy?'h':'l',
                 heavy:just.heavy, dur:m.effect==='hover'?120:m.dur}, t:0,hits:{},ar:0,armor:false};
               sound.tone(just.heavy?330:480,0.09,'triangle',80,0.06);
               if (just.heavy) this.floatTexts.push({t:m.name,x:f.cx,y:f.y-12,l:45,m:45});
@@ -2312,6 +2328,7 @@ export class GameEngine {
     this.vibrate(0, 500, 1, 1);
     this.vibrate(1, 500, 1, 1);
     f.field=null; f.rage=0; f.speedTime=0;
+    f.koVisual = { x: clamp(f.cx, this.main.x + 50, this.main.x + this.main.w - 50), tick: this.T };
     f.dead = f.stocks > 0 ? 75 : 9999;
     f.atk = null;
     f.x = -999;
@@ -2418,7 +2435,7 @@ export class GameEngine {
           weapon:f.d.id==='alejandro'?'sarissa':f.d.anatomy.weaponType,
           direction:p.rear?-f.face:f.face});
         this.debugHitboxes.push({...box,kind:a.spec.k});
-        if (a.hits[idx] || o.dead || !this.renderer.bodyTouches(o,this.T,box)) return;
+        if (a.hits[idx] || o.dead || !this.collision.bodyTouches(o,this.T,box)) return;
         const dir = p.rear ? -f.face : f.face;
         const hit = {dmg:(p.dmg ?? 4)*f.S.power*(boosted?1.35:1),bk:p.bk ?? 3,ks:p.ks ?? .12,ang:p.ang ?? -30,heavy:a.spec.heavy};
         contacts.push(() => {
@@ -2468,7 +2485,7 @@ export class GameEngine {
       if (!p.hit) {
         for (const o of targets) {
           if (p.done?.includes(o)) continue;
-          if ((p.owner?.moves ? this.renderer.bodyTouches(o,this.T,p) : shotTouches(p,o)) && this.hurt(o, p.owner, p.d, p.dir, 'projectile', p)) {
+          if ((p.owner?.moves ? this.collision.bodyTouches(o,this.T,p) : shotTouches(p,o)) && this.hurt(o, p.owner, p.d, p.dir, 'projectile', p)) {
             if (p.kind === 'rocket') {
               sound.explosion();
               this.burst(p.x, p.y, '#ffb030', 26, 8, 28);
@@ -2621,7 +2638,7 @@ export class GameEngine {
     if (this.fighters.length >= 2) {
       this.updateFighter(this.fighters[0], this.fighters[1]);
       this.updateFighter(this.fighters[1], this.fighters[0]);
-      for (const f of this.fighters) if (f.rage) f.heelBox=this.renderer.rearHeel(f,this.T);
+      for (const f of this.fighters) if (f.rage) f.heelBox=this.collision.rearHeel(f,this.T);
       this.resolveIndividualStrikes();
 
       if (!isAttract && !this.isReplaying && this.mode !== 'training') {

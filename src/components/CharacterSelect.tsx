@@ -1,9 +1,11 @@
 import {movesFor} from '../combat/roster.js';
 import { ArrowLeft, Crown, Film, Pencil, Play, Settings, Shield, Trash2, UserPlus, Users } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { sound } from '../audio/soundEngine';
 import { STAGES_DATA } from '../data/stages';
 import { GameConfig, PresidentData, PresidentRegion } from '../types/game';
+import { fighterArtPath } from '../engine/fighterSprites';
+import { FighterPreview } from './FighterPreview';
 import { PortraitCanvas } from './PortraitCanvas';
 
 type RegionFilter = 'all' | PresidentRegion;
@@ -61,6 +63,10 @@ export function CharacterSelect({
   const p1 = roster[sel[0]] || roster[0];
   const p2 = roster[sel[1]] || roster[0];
 
+  const showcase = useRef<HTMLElement>(null);
+  const activeFighter = activeSlot === 0 ? p1 : p2;
+  const artPath = fighterArtPath(activeFighter);
+
   const filteredRoster = useMemo(() => {
     const mapped = roster.map((d, idx) => ({ d, idx }));
     if (regionFilter === 'all') return mapped;
@@ -73,12 +79,15 @@ export function CharacterSelect({
     const next: [number, number] = [...sel] as [number, number];
     next[activeSlot] = idx;
     onChangeSel(next);
+    if (fighterArtPath(roster[idx]) && window.matchMedia('(max-width: 600px)').matches) {
+      requestAnimationFrame(() => showcase.current?.scrollIntoView({ block: 'start' }));
+    }
   };
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-[#0a1020]/94 p-4 sm:p-6 overflow-y-auto arcade-scroll">
       {/* Top Bar */}
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 pb-4 border-b border-[#222d4a]">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#222d4a]">
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
@@ -140,6 +149,18 @@ export function CharacterSelect({
           </button>
         </div>
       </div>
+
+      {artPath && (
+        <section ref={showcase} aria-label={'Vista de ' + activeFighter.name} className="fighter-showcase"
+          style={{backgroundImage: `url("${artPath}selection.webp")`}}>
+          <FighterPreview president={activeFighter} selected large />
+          <div className="fighter-showcase-caption">
+            <span>{activeSlot === 0 ? 'Jugador 1' : vsAI ? 'Rival IA' : 'Jugador 2'}</span>
+            <h3>{activeFighter.name}</h3>
+            <p>{activeFighter.title}</p>
+          </div>
+        </section>
+      )}
 
       {/* Main 3-Column Selection Layout */}
       <div className="mx-auto my-4 grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 lg:grid-cols-12">
@@ -274,7 +295,7 @@ export function CharacterSelect({
                   )}
 
                   <div className="mb-2 overflow-hidden rounded border border-[#2a344d]">
-                    <PortraitCanvas president={d} className="h-14 w-14" animate={isP1 || isP2} />
+                    <FighterPreview president={d} selected={isP1 || isP2} />
                   </div>
                   <div className="font-display text-xs font-bold text-white leading-tight truncate w-full">{d.name}</div>
                   <div className="mt-0.5 text-[10px] text-[#94a3b8] truncate w-full">
@@ -460,7 +481,7 @@ function FighterPreviewCard({
 
         <div className="mt-3 flex items-center gap-3.5">
           <div className="overflow-hidden rounded-lg border border-[#2c3752] shrink-0">
-            <PortraitCanvas president={president} className="h-16 w-16" animate />
+            <PortraitCanvas president={president} className="h-24 w-24" animate />
           </div>
           <div className="min-w-0">
             <h3 className="font-display text-lg font-bold text-white leading-tight truncate">{president.name}</h3>

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { preloadFighter } from '../engine/fighterSprites';
 import { renderPresidentPortrait } from '../engine/pixelRenderer';
 import { PresidentData } from '../types/game';
 
@@ -16,7 +17,9 @@ export function PortraitCanvas({ president, className = 'w-12 h-12', animate = f
     if (!canvas) return;
     if (!animate) {
       renderPresidentPortrait(canvas, president, 0);
-      return;
+      let active = true;
+      preloadFighter(president)?.then(() => { if (active) renderPresidentPortrait(canvas, president); });
+      return () => { active = false; };
     }
     let raf = 0;
     let t = 0;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sound } from './audio/soundEngine';
+import { NetworkPanel } from './components/NetworkPanel';
 import { CharacterCustomizer } from './components/CharacterCustomizer';
 import { CharacterSelect } from './components/CharacterSelect';
 import { ConfigModal } from './components/ConfigModal';
@@ -409,13 +410,14 @@ export default function App() {
 
   return (
     <main className="relative flex h-screen w-screen items-center justify-center bg-[#070b18] overflow-hidden">
+      <NetworkPanel canvas={canvasRef} onInput={(actions) => engineRef.current?.setRemoteActions(actions)} />
       {/* 16:9 Isolated Pixel-Art Game Stage */}
       <div className={`relative aspect-video w-full max-h-full max-w-[calc(100vh*16/9)] bg-[#0c1224] overflow-hidden shadow-2xl ${crtClass}`}>
         <canvas
           ref={canvasRef}
           width={960}
           height={540}
-          className="pixel-canvas block h-full w-full"
+          className="pixel-canvas block h-full w-full object-contain"
         />
 
         {screen === 'TITLE' && (
