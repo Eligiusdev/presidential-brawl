@@ -17,6 +17,9 @@ const rosterArt = new Set([
   'robinson', 'mandela', 'sankara', 'nkrumah', 'nyerere', 'ataturk', 'sunyatsen',
   'kalam', 'cesar', 'alejandro', 'lula',
   'aquiles',
+  'juana', 'espartaco', 'musashi', 'policarpa', 'wallace', 'elcid', 'ricaurte', 'simo',
+  'abelardo', 'petro', 'uribe', 'santos', 'duque', 'bukele', 'sheinbaum',
+  'milei', 'trump', 'macron', 'noboa', 'kast', 'biden',
 ]);
 const CACHE_LIMIT = 6;
 let lastUse = 0;

@@ -1,12 +1,15 @@
 # Presidential Brawl · Plantel arcade
 
-Los 40 luchadores oficiales usan sprites en combate, en el selector y en la vista previa del editor. La base de esta entrega es la versión de Apex con el piloto de Aquiles y servidor de salas. En Combate Versus se puede seleccionar cualquier pareja, incluidos enfrentamientos entre dos copias del mismo personaje.
+Los 61 luchadores oficiales usan sprites en combate, en el selector y en la vista previa del editor. La base de esta entrega es la versión de Apex con el piloto de Aquiles y servidor de salas. En Combate Versus se puede seleccionar cualquier pareja, incluidos enfrentamientos entre dos copias del mismo personaje.
 
 ## Ejecutar
 
 Con Node.js 24, descomprime el paquete y ejecuta `npm ci` y `npm start`. El servidor sirve la compilación incluida en `http://localhost:3000`. Para trabajar sobre el código utiliza los comandos de desarrollo del README. El flujo de Pages vuelve a compilar con su propia base y publica la carpeta `dist`.
 
 ## Arte y tiempos
+
+- Los 21 luchadores recientes tienen 12 regiones por atlas. Cada atlas parte de tres dibujos originales de guardia, paso e impacto. Las poses restantes se derivan con ajuste de escala y rotación. Los estados especiales de equipamiento, disparo y recarga de esos 21 luchadores utilizan el renderizador procedural.
+- La cuadrícula y los retratos usan recursos a color. En la vista ampliada aparece la miniatura hasta que la guardia animada está lista.
 
 - Los 39 luchadores migrados aportan 33 regiones de atlas por personaje. Cada conjunto comprende 25 poses de combate y movimiento, dos cuadros intermedios de respiración y seis poses con objetos. Con las 39 regiones del piloto de Aquiles, hay 1.326 regiones en total.
 - Las cuatro fases de guardia usan los mismos píxeles de apoyo de las botas. Los cuadros intermedios derivan de dos dibujos mediante interpolación de movimiento. La marcha alterna cuatro apoyos. Salto y caída se resuelven a partir del despegue, la velocidad vertical y el contador de aterrizaje.
@@ -18,10 +21,10 @@ Con Node.js 24, descomprime el paquete y ejecuta `npm ci` y `npm start`. El serv
 
 | Ruta | Contenido |
 | --- | --- |
-| `public/assets/fighters/<id>/` | Atlas PNG indexado transparente, metadatos, retrato, miniatura WebP y fondo WebP. El ID `aquiles` conserva la carpeta histórica `achilles`. |
+| `public/assets/fighters/<id>/` | Atlas transparente PNG o WebP, metadatos, retrato, miniatura WebP y fondo WebP. El ID `aquiles` conserva la carpeta histórica `achilles`. |
 | `src/engine/fighterSprites.ts` | Registro, caché de seis atlas, temporización, orientación y elección de animaciones. |
 | `src/engine/gameEngine.ts`, `src/engine/pixelRenderer.ts` | Identificación visual del especial bajo. La máscara histórica de colisión es independiente de la imagen. |
-| `src/components/FighterPreview.tsx` | Miniaturas diferidas para luchadores sin seleccionar y guardia animada para las selecciones activas. |
+| `src/components/FighterPreview.tsx` | Miniaturas a color en la cuadrícula y guardia animada en la vista ampliada. |
 | `tests/roster-art.mjs`, `tests/sprite-atlas.mjs` | Decodificación de archivos, límites, pies, temporización, caché y controles de regresión. |
 | `docs/capturas/roster/` | Galería de los 40, muestra animada de ocho personajes y capturas de selección y combate en escritorio y móvil emulado. |
 

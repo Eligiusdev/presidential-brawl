@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { preloadFighter } from '../engine/fighterSprites';
+import { fighterArtPath } from '../engine/fighterSprites';
 import { renderPresidentPortrait } from '../engine/pixelRenderer';
 import { PresidentData } from '../types/game';
 
@@ -9,7 +9,15 @@ interface PortraitCanvasProps {
   animate?: boolean;
 }
 
-export function PortraitCanvas({ president, className = 'w-12 h-12', animate = false }: PortraitCanvasProps) {
+export function PortraitCanvas(props: PortraitCanvasProps) {
+  const { president, className = 'w-12 h-12' } = props;
+  const path = fighterArtPath(president);
+  if (path) return <img loading="lazy" decoding="async" src={path + 'portrait.png'}
+    alt={president.name} className={`block object-contain ${className}`} />;
+  return <ProceduralPortrait {...props} />;
+}
+
+function ProceduralPortrait({ president, className = 'w-12 h-12', animate = false }: PortraitCanvasProps) {
   const ref = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -17,9 +25,7 @@ export function PortraitCanvas({ president, className = 'w-12 h-12', animate = f
     if (!canvas) return;
     if (!animate) {
       renderPresidentPortrait(canvas, president, 0);
-      let active = true;
-      preloadFighter(president)?.then(() => { if (active) renderPresidentPortrait(canvas, president); });
-      return () => { active = false; };
+      return;
     }
     let raf = 0;
     let t = 0;

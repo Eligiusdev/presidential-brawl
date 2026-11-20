@@ -4,7 +4,7 @@ Apex Edition tiene 61 luchadores con 244 comandos, campaña, entrenamiento, edit
 
 ## Plantel arcade
 
-Los 40 luchadores originales conservan sus atlas. Las 21 incorporaciones usan el renderizador procedural del juego. En selección, **Míticos** reúne figuras legendarias e históricas, y **Presidentes actuales** y **Expresidentes recientes** ordenan por inicio del mandato correspondiente. El plantel presidencial se verificó en noviembre de 2026. [Guía del plantel y comprobaciones](docs/PLANTEL.md)
+Los 61 luchadores oficiales tienen atlas y retratos propios. La cuadrícula muestra miniaturas a color y la vista ampliada anima la guardia. En selección, **Míticos** reúne figuras legendarias e históricas, y **Presidentes actuales** y **Expresidentes recientes** ordenan por inicio del mandato correspondiente. El plantel presidencial se verificó en noviembre de 2026. [Guía del plantel y comprobaciones](docs/PLANTEL.md)
 
 ## Piloto de Aquiles
 

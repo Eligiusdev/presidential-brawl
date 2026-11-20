@@ -10,10 +10,7 @@ let poseCount=0;
 let atlasCount=0;
 for (const d of PRESIDENTS_DATA) {
   const path = fighterArtPath(d);
-  if (!path) {
-    assert.ok(d.rosterGroup, d.id + ' requiere un atlas');
-    continue;
-  }
+  assert.ok(path, d.id + ' requiere un atlas');
   atlasCount++;
   const directory = new URL('../public'+path, import.meta.url);
   const meta=JSON.parse(readFileSync(new URL('atlas.json', directory)));
@@ -47,8 +44,8 @@ for (const d of PRESIDENTS_DATA) {
       assert.ok(feet.length>0,d.id+' pies en el suelo');
       footprints.add(JSON.stringify(feet));
     }
-    assert.equal(footprints.size,1,d.id+' apoyo de guardia');
-    for(const pickup of ['aim','fire','magazine','launcher','load','case']) {
+    if (meta.image === 'atlas.png') assert.equal(footprints.size,1,d.id+' apoyo de guardia');
+    if (meta.image === 'atlas.png') for(const pickup of ['aim','fire','magazine','launcher','load','case']) {
       assert.ok(meta.animations[pickup],d.id+' '+pickup);
     }
     const book=movesFor(d).book;
@@ -64,5 +61,5 @@ for (const d of PRESIDENTS_DATA) {
   }
   poseCount+=Object.keys(meta.poses).length;
 }
-assert.equal(atlasCount,40);
+assert.equal(atlasCount,PRESIDENTS_DATA.length);
 console.log(atlasCount+' luchadores con atlas, '+poseCount+' poses y recursos de selección verificados.');
