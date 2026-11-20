@@ -141,6 +141,16 @@ export function ConfigModal({ config, onChange, onClose }: ConfigModalProps) {
         <div className="arcade-scroll flex-1 overflow-y-auto p-6 space-y-6">
           {tab === 'video' && (
             <div className="space-y-6">
+              <label className="block text-sm font-semibold text-[#cbd5e1]">
+                Iluminación del escenario
+                <select value={config.video.stageTime ?? 'cycle'}
+                  onChange={event => updateVideo('stageTime', event.target.value as GameConfig['video']['stageTime'])}
+                  className="mt-2 block w-full rounded-lg border border-[#283652] bg-[#121a2b] px-3 py-2 text-white">
+                  <option value="cycle">Ciclo día y noche</option>
+                  <option value="day">Siempre de día</option>
+                  <option value="night">Siempre de noche</option>
+                </select>
+              </label>
               <div>
                 <h3 className="font-display text-sm font-bold uppercase tracking-wider text-[#cbd5e1] mb-3">
                   Resolución Nativa del Búfer Pixelado

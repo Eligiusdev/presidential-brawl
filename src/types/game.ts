@@ -15,6 +15,7 @@ export type GameMode = 'versus' | 'campaign' | 'training';
 export type PixelResolutionPreset = 'retro' | 'modern' | 'ultra';
 export type CrtFilterPreset = 'none' | 'scanlines' | 'pvm';
 export type ParticleDensity = 'low' | 'high' | 'extreme';
+export type StageTime = 'cycle' | 'day' | 'night';
 export type HazardFrequency = 'off' | 'normal' | 'frenetic';
 export type ItemSpawnRate = 'off' | 'normal' | 'chaos';
 export type TouchMode = 'auto' | 'on' | 'off';
@@ -26,6 +27,7 @@ export type KeyBindings = Record<PlayerAction, string[]>;
 export interface GameConfig {
   video: {
     pixelPreset: PixelResolutionPreset;
+    stageTime?: StageTime;
     crtFilter: CrtFilterPreset;
     dynamicLighting: boolean;
     pixelOutlines: boolean;
@@ -226,6 +228,11 @@ export interface PlatformDef {
   ph?: number;
 }
 
+export type StageHazard =
+  | 'edge-volley' | 'crosswind' | 'alternating-salvo' | 'low-gravity'
+  | 'lifts' | 'bell' | 'mountain-gust' | 'guard-march'
+  | 'central-updraft' | 'street-lamps' | 'thermal-columns' | 'scanner';
+
 export interface StageDef {
   id: string;
   name: string;
@@ -242,6 +249,8 @@ export interface StageDef {
     floatTop: string;
     ambientTint: string;
   };
+  city: string;
+  hazard: StageHazard;
   hazardName: string;
   hazardMsg: string;
   hazardDur: number;
@@ -318,7 +327,7 @@ export interface ReplayKeyframe {
 }
 
 export interface MatchReplayData {
-  version: 1 | 2 | 3 | 4;
+  version: 1 | 2 | 3 | 4 | 5;
   recordedAt: string;
   seed: number;
   mode: GameMode;

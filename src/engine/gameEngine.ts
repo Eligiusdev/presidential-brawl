@@ -3,6 +3,7 @@ import { activate, tickEffects, heel, shotTouches, strikeBox } from '../combat/e
 import { sound } from '../audio/soundEngine';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
+import { stageArt, stageHazardColumns } from './stageAtmosphere';
 import {
   CampaignState,
   GameConfig,
@@ -453,6 +454,8 @@ export class GameEngine {
     const safeIdx = ((idx % STAGES_DATA.length) + STAGES_DATA.length) % STAGES_DATA.length;
     this.stageIdx = safeIdx;
     this.stage = STAGES_DATA[safeIdx];
+    stageArt(this.stage.id, 'day');
+    stageArt(this.stage.id, 'night');
     this.main = { ...this.stage.main };
     this.plats = this.stage.plats.map((p) => ({ ...p, by: p.y }));
   }
@@ -2359,6 +2362,15 @@ export class GameEngine {
       }
     }
     const ph = this.getHazardPhase();
+    const legacy = this.replayData && this.replayData.version < 5;
+    if (!legacy && this.stage.hazard === 'lifts') {
+      this.plats.forEach((p, index) => {
+        if (p.by === undefined || (index !== 0 && index !== this.plats.length - 1)) return;
+        const elapsed = this.T % this.hazardCycle;
+        const envelope = ph === 2 ? Math.min(1, elapsed / 36, (this.stage.hazardDur - elapsed) / 36) : 0;
+        p.y = p.by + Math.sin(elapsed * 0.025) * envelope * 59 * (index === 0 ? -1 : 1);
+      });
+    }
     if (ph === 0) return;
     const m = this.T % this.hazardCycle;
     if (m === this.hazardCycle - 120) sound.tone(880, 0.3, 'square', 0, 0.07);
@@ -2366,6 +2378,11 @@ export class GameEngine {
     const nudge = (f: FighterSim, dx: number) => {
       if (!ov({ x: f.x + dx, y: f.y, w: f.w, h: f.h }, this.main)) f.x += dx;
     };
+
+    if (!legacy) {
+      if (ph === 2) this.applyArenaHazard(m, nudge);
+      return;
+    }
 
     if (['blanca', 'moneda', 'eliseo', 'moncloa'].includes(this.stage.id) && ph === 2) {
       const windDir = this.stage.id === 'moneda' ? (Math.sin(this.T * 0.02) >= 0 ? 1 : -1) : 0;
@@ -2425,6 +2442,95 @@ export class GameEngine {
         if (f.dead <= 0 && Math.abs(f.cx - lx) < 34) {
           this.hurt(f, null, { dmg: 5, bk: 4.5, ks: 0.12, ang: -70, heavy: true }, f.cx >= lx ? 1 : -1);
         }
+      }
+    }
+  }
+
+  private applyArenaHazard(elapsed: number, nudge: (fighter: FighterSim, dx: number) => void) {
+    const hazard = this.stage.hazard;
+    const active = this.fighters.filter(f => f.dead <= 0);
+    const floor = this.main.y;
+
+    const wave = (x: number, y: number, dir: number, speed: number, width = 34) => {
+      this.projectiles.push({
+        x, y, w: width, h: 28, vx: dir * speed, vy: 0, life: 158, kind: 'sonic',
+        owner: null, dir, d: { dmg: 7, bk: 4.8, ks: 0.16, ang: -52, heavy: true }, hit: 0, done: [],
+      });
+      this.burst(x + width / 2, y + 14, this.stage.palette.platformTrim, 8, 4);
+    };
+    const fromEdge = (dir: number, height: number, speed: number) =>
+      wave(dir > 0 ? 24 : W - 58, floor - height, dir, speed);
+    const alternatingSide = (interval: number) => Math.floor(elapsed / interval) % 2 ? -1 : 1;
+
+    switch (hazard) {
+      case 'edge-volley':
+        if (elapsed % 88 === 0) {
+          fromEdge(1, 36, 8.5);
+          fromEdge(-1, 36, 8.5);
+          sound.heavy();
+        }
+        break;
+      case 'alternating-salvo':
+        if (elapsed % 58 === 0) {
+          const dir = alternatingSide(58);
+          fromEdge(dir, dir > 0 ? 38 : 145, 10);
+          sound.heavy();
+        }
+        break;
+      case 'guard-march':
+        if (elapsed % 96 === 0) {
+          const dir = alternatingSide(96);
+          fromEdge(dir, 39, 8);
+          fromEdge(dir, 127, 7);
+          sound.heavy();
+        }
+        break;
+      case 'bell':
+        if (elapsed % 82 === 0) {
+          wave(W / 2 + 24, floor - 40, 1, 9.5, 30);
+          wave(W / 2 - 54, floor - 40, -1, 9.5, 30);
+          sound.tone(440, 0.35, 'sine', 0, 0.14);
+        }
+        break;
+      case 'crosswind':
+      case 'mountain-gust': {
+        const dir = alternatingSide(88);
+        for (const f of active) {
+          nudge(f, hazard === 'crosswind' ? (f.cx < W / 2 ? -1 : 1) * 1.35 : dir * 1.28);
+        }
+        if (elapsed % 3 === 0) {
+          const x = this.vRand() * W;
+          const wind = hazard === 'crosswind' ? (x < W / 2 ? -1 : 1) : dir;
+          this.particles.push({ x, y: this.vRand() * H, vx: wind * 10, vy: 0, l: 28, m: 28,
+            col: '#dfe8f5', z: 3, shape: 'streak' });
+        }
+        break;
+      }
+      case 'low-gravity':
+        this.gravityFactor = 0.58;
+        if (elapsed % 5 === 0) this.particles.push({ x: this.vRand() * W, y: 0, vx: 0.5, vy: 2,
+          l: 190, m: 190, col: '#ffebce', z: 4 });
+        break;
+      case 'central-updraft':
+      case 'thermal-columns':
+        for (const col of stageHazardColumns(hazard, this.T, elapsed, W)) {
+          for (const f of active) {
+            if (!f.on && f.vy > -8 && Math.abs(f.cx - col.x) < col.halfWidth) f.vy = Math.max(-8, f.vy - 0.71);
+          }
+        }
+        break;
+      case 'scanner':
+      case 'street-lamps': {
+        const pulse = hazard === 'scanner' ? elapsed % 35 === 0 : elapsed % 70 === 44;
+        if (!pulse) break;
+        for (const col of stageHazardColumns(hazard, this.T, elapsed, W)) {
+          for (const f of active) {
+            if (Math.abs(f.cx - col.x) < col.halfWidth) {
+              this.hurt(f, null, { dmg: 5, bk: 4.5, ks: 0.12, ang: -70, heavy: true }, f.cx >= col.x ? 1 : -1);
+            }
+          }
+        }
+        break;
       }
     }
   }
@@ -2745,7 +2851,7 @@ export class GameEngine {
         };
         if (this.currentMatchMeta) {
           const replay: MatchReplayData = {
-            version: 4,
+            version: 5,
             recordedAt: new Date().toISOString(),
             seed: this.currentMatchMeta.seed,
             mode: this.mode,
@@ -2777,6 +2883,7 @@ export class GameEngine {
       hzPhase: this.getHazardPhase(),
       hzMod: this.T % this.hazardCycle,
       hzDur: this.stage.hazardDur,
+      legacyHazards: !!this.replayData && this.replayData.version < 5,
       fighters: this.fighters,
       projectiles: this.projectiles,
       items: this.items,

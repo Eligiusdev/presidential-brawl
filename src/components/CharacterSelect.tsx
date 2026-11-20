@@ -2,6 +2,7 @@ import {movesFor} from '../combat/roster.js';
 import { ArrowLeft, Crown, Film, Pencil, Play, Settings, Shield, Trash2, UserPlus, Users } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { sound } from '../audio/soundEngine';
+import { stageArtUrl } from '../engine/stageAtmosphere';
 import { STAGES_DATA } from '../data/stages';
 import { GameConfig, PresidentData, PresidentRegion } from '../types/game';
 import { fighterArtPath } from '../engine/fighterSprites';
@@ -345,7 +346,7 @@ export function CharacterSelect({
                 {stageSel >= STAGES_DATA.length ? 'Aleatorio (Sorpresa)' : STAGES_DATA[stageSel].hazardName}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 max-h-[158px] overflow-y-auto pr-1 arcade-scroll">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 max-h-[280px] overflow-y-auto pr-1 arcade-scroll">
               {STAGES_DATA.map((st, idx) => (
                 <button
                   key={st.id}
@@ -359,6 +360,8 @@ export function CharacterSelect({
                       : 'border-[#232e4d] bg-[#141c32] text-[#94a3b8] hover:border-[#3c4d7a] hover:text-white'
                   }`}
                 >
+                  <img src={stageArtUrl(st.id, config.video.stageTime === 'night' ? 'night' : 'day')}
+                    className="mb-1 aspect-video w-full rounded object-cover" alt="" loading="lazy" />
                   <div className="flex items-center gap-1.5">
                     <span
                       className="h-2 w-2 shrink-0 rounded-[2px] border border-[#1a223a]"
@@ -366,7 +369,7 @@ export function CharacterSelect({
                     />
                     <span className="font-display text-[11px] font-bold truncate">{st.name}</span>
                   </div>
-                  <div className="text-[10px] opacity-75 truncate pl-3.5">{st.country}</div>
+                  <div className="text-[10px] opacity-75 truncate pl-3.5">{st.city} · {st.country}</div>
                 </button>
               ))}
               <button
@@ -384,6 +387,7 @@ export function CharacterSelect({
                 <div className="text-[10px] opacity-75">Cualquier Palacio</div>
               </button>
             </div>
+            {STAGES_DATA[stageSel] && <p className="mt-2 text-xs text-[#b3bfd5]">{STAGES_DATA[stageSel].hazardMsg}</p>}
           </div>
         </div>
 

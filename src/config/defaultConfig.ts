@@ -27,6 +27,7 @@ export const DEFAULT_P2_KEYS: KeyBindings = {
 export const DEFAULT_CONFIG: GameConfig = {
   video: {
     pixelPreset: 'modern',
+    stageTime: 'cycle',
     crtFilter: 'scanlines',
     dynamicLighting: true,
     pixelOutlines: true,
@@ -135,7 +136,7 @@ export function loadLastReplay(): MatchReplayData | null {
     const raw = localStorage.getItem(LAST_REPLAY_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && (parsed.version === 1 || parsed.version === 2 || parsed.version === 3 || parsed.version === 4) && Array.isArray(parsed.keyframes)) {
+    if (parsed && (parsed.version === 1 || parsed.version === 2 || parsed.version === 3 || parsed.version === 4 || parsed.version === 5) && Array.isArray(parsed.keyframes)) {
       return parsed as MatchReplayData;
     }
     return null;

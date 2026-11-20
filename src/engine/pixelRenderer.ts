@@ -1,3 +1,4 @@
+import { stageArt, stageHazardColumns, stageNightMix } from './stageAtmosphere';
 import { paintCombatSprite, paintSprite, spritePortrait } from './fighterSprites';
 import { drawEffects, drawStrike, drawShot, shotTouches, strikeBox } from '../combat/effects.js';
 import { PIXEL_PRESET_DIMS } from '../config/defaultConfig';
@@ -183,6 +184,7 @@ export interface WorldRenderContext {
   hzPhase: number;
   hzMod: number;
   hzDur: number;
+  legacyHazards?: boolean;
   fighters: RenderFighterState[];
   projectiles: RenderProjectile[];
   items: RenderItem[];
@@ -2657,13 +2659,13 @@ export class PixelRenderer extends LegacyFighterGeometry {
     }
 
     // Active Laser Patrol Sweep visual for Kantei / Downing
-    if (['kantei', 'downing'].includes(stage.id) && hzPhase >= 1) {
+    if (world.legacyHazards && ['kantei', 'downing'].includes(stage.id) && hzPhase >= 1) {
       const lx = sx(720 + Math.sin(T * 0.04) * 460);
       ctx.fillStyle = hzPhase === 2 ? 'rgba(255, 55, 40, 0.35)' : 'rgba(255, 160, 40, 0.22)';
       ctx.fillRect(lx - sw(20), 0, sw(40), H);
     }
     // Active Side Cannon turrets for Nariño / Mexico / Pizarro / Miraflores
-    if (['narino', 'mexico', 'pizarro', 'miraflores'].includes(stage.id) && hzPhase >= 1) {
+    if (world.legacyHazards && ['narino', 'mexico', 'pizarro', 'miraflores'].includes(stage.id) && hzPhase >= 1) {
       ctx.globalAlpha = hzPhase === 1 && T % 20 < 10 ? 0.45 : 1;
       [0, 1].forEach((side) => {
         const cx = side ? sx(1355) : sx(20);
@@ -2673,7 +2675,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.globalAlpha = 1;
     }
     // Active Wave Rings for Rosada / Planalto
-    if (['rosada', 'planalto'].includes(stage.id) && hzPhase === 2) {
+    if (world.legacyHazards && ['rosada', 'planalto'].includes(stage.id) && hzPhase === 2) {
       for (let k = 0; k < 3; k++) {
         const r = sw(((hzMod + k * 30) % 90) * 7);
         ctx.strokeStyle = 'rgba(255, 238, 160, ' + Math.max(0, 1 - r / W) + ')';
@@ -2683,6 +2685,123 @@ export class PixelRenderer extends LegacyFighterGeometry {
         ctx.stroke();
       }
     }
+  }
+
+  private drawIllustratedStage(ctx: CanvasRenderingContext2D, world: WorldRenderContext, night: number) {
+    const dayArt = stageArt(world.stage.id, 'day');
+    const nightArt = stageArt(world.stage.id, 'night');
+    const first = (night === 1 ? nightArt : dayArt) ?? nightArt ?? dayArt;
+    if (!first) return false;
+    const W = this.pxW;
+    const H = this.pxH;
+    const drift = (this.camX - 720) * W / 1440 * 0.15;
+    const rise = (this.camY - 425) * H / 810 * 0.1;
+    const draw = (art: HTMLImageElement) => {
+      const zoom = Math.max(W * 1.16 / art.width, H * 1.1 / art.height);
+      const w = art.width * zoom, h = art.height * zoom;
+      ctx.drawImage(art, (W - w) / 2 - drift, (H - h) / 2 - rise, w, h);
+    };
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    draw(first);
+    if (first === dayArt && nightArt && night > 0) {
+      ctx.globalAlpha = night;
+      draw(nightArt);
+      ctx.globalAlpha = 1;
+    }
+    const haze = ctx.createLinearGradient(0, H * 0.35, 0, H);
+    haze.addColorStop(0, 'rgba(9, 14, 26, 0)');
+    haze.addColorStop(0.6, `rgba(9, 14, 26, ${0.12 + night * 0.10})`);
+    haze.addColorStop(1, `rgba(9, 14, 26, ${0.42 + night * 0.10})`);
+    ctx.fillStyle = haze;
+    ctx.fillRect(-20, -20, W + 40, H + 40);
+    ctx.restore();
+    return true;
+  }
+
+  private drawIllustratedPlatform(ctx: CanvasRenderingContext2D, stage: StageDef, night: number,
+    x: number, y: number, w: number, h: number, floating = false) {
+    if (w <= 0 || h <= 0) return;
+    const base = floating ? stage.palette.floatMain : stage.palette.platformMain;
+    const ledge = floating ? stage.palette.floatTop : stage.palette.platformTop;
+    const bevel = Math.min(this.sw(floating ? 6 : 10), h / 3, w / 5);
+    const edge = Math.max(1, this.sw(2));
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y);
+    ctx.lineTo(x + w, y + h - bevel);
+    ctx.lineTo(x + w - bevel, y + h);
+    ctx.lineTo(x + bevel, y + h);
+    ctx.lineTo(x, y + h - bevel);
+    ctx.closePath();
+    ctx.clip();
+    const shading = ctx.createLinearGradient(0, y, 0, y + h);
+    shading.addColorStop(0, mixHex(ledge, '#516083', night * 0.42));
+    shading.addColorStop(0.16, mixHex(base, '#172239', night * 0.40));
+    shading.addColorStop(1, mixHex(base, '#080d17', 0.64 + night * 0.10));
+    ctx.fillStyle = shading;
+    ctx.fillRect(x, y, w, h);
+    const art = stageArt(stage.id, night >= 0.5 ? 'night' : 'day');
+    if (art) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.globalAlpha = floating ? 0.18 : 0.26;
+      ctx.drawImage(art, 0, art.height * 0.81, art.width, art.height * 0.17, x, y, w, h);
+      ctx.restore();
+    }
+    ctx.fillStyle = mixHex(ledge, '#9faed3', night * 0.36);
+    ctx.fillRect(x, y, w, edge);
+    ctx.fillStyle = stage.palette.platformTrim;
+    ctx.fillRect(x, y + bevel, w, edge);
+    ctx.fillStyle = 'rgba(8, 13, 22, 0.55)';
+    ctx.fillRect(x, y + h - edge, w, edge);
+    if (!floating) {
+      const spacing = Math.max(8, this.sw(84));
+      for (let offset = spacing; offset < w; offset += spacing) {
+        ctx.fillRect(x + offset, y + bevel * 2, 1, h - bevel * 2);
+      }
+    }
+    ctx.restore();
+  }
+
+  private drawArenaHazard(ctx: CanvasRenderingContext2D, world: WorldRenderContext) {
+    if (!world.hzPhase) return;
+    const hazard = world.stage.hazard;
+    const active = world.hzPhase === 2;
+    const pulse = 0.65 + Math.sin(world.T * 0.22) * 0.2;
+    ctx.save();
+    for (const col of stageHazardColumns(hazard, world.T, active ? world.hzMod : 0, world.W)) {
+      const x = this.sx(col.x), span = this.sw(col.halfWidth * 2);
+      const glow = ctx.createLinearGradient(x - span / 2, 0, x + span / 2, 0);
+      const color = col.danger ? '255, 117, 78' : '120, 224, 255';
+      glow.addColorStop(0, `rgba(${color}, 0)`);
+      glow.addColorStop(0.5, `rgba(${color}, ${pulse * (active ? 0.46 : 0.23)})`);
+      glow.addColorStop(1, `rgba(${color}, 0)`);
+      ctx.fillStyle = glow;
+      ctx.fillRect(x - span / 2, 0, span, this.sy(world.main.y));
+      ctx.fillStyle = `rgba(${color}, ${active ? 0.8 : 0.42})`;
+      ctx.fillRect(x - span / 2, this.sy(world.main.y) - 3, span, 3);
+    }
+
+    if (!active && ['edge-volley', 'alternating-salvo', 'guard-march', 'bell'].includes(hazard)) {
+      const sources = hazard === 'bell' ? [world.W / 2] : hazard === 'edge-volley' ? [24, world.W - 24] : [24];
+      ctx.strokeStyle = `rgba(255, 200, 101, ${pulse})`;
+      ctx.lineWidth = 2;
+      for (const x of sources) {
+        ctx.beginPath();
+        ctx.arc(this.sx(x), this.sy(world.main.y - 34), this.sw(18 + world.T % 24), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    if (active && hazard === 'lifts') {
+      ctx.strokeStyle = `rgba(109, 234, 255, ${pulse})`;
+      ctx.lineWidth = 2;
+      for (const p of world.plats.filter((_, i, all) => i === 0 || i === all.length - 1)) {
+        ctx.strokeRect(this.sx(p.x), this.sy(p.y) - 1, this.sw(p.w), this.sw(16));
+      }
+    }
+    ctx.restore();
   }
 
   private drawBackgroundCrowd(ctx: CanvasRenderingContext2D, world: WorldRenderContext) {
@@ -2969,8 +3088,14 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.translate(Math.round((Math.random() - 0.5) * amt * 2), Math.round((Math.random() - 0.5) * amt * 2));
     }
 
-    this.drawStageBackground(ctx, world);
+    const night = stageNightMix(cfg.video.stageTime, world.T);
+    const illustrated = this.drawIllustratedStage(ctx, world, night);
+    if (!illustrated) this.drawStageBackground(ctx, world);
+    ctx.save();
+    if (illustrated) ctx.globalAlpha = 0.58;
     this.drawBackgroundCrowd(ctx, world);
+    ctx.restore();
+    if (!world.legacyHazards) this.drawArenaHazard(ctx, world);
 
     // Main Platform (Ornate 16-bit Palace Stone Pedestal with Chromatic Smart Outline)
     const M = world.main;
@@ -2980,35 +3105,43 @@ export class PixelRenderer extends LegacyFighterGeometry {
     const mh = sw(M.h);
     const mainOutline = tintOutlineHex(world.stage.palette.platformMain, 0.3);
     const floatOutline = tintOutlineHex(world.stage.palette.floatMain, 0.28);
-    this.pxRect(ctx, mx - 1, my - 1, mw + 2, mh + 2, mainOutline);
-    this.pxRect(ctx, mx, my, mw, mh, world.stage.palette.platformMain);
-    this.pxRect(ctx, mx, my + mh - sw(14), mw, sw(14), tintOutlineHex(world.stage.palette.platformMain, 0.46));
-    this.pxRect(ctx, mx, my, mw, sw(10), world.stage.palette.platformTop);
-    this.pxRect(ctx, mx, my, mw, sw(2), 'rgba(255, 255, 255, 0.28)');
-    this.pxRect(ctx, mx, my + sw(10), mw, sw(4), world.stage.palette.platformTrim);
-    // Corner stone pilasters
-    this.pxRect(ctx, mx, my + sw(14), sw(18), mh - sw(14), 'rgba(12, 16, 28, 0.2)');
-    this.pxRect(ctx, mx + mw - sw(18), my + sw(14), sw(18), mh - sw(14), 'rgba(12, 16, 28, 0.2)');
-    // Dentil studs & vertical masonry joints
-    for (let k = 1; k * 56 < M.w; k++) {
-      this.pxRect(ctx, sx(M.x + k * 56), my + sw(14), 1, mh - sw(14), mainOutline);
-      this.pxRect(ctx, sx(M.x + k * 56) - sw(5), my + sw(16), sw(10), sw(4), world.stage.palette.platformTop);
-    }
+    if (illustrated) {
+      this.drawIllustratedPlatform(ctx, world.stage, night, mx, my, mw, mh);
+      for (const p of world.plats) {
+        this.drawIllustratedPlatform(ctx, world.stage, night, sx(p.x), sy(p.y), sw(p.w), sw(16), true);
+      }
+    } else {
+      this.pxRect(ctx, mx - 1, my - 1, mw + 2, mh + 2, mainOutline);
+      this.pxRect(ctx, mx, my, mw, mh, world.stage.palette.platformMain);
+      this.pxRect(ctx, mx, my + mh - sw(14), mw, sw(14), tintOutlineHex(world.stage.palette.platformMain, 0.46));
+      this.pxRect(ctx, mx, my, mw, sw(10), world.stage.palette.platformTop);
+      this.pxRect(ctx, mx, my, mw, sw(2), 'rgba(255, 255, 255, 0.28)');
+      this.pxRect(ctx, mx, my + sw(10), mw, sw(4), world.stage.palette.platformTrim);
+      // Corner stone pilasters
+      this.pxRect(ctx, mx, my + sw(14), sw(18), mh - sw(14), 'rgba(12, 16, 28, 0.2)');
+      this.pxRect(ctx, mx + mw - sw(18), my + sw(14), sw(18), mh - sw(14), 'rgba(12, 16, 28, 0.2)');
+      // Dentil studs & vertical masonry joints
+      for (let k = 1; k * 56 < M.w; k++) {
+        this.pxRect(ctx, sx(M.x + k * 56), my + sw(14), 1, mh - sw(14), mainOutline);
+        this.pxRect(ctx, sx(M.x + k * 56) - sw(5), my + sw(16), sw(10), sw(4), world.stage.palette.platformTop);
+      }
 
-    // Floating Platforms (Beveled Multi-Layer Pedestals with Chromatic Smart Outlines)
-    for (const p of world.plats) {
-      const px = sx(p.x);
-      const py = sy(p.y);
-      const pw = sw(p.w);
-      this.pxRect(ctx, px - 1, py - 1, pw + 2, sw(15) + 2, floatOutline);
-      this.pxRect(ctx, px, py, pw, sw(15), world.stage.palette.floatMain);
-      this.pxRect(ctx, px, py, pw, sw(5), world.stage.palette.floatTop);
-      this.pxRect(ctx, px, py + sw(5), pw, sw(2), world.stage.palette.platformTrim);
-      // Support end brackets
-      this.pxRect(ctx, px + sw(8), py + sw(15), sw(12), sw(5), floatOutline);
-      this.pxRect(ctx, px + pw - sw(20), py + sw(15), sw(12), sw(5), floatOutline);
-      this.pxRect(ctx, px + sw(10), py + sw(15), sw(8), sw(3), world.stage.palette.floatMain);
-      this.pxRect(ctx, px + pw - sw(18), py + sw(15), sw(8), sw(3), world.stage.palette.floatMain);
+      // Floating Platforms (Beveled Multi-Layer Pedestals with Chromatic Smart Outlines)
+      for (const p of world.plats) {
+        const px = sx(p.x);
+        const py = sy(p.y);
+        const pw = sw(p.w);
+        this.pxRect(ctx, px - 1, py - 1, pw + 2, sw(15) + 2, floatOutline);
+        this.pxRect(ctx, px, py, pw, sw(15), world.stage.palette.floatMain);
+        this.pxRect(ctx, px, py, pw, sw(5), world.stage.palette.floatTop);
+        this.pxRect(ctx, px, py + sw(5), pw, sw(2), world.stage.palette.platformTrim);
+        // Support end brackets
+        this.pxRect(ctx, px + sw(8), py + sw(15), sw(12), sw(5), floatOutline);
+        this.pxRect(ctx, px + pw - sw(20), py + sw(15), sw(12), sw(5), floatOutline);
+        this.pxRect(ctx, px + sw(10), py + sw(15), sw(8), sw(3), world.stage.palette.floatMain);
+        this.pxRect(ctx, px + pw - sw(18), py + sw(15), sw(8), sw(3), world.stage.palette.floatMain);
+      }
+
     }
 
     // Pickups (Chromatic Smart Outlines)
