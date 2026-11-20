@@ -42,6 +42,8 @@ interface CharacterSelectProps {
   onChangeSel: (next: [number, number]) => void;
   onChangeStage: (idx: number) => void;
   onToggleVsAI: () => void;
+  remoteOpponent?: boolean;
+  remoteReady?: boolean;
   onStartVersus: () => void;
   onStartCampaign: () => void;
   onStartTraining: () => void;
@@ -62,6 +64,8 @@ export function CharacterSelect({
   onChangeSel,
   onChangeStage,
   onToggleVsAI,
+  remoteOpponent = false,
+  remoteReady = false,
   onStartVersus,
   onStartCampaign,
   onStartTraining,
@@ -91,7 +95,7 @@ export function CharacterSelect({
   const pickPresident = (idx: number) => {
     sound.uiClick();
     const next: [number, number] = [...sel] as [number, number];
-    next[activeSlot] = idx;
+    next[remoteOpponent ? 0 : activeSlot] = idx;
     onChangeSel(next);
 
   };
@@ -142,12 +146,12 @@ export function CharacterSelect({
           <button
             onClick={() => {
               sound.uiClick();
-              onToggleVsAI();
+              if (!remoteOpponent) onToggleVsAI();
             }}
             className="flex h-10 items-center gap-2 rounded-lg border border-[#2f3b57] bg-[#161e31] px-3.5 text-xs font-bold text-white hover:border-[#ffcc33] whitespace-nowrap shrink-0"
           >
             <Users className="h-4 w-4 text-[#ffcc33]" />
-            Rival: {vsAI ? 'IA' : 'Humano 2P'}
+            Rival: {remoteOpponent ? "J2 en línea" : vsAI ? 'IA' : 'Humano 2P'}
           </button>
           <button
             onClick={() => {
@@ -216,13 +220,13 @@ export function CharacterSelect({
             <button
               onClick={() => {
                 sound.uiClick();
-                setActiveSlot(1);
+                if (!remoteOpponent) setActiveSlot(1);
               }}
               className={`flex-1 rounded-md py-2 font-display text-xs font-bold uppercase tracking-wider transition-colors ${
                 activeSlot === 1 ? 'bg-[#38bdf8] text-[#0b0e17]' : 'text-[#94a3b8] hover:text-white'
               }`}
             >
-              Eligiendo {vsAI ? 'IA' : 'J2'}: {p2.name}
+              {remoteOpponent ? "J2 elige desde su dispositivo" : <>Eligiendo {vsAI ? 'IA' : 'J2'}: {p2.name}</>}
             </button>
           </div>
 
@@ -400,7 +404,7 @@ export function CharacterSelect({
             isActive={activeSlot === 1}
             onFocus={() => {
               sound.uiClick();
-              setActiveSlot(1);
+              if (!remoteOpponent) setActiveSlot(1);
             }}
             onCustomize={() => {
               sound.uiClick();
@@ -436,14 +440,15 @@ export function CharacterSelect({
         </div>
 
         <button
+          disabled={remoteOpponent && !remoteReady}
           onClick={() => {
             sound.uiConfirm();
-            onStartVersus();
+            void onStartVersus();
           }}
           className="flex min-h-[46px] items-center gap-2.5 rounded-lg bg-[#ffcc33] px-8 py-2.5 font-display text-base font-bold uppercase tracking-wider text-[#0b0e17] transition-transform active:scale-[0.98] hover:bg-[#ffd95e]"
         >
           <Play className="h-4 w-4 fill-current" />
-          ¡Pelear!
+          {remoteOpponent && !remoteReady ? "Esperando a J2" : "¡Pelear!"}
         </button>
       </div>
     </div>

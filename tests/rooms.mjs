@@ -39,6 +39,21 @@ test('salas: acceso, mando exclusivo, transmisión, liberación y cierre',async(
     received='';
     while(!received.includes('event: presence')) received+=decoder.decode((await reader.read()).value);
     assert.match(received,/data: true/);
+    const matchPath=`/${host.code}/match`, fighterPath=`/${host.code}/fighter`;
+    assert.equal((await call(matchPath,host.token,{playing:true})).status,409);
+    assert.equal((await call(fighterPath,host.token,{fighterId:'musashi'})).status,403);
+    assert.equal((await call(matchPath,guest.token,{playing:true})).status,403);
+    assert.equal((await call(fighterPath,guest.token,{fighterId:'<invalid>'})).status,400);
+    assert.deepEqual(await (await call(fighterPath,guest.token,{fighterId:'musashi'})).json(),
+      {fighterId:'musashi',playing:false});
+    received='';
+    while(!received.includes('"fighterId":"musashi"')) received+=decoder.decode((await reader.read()).value);
+    assert.match(received,/event: lobby/);
+    assert.deepEqual(await (await call(matchPath,host.token,{playing:true})).json(),
+      {fighterId:'musashi',playing:true});
+    assert.equal((await call(fighterPath,guest.token,{fighterId:'bukele'})).status,409);
+    assert.equal((await call(matchPath,host.token,{playing:false})).status,200);
+    assert.equal((await call(fighterPath,guest.token,{fighterId:'bukele'})).status,200);
     assert.equal((await call(`/${host.code}/frame`,host.token,{image:'data:image/jpeg;base64,AA=='})).status,204);
     let frames='';
     while(!frames.includes('event: frame')) frames+=decoder.decode((await remoteReader.read()).value);

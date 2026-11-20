@@ -1,6 +1,7 @@
 import { LandscapePrompt } from './components/LandscapePrompt';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sound } from './audio/soundEngine';
+import { roomRequest, type RoomLobby, type RoomSession } from './network/roomClient';
 import { NetworkPanel } from './components/NetworkPanel';
 import { CharacterCustomizer } from './components/CharacterCustomizer';
 import { CharacterSelect } from './components/CharacterSelect';
@@ -44,6 +45,28 @@ export default function App() {
     const i2 = PRESIDENTS_DATA.findIndex((p) => p.id === 'robinson');
     return [i1 >= 0 ? i1 : 0, i2 >= 0 ? i2 : 3];
   });
+  const [remoteRoom, setRemoteRoom] = useState<RoomSession | null>(null);
+  const [remoteFighter, setRemoteFighter] = useState<string | null>(null);
+  const [roomError, setRoomError] = useState('');
+  const remoteMatch = useRef<RoomSession | null>(null);
+  const startingMatch = useRef(false);
+  const onHostRoom = useCallback((room: RoomSession | null, lobby: RoomLobby) => {
+    setRemoteRoom(room);
+    setRemoteFighter(room ? lobby.fighterId : null);
+    const index = PRESIDENTS_DATA.findIndex(f => f.id === lobby.fighterId);
+    if (room && index >= 0) {
+      setVsAI(false);
+      setSel(previous => [previous[0], index]);
+      setRoomError('');
+    }
+  }, []);
+  useEffect(() => {
+    if (screen === 'PLAYING' || screen === 'PAUSED' || !remoteMatch.current) return;
+    const room = remoteMatch.current;
+    remoteMatch.current = null;
+    void roomRequest(`/${room.code}/match`, room, { playing: false })
+      .catch(error => setRoomError(error.message));
+  }, [screen]);
   const [stageSel, setStageSel] = useState<number>(0);
   const [vsAI, setVsAI] = useState<boolean>(true);
   const [configOpen, setConfigOpen] = useState<boolean>(false);
@@ -158,16 +181,34 @@ export default function App() {
     launchCampaignRound(camp);
   }, [sel, roster, launchCampaignRound]);
 
-  const startVersus = useCallback(() => {
+  const startVersus = useCallback(async () => {
     const engine = engineRef.current;
     if (!engine) return;
+    if (startingMatch.current) return;
+    let opponent = sel[1];
+    if (remoteRoom) {
+      startingMatch.current = true;
+      setRoomError('');
+      try {
+        const lobby: RoomLobby = await roomRequest(`/${remoteRoom.code}/match`, remoteRoom, { playing: true });
+        opponent = PRESIDENTS_DATA.findIndex(f => f.id === lobby.fighterId);
+        if (opponent < 0) {
+          await roomRequest(`/${remoteRoom.code}/match`, remoteRoom, { playing: false });
+          throw new Error('J2 debe elegir un luchador del plantel oficial.');
+        }
+        remoteMatch.current = remoteRoom;
+      } catch (error) {
+        setRoomError((error as Error).message);
+        return;
+      } finally { startingMatch.current = false; }
+    }
     engine.campaign = null;
     setCampaign(null);
     setSummary(null);
     setMode('versus');
-    engine.startMatch(sel[0], sel[1], stageSel, vsAI, 'versus');
+    engine.startMatch(sel[0], opponent, stageSel, remoteRoom ? false : vsAI, 'versus');
     setScreen('PLAYING');
-  }, [sel, stageSel, vsAI]);
+  }, [sel, stageSel, vsAI, remoteRoom]);
 
   const startTraining = useCallback(() => {
     const engine = engineRef.current;
@@ -412,7 +453,10 @@ export default function App() {
   return (
     <main className="apex-app">
       <LandscapePrompt />
-      <NetworkPanel hideLaunch={['PLAYING', 'PAUSED', 'REPLAY'].includes(screen)} canvas={canvasRef} onInput={(actions) => engineRef.current?.setRemoteActions(actions)} />
+      {roomError && <div role="alert" className="network-panel"><p>{roomError}</p>
+        <button type="button" onClick={() => setRoomError('')}>Cerrar</button></div>}
+      <NetworkPanel matchActive={!!remoteMatch.current && (screen === 'PLAYING' || screen === 'PAUSED')}
+        onHostRoom={onHostRoom} hideLaunch={['PLAYING', 'PAUSED', 'REPLAY'].includes(screen)} canvas={canvasRef} onInput={(actions) => engineRef.current?.setRemoteActions(actions)} />
       {/* 16:9 Isolated Pixel-Art Game Stage */}
       <div className={`apex-frame ${['TITLE', 'SELECT', 'CUSTOMIZE'].includes(screen) ? 'apex-frame-menu' : ''} ${['PLAYING', 'PAUSED', 'REPLAY'].includes(screen) ? 'apex-frame-combat' : ''} ${crtClass}`}>
         <canvas
@@ -442,7 +486,9 @@ export default function App() {
             vsAI={vsAI}
             config={config}
             hasReplay={Boolean(lastReplay)}
-            onChangeSel={setSel}
+            remoteOpponent={!!remoteRoom}
+            remoteReady={!!remoteFighter}
+            onChangeSel={next => setSel(current => remoteRoom ? [next[0], current[1]] : next)}
             onChangeStage={(idx) => {
               setStageSel(idx);
               if (idx < STAGES_DATA.length) engineRef.current?.setStage(idx);
