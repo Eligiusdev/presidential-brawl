@@ -24,14 +24,14 @@ npm start
 
 En Windows usa `npm.cmd` si PowerShell bloquea `npm.ps1`.
 
-1. En el equipo principal abre `http://localhost:3000`.
-2. Para conectar el móvil, abre el juego usando la IP del equipo en la misma red, por ejemplo `http://192.168.1.20:3000`. Permite el puerto 3000 en el firewall de la red privada si hace falta.
-3. Pulsa **Jugar en línea → Crear sala**. Copia el enlace que contiene el código y ábrelo en el móvil. Si creaste la sala desde localhost, sustituye localhost por la IP del equipo antes de compartirlo.
-4. En el segundo dispositivo pulsa **Conectar como J2**. Puedes jugar con controles táctiles o teclado.
-5. En el equipo principal entra a selección, desactiva la IA para jugar **J1 vs J2**, elige los personajes y comienza. J1 usa el teclado o un mando; J2 usa las flechas, U, I, O, M y / o los botones en pantalla.
-6. Mantén la pestaña del equipo principal visible. Puedes ocultar su panel con × sin cerrar la sala. **Salir de la sala** sí la cierra o desconecta el mando.
+1. Ejecuta los comandos en el PC anfitrión. La consola de `npm start` muestra una o más direcciones **Red local**, por ejemplo `http://192.168.1.20:3000`.
+2. Abre esa misma dirección en ambos equipos. Usa la IP del anfitrión, ya que `localhost` apunta al equipo desde el que abres el navegador. Si Windows pregunta por el acceso, permite Node.js en redes privadas.
+3. En el anfitrión pulsa **Jugar en línea → Crear sala** y comparte el enlace. En el segundo equipo, abre el enlace y pulsa **Conectar como J2**.
+4. Cada uno confirma su luchador y el anfitrión mantiene su pestaña visible. J2 puede usar WASD y J / K / L (definitiva con C o espacio, recarga con R), las flechas y U / I / O / M, o los controles táctiles en móvil.
 
-El anfitrión ejecuta el combate. El servidor enlaza los controles de J2 con el anfitrión y reenvía la vista del juego por sala, hasta aproximadamente 16 cuadros por segundo según la conexión. La vista remota contiene el canvas, sin audio ni HUD HTML. Distintas parejas pueden jugar simultáneamente en salas independientes. GitHub Pages sirve la interfaz, pero no ejecuta el backend. Para conectar móviles por Internet, el backend se puede desplegar como servicio Node en Render usando el `render.yaml` incluido:
+Al abrir el juego desde la IP del anfitrión, las salas y los controles pasan por el servidor local. El juego intenta enviar el canvas directamente por WebRTC a la resolución del anfitrión. Cuando la conexión directa falla, usa fotogramas JPEG adaptativos con un máximo aproximado de 24 envíos por segundo. El video contiene el canvas del anfitrión, sin audio ni HUD HTML.
+
+Para jugar por Internet desde GitHub Pages, el backend de salas puede desplegarse como servicio Node en Render usando `render.yaml`.
 
 1. En Render crea un **Blueprint** y conecta este repositorio. Revisa y despliega el servicio `presidential-brawl-api`.
 2. Abre la URL de Render en ambos dispositivos y verifica el duelo. El servicio sirve el juego y la API juntos. Para enlazar GitHub Pages, cuando Render muestre la URL del servicio (por ejemplo, `https://presidential-brawl-api.onrender.com`), abre **Settings → Secrets and variables → Actions → Variables** del repositorio en GitHub y crea `ROOM_API_BASE_URL` con esa URL, sin `/` al final.

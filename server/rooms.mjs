@@ -98,6 +98,27 @@ export function createRoomsApp({allowedOrigins = process.env.ALLOWED_ORIGINS ?? 
       }
     });
   });
+  app.post('/api/rooms/:code/video', (req,res) => {
+    const { type, sdp, negotiation, candidate } = req.body ?? {};
+    if (typeof negotiation !== 'string' || !/^[a-z0-9-]{1,64}$/.test(negotiation)) return res.sendStatus(400);
+    let signal;
+    if (type === 'ice') {
+      if (typeof candidate?.candidate !== 'string' || candidate.candidate.length > 4096 ||
+        !(candidate.sdpMid === null || typeof candidate.sdpMid === 'string') ||
+        !(candidate.sdpMLineIndex === null || Number.isInteger(candidate.sdpMLineIndex))) return res.sendStatus(400);
+      signal = { type, negotiation, candidate: {
+        candidate: candidate.candidate, sdpMid: candidate.sdpMid, sdpMLineIndex: candidate.sdpMLineIndex,
+      } };
+    } else {
+      if (type !== (req.role === 'host' ? 'offer' : 'answer') ||
+        typeof sdp !== 'string' || !sdp.startsWith('v=0') || sdp.length > 32000) return res.sendStatus(400);
+      signal = { type, negotiation, sdp };
+    }
+    const peer = req.room[req.role === 'host' ? 'guest' : 'host'];
+    if (!peer || peer.destroyed || peer.writableNeedDrain) return res.sendStatus(409);
+    peer.write(`event: video\ndata: ${JSON.stringify(signal)}\n\n`);
+    res.sendStatus(204);
+  });
   app.post('/api/rooms/:code/fighter',(req,res)=>{
     const id=req.body?.fighterId;
     if(typeof id!=='string'||!/^[a-z0-9_-]{1,48}$/.test(id)) return res.sendStatus(400);

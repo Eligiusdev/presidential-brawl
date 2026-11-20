@@ -413,3 +413,27 @@
 @media (any-pointer: fine) and (min-width: 621px) and (min-height: 521px) {
   .apex-frame-combat:has(.touch-deck) .match-hud { justify-content: flex-start; gap: .35rem; }
 }
+
+.network-panel.network-controller {
+  display: grid;
+  grid-template: auto minmax(0, 1fr) auto / minmax(0, 1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+.network-match { position: relative; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.network-match-view { display: grid; place-items: center; min-height: 0; background: #080e1d; overflow: hidden; }
+.network-match-view > img,
+.network-match-view > video { display: block; width: 100%; height: 100%; min-height: 0; max-height: none; object-fit: contain; aspect-ratio: auto; image-rendering: auto; }
+.network-match-view > video[hidden] { display: none; }
+.network-match-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .85rem; }
+.network-match-footer button { padding: 6px 12px; }
+.network-controller .network-error { position: absolute; left: 12px; bottom: 42px; background: #131b2d; padding: 4px 8px; }
+.network-touch { display: none; }
+@media (pointer: coarse) {
+  .network-touch { display: block; }
+  .network-keyboard { display: none; }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  .network-touch { position: absolute; inset: 0; pointer-events: none; }
+  .network-touch .touch-deck-inline { height: 100%; max-width: none; }
+}
