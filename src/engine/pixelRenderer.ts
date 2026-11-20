@@ -1,3 +1,4 @@
+import type { RoomCapacity } from '../data/stages';
 import { paintUltimatePreview, paintUltimateSprite, preloadUltimateSprite } from './ultimateSprites';
 import { ultimatePoint, type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { stageArt, stageHazardColumns, stageNightMix } from './stageAtmosphere';
@@ -192,6 +193,8 @@ export interface CrowdState {
 
 export interface WorldRenderContext {
   T: number;
+  online?: RoomCapacity;
+  camera?: { x: number; y: number; zoom: number };
   W: number;
   H: number;
   stage: StageDef;
@@ -2002,8 +2005,8 @@ export class PixelRenderer extends LegacyFighterGeometry {
     this.lightCtx.imageSmoothingEnabled = false;
   }
 
-  private syncBufferSize(cfg: GameConfig) {
-    const dim = PIXEL_PRESET_DIMS[cfg.video.pixelPreset] || PIXEL_PRESET_DIMS.modern;
+  private syncBufferSize(cfg: GameConfig, target?: HTMLCanvasElement) {
+    const dim = target?.width && target.height ? { w: target.width, h: target.height } : PIXEL_PRESET_DIMS[cfg.video.pixelPreset] || PIXEL_PRESET_DIMS.modern;
     if (this.pxW !== dim.w || this.pxH !== dim.h) {
       this.pxW = dim.w;
       this.pxH = dim.h;
@@ -2017,6 +2020,12 @@ export class PixelRenderer extends LegacyFighterGeometry {
   }
 
   private updateCamera(world: WorldRenderContext) {
+    if (world.camera) {
+      this.camX += (world.camera.x - this.camX) * .16;
+      this.camY += (world.camera.y - this.camY) * .16;
+      this.camZoom = Math.min(world.camera.zoom, this.camZoom + (world.camera.zoom - this.camZoom) * .10);
+      return;
+    }
     const alive = world.fighters.filter((f) => f.dead <= 0);
     if (alive.length === 0) {
       this.camX += (720 - this.camX) * 0.1;
@@ -3080,7 +3089,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
   }
 
   renderWorld(targetCanvas: HTMLCanvasElement, world: WorldRenderContext, cfg: GameConfig) {
-    this.syncBufferSize(cfg);
+    this.syncBufferSize(cfg, world.online ? targetCanvas : undefined);
     this.updateCamera(world);
     const ctx = this.offCtx;
     const W = this.pxW;
@@ -3494,7 +3503,19 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.strokeStyle = highlight;
       ctx.fillStyle = primary;
       ctx.lineWidth = Math.max(1, sw(active ? 5 : 2));
-      if (spec.pattern === 'five_point_star_aerial_cuts_tricolor') {
+      if (profile.travel || profile.tempo) {
+        const trail = ultimatePoint(ultimate, origin, Math.max(0, (u.t - 5) / u.dur));
+        const colors = profile.travel === 'cavalry' ? [primary, '#2563eb', highlight] : [highlight];
+        colors.forEach((color, index) => {
+          const offset = sw(6) * index;
+          ctx.strokeStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(sx(trail.x), sy(trail.y) + offset);
+          ctx.lineTo(x, y + offset);
+          ctx.stroke();
+        });
+        ctx.strokeStyle = highlight;
+      } else if (spec.pattern === 'five_point_star_aerial_cuts_tricolor') {
         const colors = [primary, '#2563eb', highlight];
         for (let i = 1; i < profile.route.length; i++) {
           const start = ultimatePoint(ultimate, origin, (i - 1) / (profile.route.length - 1));

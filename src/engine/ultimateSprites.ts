@@ -35,6 +35,7 @@ function getSprite(id: string) {
 
 export function preloadUltimateSprite(id: string) {
   getSprite(id);
+  if (id === 'ult_bolivar') getSprite('ult_uribe');
 }
 
 function spriteLayer(ctx: CanvasRenderingContext2D, sprite: NonNullable<ReturnType<typeof getSprite>>,
@@ -68,12 +69,14 @@ interface Placement {
 
 export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltEffect, placement: Placement) {
   if (!u.specialized) return false;
-  const { ultimate: { spec }, origin, active, triggered } = u.specialized;
+  const { ultimate: { spec, profile }, origin, active, triggered } = u.specialized;
   const sprite = getSprite(spec.id);
   if (!sprite) return false;
 
   const { x, y, hitWidth, hitHeight, unit } = placement;
   const train = locomotives.has(spec.id);
+  const cavalry = profile.travel === 'cavalry';
+  const horse = cavalry ? getSprite('ult_uribe') : undefined;
   const slash = spec.primitive === 'dashStrike';
   const heavy = spec.primitive === 'spawnEntity';
   const vertical = ['ult_kennedy', 'ult_cardenas', 'ult_teddy', 'ult_sankara'].includes(spec.id);
@@ -95,7 +98,7 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
   ctx.scale(direction, 1);
   ctx.imageSmoothingEnabled = false;
   ctx.globalAlpha = opacity * (active ? 1 : .63);
-  const moving = spec.primitive === 'dashStrike' || spec.primitive === 'spawnEntity' || spec.primitive === 'spawnProjectile';
+  const moving = Boolean(profile.travel) || spec.primitive === 'dashStrike' || spec.primitive === 'spawnEntity' || spec.primitive === 'spawnProjectile';
   const bob = moving ? Math.sin(time * .28) * unit * 2 : -Math.sin(time * .13) * unit * 5;
   const beat = (time * spec.hits / Math.max(1, u.dur)) % 1;
   const accent = Math.sin(beat * Math.PI);
@@ -127,7 +130,27 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
     if (trace === 'ember' || trace === 'water') ctx.fillRect(Math.round(dx - size), Math.round(dy + size), size, Math.max(1, size / 3));
   }
 
-  if (moving && active && !train) {
+  if (horse) {
+    const horseWidth = unit * 104;
+    const horseHeight = horseWidth * horse.box[3] / horse.box[2];
+    for (const rank of [2, 1, 0]) {
+      const stride = Math.sin(time * .83 - rank * 1.4);
+      const saddleX = (rank === 0 ? 7 : -rank * 62) * unit;
+      const saddleY = (18 - rank * 13 + stride * 6) * unit;
+      ctx.globalAlpha = opacity * (rank === 0 ? .95 : .72);
+      spriteLayer(ctx, horse, horseWidth, horseHeight, saddleX, saddleY);
+      const bannerX = saddleX - unit * 18;
+      const bannerY = saddleY - horseHeight * .48;
+      ctx.fillStyle = '#f4dfae';
+      ctx.fillRect(bannerX, bannerY, 2 * unit, 28 * unit);
+      for (const [i, color] of ['#facc15', '#2563eb', '#dc2626'].entries()) {
+        ctx.fillStyle = color;
+        ctx.fillRect(bannerX - (23 + stride * 3) * unit, bannerY + i * 4 * unit, 24 * unit, 4 * unit);
+      }
+    }
+  }
+
+  if (moving && active && !train && !horse) {
     ctx.globalAlpha = opacity * .22;
     spriteLayer(ctx, sprite, width, height, -unit * 19, bob + unit * 3);
   }
@@ -144,7 +167,12 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
   if (slash) ctx.rotate((accent - .5) * .31);
   if (heavy && !train) ctx.rotate(Math.sin(time * .14) * .055);
   if (vertical) ctx.scale(.94 + accent * .06, .92 + accent * .13);
-  spriteLayer(ctx, sprite, width, height, 0, bob);
+  if (horse) {
+    ctx.globalAlpha *= .83;
+    spriteLayer(ctx, sprite, width * .5, height * .5, unit * 4, -unit * 35 + bob);
+  } else {
+    spriteLayer(ctx, sprite, width, height, 0, bob);
+  }
   ctx.restore();
 
   if (spec.id === 'ult_lincoln') {
