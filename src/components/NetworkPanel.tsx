@@ -24,7 +24,7 @@ type Samples = { previous: MatchSnapshot; latest: MatchSnapshot; at: number };
 export function NetworkPanel({ config, hideLaunch, onActive }: {
   config: GameConfig; hideLaunch: boolean; onActive: (active: boolean) => void;
 }) {
-  const invited = new URLSearchParams(location.search).get('room') ?? '';
+  const invited = (new URLSearchParams(location.search).get('room') ?? '').toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 5);
   const [open, setOpen] = useState(Boolean(invited));
   const [code, setCode] = useState(invited);
   const [capacity, setCapacity] = useState<RoomCapacity>(2);
@@ -43,6 +43,7 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
   const pressed = useRef(new Map<string, PlayerAction>());
   const touch = useRef(new Set<PlayerAction>());
   const enter = useRef<(request: object) => void>(() => {});
+  const autoJoined = useRef(false);
   const onActiveRef = useRef(onActive);
   onActiveRef.current = onActive;
   const playing = Boolean(room?.playing && !room.standings);
@@ -130,6 +131,13 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
     socket.current = null;
     ws?.close();
   }, []);
+
+  useEffect(() => {
+    if (invited && /^[A-F0-9]{5}$/.test(invited) && !autoJoined.current) {
+      autoJoined.current = true;
+      enter.current({ type: 'join', code: invited });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function leave() {
     clearTimeout(reconnect.current);
@@ -249,8 +257,8 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
       <option value={6}>Campal · 6</option><option value={8}>Gran Campal · 8</option>
     </select></label>
     <button disabled={busy} onClick={() => enter.current({ type: 'create', maxPlayers: capacity })}>Crear sala</button>
-    <label>Código <input value={code} maxLength={10} onChange={e => setCode(e.target.value.toUpperCase())} /></label>
-    <button disabled={busy || !/^[A-F0-9]{10}$/.test(code)} onClick={() => enter.current({ type: 'join', code })}>Entrar a la sala</button>
+    <label>Código <input value={code} maxLength={5} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 5))} /></label>
+    <button disabled={busy || !/^[A-F0-9]{5}$/.test(code)} onClick={() => enter.current({ type: 'join', code })}>Entrar a la sala</button>
     {(busy || status) && <p role="status">{busy ? 'Conectando…' : status}</p>}
   </section>;
 }

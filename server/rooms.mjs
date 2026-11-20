@@ -105,7 +105,7 @@ export function attachRooms(app, { allowedOrigins = process.env.ALLOWED_ORIGINS 
           if (!capacities.includes(msg.maxPlayers)) return failure(ws, 'CAPACITY', 'Elige 2, 4, 6 u 8 jugadores.');
           if (rooms.size >= 100) return failure(ws, 'LIMIT', 'El servidor ya tiene demasiadas salas.');
           let code;
-          do { code = randomBytes(5).toString('hex').toUpperCase(); } while (rooms.has(code));
+          do { code = randomBytes(3).toString('hex').slice(0, 5).toUpperCase(); } while (rooms.has(code));
           room = { code, players: Array(msg.maxPlayers).fill(null), hostSlot: 0, stage: 0,
             match: null, standings: null, clock: 0, updated: Date.now() };
           rooms.set(code, room);

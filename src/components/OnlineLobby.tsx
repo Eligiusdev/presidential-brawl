@@ -35,7 +35,6 @@ function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
 export function OnlineLobby({ room, slot, send, leave }: {
   room: RoomState; slot: number; send: (message: object) => void; leave: () => void;
 }) {
-  const linkField = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<RegionFilter>('all');
   const [copied, setCopied] = useState(false);
   const drag = useRef<{ x: number; id: number } | null>(null);
@@ -71,25 +70,13 @@ export function OnlineLobby({ room, slot, send, leave }: {
       ] as const
     : [['Signature', info.sigName]] as const, [moves, info]);
 
-  const picked = useMemo(() => room.players
-    .map((p, i) => {
-      if (!p?.fighterId) return null;
-      const fighter = roster.find(f => f.id === p.fighterId);
-      return fighter ? { slot: i, color: p.color || '#94a3b8', fighter, ready: p.ready, me: i === slot } : null;
-    })
-    .filter((x): x is { slot: number; color: string; fighter: PresidentData; ready: boolean; me: boolean } => Boolean(x)),
-    [room.players, roster]);
-
   const pick = (fighterId: string) => {
     sound.uiClick();
     send({ type: 'select', fighterId });
   };
 
   const copy = async () => {
-    try {
-      if (!navigator.clipboard) throw Error();
-      await navigator.clipboard.writeText(url.href);
-    } catch { linkField.current?.select(); }
+    try { await navigator.clipboard.writeText(url.href); } catch { /* sin permiso de portapapeles */ }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   };
@@ -102,6 +89,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
     send({ type: 'stage', stage: next });
   };
   const stage = STAGES_DATA[room.stage] || STAGES_DATA[0];
+  const stageArt = stageArtUrl(stage.id, 'day');
 
   const onDragStart = (e: React.PointerEvent) => {
     if (!host) return;
@@ -156,14 +144,17 @@ export function OnlineLobby({ room, slot, send, leave }: {
     <header className="ob-topbar">
       <div className="ob-brand">
         <Swords className="h-5 w-5 text-[#ffcc33]" aria-hidden />
-        <div>
+        <div className="ob-brand-text">
           <h2>{room.maxPlayers === 2 ? 'Duelo' : room.maxPlayers === 8 ? 'Gran Campal' : 'Campal'} en línea</h2>
-          <p>Sala <b>{room.code}</b> · <span style={{ color: self?.color }}>J{slot + 1}</span>{host ? ' · Anfitrión' : ''}</p>
+          <p><span style={{ color: self?.color }}>J{slot + 1}</span>{host ? ' · Anfitrión' : ''}</p>
         </div>
       </div>
+      <div className="ob-room-code" aria-label={`Código de sala ${room.code}`}>
+        <span className="ob-room-label">Sala</span>
+        <strong className="ob-room-value">{room.code}</strong>
+      </div>
       <div className="ob-top-actions">
-        <input ref={linkField} readOnly aria-label="Enlace de invitación" value={url.href} onFocus={e => e.target.select()} className="ob-invite" />
-        <button type="button" onClick={() => void copy()}><Copy className="h-4 w-4" />{copied ? 'Copiado' : 'Invitar'}</button>
+        <button type="button" className="ob-invite-btn" onClick={() => void copy()}><Copy className="h-4 w-4" />{copied ? 'Copiado' : 'Copiar invitación'}</button>
         <button type="button" onClick={leave}><LogOut className="h-4 w-4" />Salir</button>
       </div>
     </header>
@@ -177,7 +168,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
           <div className="ob-stage-slide"
             onPointerDown={onDragStart} onPointerUp={onDragEnd} onPointerCancel={onDragEnd}
             style={{ touchAction: host ? 'pan-y' : 'auto', cursor: host ? 'grab' : 'default' }}>
-            <img src={stageArtUrl(stage.id, 'day')} alt="" draggable={false} />
+            <img src={stageArt} alt="" draggable={false} />
             <div className="ob-stage-slide-meta">
               <b>{stage.name}</b>
               <small>{stage.city} · {room.stage + 1}/{stageCount}</small>
@@ -190,34 +181,21 @@ export function OnlineLobby({ room, slot, send, leave }: {
           </div>
         </div>
 
-        <div className="ob-character-card"
-          style={{
-            backgroundImage: infoArt ? `linear-gradient(180deg,rgba(5,9,16,.08) 0%,rgba(5,9,16,.18) 30%,rgba(6,11,20,.78) 60%,rgba(7,12,22,.98) 100%), url("${infoArt}selection.webp")` : undefined,
-            ['--accent' as any]: info.palette.accent.base,
-          }}>
-          <div className="ob-hero-top">
-            <span className="ob-tag">{self?.fighterId ? 'Tu selección' : 'Elige tu luchador'}</span>
-            {self?.ready && <span className="ob-tag ready"><Check className="h-3 w-3" />Listo</span>}
+        <div className="ob-character-card" style={{ ['--accent' as any]: info.palette.accent.base }}>
+          <div className="ob-card-bg" aria-hidden>
+            <div className={`ob-bg-stage${infoArt ? ' blend' : ''}`} style={{ backgroundImage: `url("${stageArt}")` }} />
+            {infoArt && <div className="ob-bg-char" style={{ backgroundImage: `url("${infoArt}selection.webp")` }} />}
           </div>
           <div className="ob-hero-art">
-            {picked.length > 0 ? picked.map(p => (
-              <div key={p.slot} className={`ob-hero-fighter ${p.me ? 'me' : ''} ${p.ready ? 'ready' : ''}`}
-                style={{
-                  left: `${((p.slot + 1) / (room.maxPlayers + 1)) * 100}%`,
-                  zIndex: p.me ? 3 : 2,
-                  ['--pc' as any]: p.color,
-                  transform: `translateX(-50%) scale(${p.me ? 1 : 0.9})`,
-                }}>
-                <div className="ob-hero-fighter-badge">
-                  <span style={{ background: p.color }}>J{p.slot + 1}</span>{p.me ? <em>Tú</em> : null}{p.ready ? <Check className="h-3 w-3" /> : null}
-                </div>
-                <FighterPreview president={p.fighter} selected={p.me || p.ready} large />
-              </div>
-            )) : <div className="ob-hero-fighter solo" style={{ left: '50%', transform: 'translateX(-50%)' }}>
-              <FighterPreview president={info} selected large />
-            </div>}
+            <div className="ob-hero-fighter me solo">
+              <FighterPreview president={info} selected={Boolean(self?.fighterId)} large />
+            </div>
           </div>
           <div className="ob-char-info">
+            <div className="ob-hero-tags">
+              <span className="ob-tag">{self?.fighterId ? 'Tu selección' : 'Elige tu luchador'}</span>
+              {self?.ready && <span className="ob-tag ready"><Check className="h-3 w-3" />Listo</span>}
+            </div>
             <div className="ob-hero-name">
               <h3>{info.name}</h3>
               <p>{info.title} · {info.role}</p>

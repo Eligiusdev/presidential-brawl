@@ -4,6 +4,9 @@ import { fighterArtPath, paintSprite } from '../engine/fighterSprites';
 import type { PresidentData } from '../types/game';
 
 type Props = { president: PresidentData; selected: boolean; large?: boolean };
+type Clip = 'guard' | 'walk' | 'jab' | 'slash' | 'up' | 'down' | 'victory' | 'rage' | 'ultimate' | 'jump';
+
+const ACTIONS: Clip[] = ['jab', 'slash', 'up', 'down', 'walk', 'victory', 'rage', 'ultimate', 'jump'];
 
 export function FighterPreview(props: Props) {
   return <PreviewArt key={props.president.id} {...props} />;
@@ -22,20 +25,45 @@ function PreviewArt({ president, selected, large = false }: Props) {
     let raf = 0;
     let hasDrawn = false;
     const start = performance.now();
+    let clip: Clip = 'guard';
+    let clipStart = start;
+    let nextActionAt = start + 1800 + Math.random() * 2600;
+
     const draw = (now: number) => {
       const tick = Math.floor((now - start) * 0.06);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
       if (path) {
+        if (large) {
+          if (clip === 'guard' && now >= nextActionAt) {
+            clip = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+            clipStart = now;
+            nextActionAt = now + 1200 + Math.random() * 1000;
+          } else if (clip !== 'guard' && now - clipStart > 1100) {
+            clip = 'guard';
+            clipStart = now;
+            nextActionAt = now + 2200 + Math.random() * 3200;
+          }
+        }
+
+        const tickClip = clip === 'guard' ? tick : Math.floor((now - clipStart) * 0.06);
         ctx.save();
-        ctx.translate(canvas.width * 0.48, canvas.height * 0.94);
-        const drawn = paintSprite(ctx, president, 'guard', tick, 1, canvas.height * 0.86 / 74);
+        ctx.translate(canvas.width * 0.5, canvas.height * 0.95);
+        let drawn = paintSprite(ctx, president, clip, tickClip, 1, canvas.height * 0.9 / 74);
+        if (!drawn && clip !== 'guard') {
+          clip = 'guard';
+          clipStart = now;
+          nextActionAt = now + 2200 + Math.random() * 3200;
+          drawn = paintSprite(ctx, president, 'guard', tick, 1, canvas.height * 0.9 / 74);
+        }
         ctx.restore();
         if (drawn && !hasDrawn) {
           hasDrawn = true;
           setReady(true);
         }
       } else {
-        renderCharacterPreview(canvas, president, 'idle', tick, 1);
+        const pose = large && Math.floor((now - start) / 2600) % 5 === 2 ? 'sig' : 'idle';
+        renderCharacterPreview(canvas, president, pose, tick, 1);
       }
       if (selected || large) raf = requestAnimationFrame(draw);
     };
@@ -51,7 +79,7 @@ function PreviewArt({ president, selected, large = false }: Props) {
 
   return <div className={`relative ${size}`}>
     {path && !ready && <img src={path + 'thumb.webp'} alt="" className="absolute inset-0 h-full w-full object-contain" />}
-    <canvas ref={ref} width={large ? 280 : 112} height={large ? 232 : 112}
+    <canvas ref={ref} width={large ? 360 : 112} height={large ? 320 : 112}
       aria-label={president.name + ' en guardia'} className="block h-full w-full object-contain" />
   </div>;
 }

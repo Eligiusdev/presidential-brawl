@@ -543,24 +543,29 @@
   radial-gradient(900px 500px at 15% 0%,#1b2d52 0%,transparent 60%),
   radial-gradient(700px 400px at 90% 10%,#2a1f4a 0%,transparent 55%),
   linear-gradient(180deg,#0a1020,#060912 70%);padding:10px 12px;overflow:hidden;font-family:var(--font-sans,system-ui)}
-.ob-topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 4px 10px;border-bottom:1px solid rgba(120,160,220,.18)}
-.ob-brand{display:flex;align-items:center;gap:10px}
-.ob-brand h2{font:800 clamp(1rem,2.2vw,1.35rem) var(--font-display,system-ui);text-transform:uppercase;letter-spacing:.06em;margin:0}
+.ob-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 4px 10px;border-bottom:1px solid rgba(120,160,220,.18)}
+.ob-brand{display:flex;align-items:center;gap:10px;min-width:0}
+.ob-brand-text{min-width:0}
+.ob-brand h2{font:800 clamp(.95rem,2vw,1.25rem) var(--font-display,system-ui);text-transform:uppercase;letter-spacing:.06em;margin:0}
 .ob-brand p{margin:0;font-size:12px;color:#9bb3d4}
-.ob-top-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ob-room-code{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 16px;border-radius:10px;border:1px solid rgba(255,204,51,.35);background:linear-gradient(180deg,rgba(255,204,51,.12),rgba(255,204,51,.04));box-shadow:0 0 18px rgba(255,204,51,.08)}
+.ob-room-label{font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#d7c07a;line-height:1}
+.ob-room-value{font:900 clamp(1.4rem,3vw,2rem) var(--font-display,ui-monospace,monospace);letter-spacing:.22em;color:#ffcc33;line-height:1.05;text-shadow:0 0 16px rgba(255,204,51,.25)}
+.ob-top-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .ob-top-actions button{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid #33486d;background:#152238;color:#eaf2ff;font-weight:700;font-size:12px;cursor:pointer}
 .ob-top-actions button:hover{border-color:#5b7bb0;background:#1b2c46}
-.ob-invite{min-width:140px;max-width:260px;flex:1 1 140px;background:#0c1524;border:1px solid #2f4466;color:#cfe2ff;border-radius:8px;padding:7px 10px;font-size:12px}
+.ob-invite-btn{border-color:#5a4a1f !important;background:#2a2416 !important;color:#ffdd73 !important}
+.ob-invite-btn:hover{border-color:#8a6f2a !important;background:#352d18 !important}
 
-.ob-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(360px,1.5fr) minmax(270px,.85fr);gap:10px;padding-top:10px}
+.ob-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:10px;padding-top:10px}
 
-/* Preview: players overlay on left, stage carousel top-right */
+/* Preview: split background (left stage, right character), players overlay left column */
 .ob-preview{display:flex;flex-direction:column;min-height:0;position:relative}
-.ob-players-overlay{position:absolute;top:10px;left:10px;z-index:5;display:flex;flex-direction:column;gap:6px;width:min(420px,52%);background:none;border:none;padding:0}
+.ob-players-overlay{position:absolute;top:10px;left:10px;z-index:5;display:flex;flex-direction:column;gap:6px;width:250px;max-height:calc(100% - 20px);overflow:auto;background:none;border:none;padding:0}
 .ob-players-overlay .ob-panel-title{margin:0;padding:0 2px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
-.ob-players-overlay .ob-slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px}
+.ob-players-overlay .ob-slots{display:flex;flex-direction:column;gap:6px}
 
-.ob-stage-carousel{position:absolute;top:10px;right:10px;z-index:5;display:grid;grid-template-columns:28px 1fr 28px;align-items:center;gap:6px;width:min(340px,60%);padding:0;background:none;border:none;box-shadow:none;backdrop-filter:none}
+.ob-stage-carousel{position:absolute;top:10px;right:10px;z-index:5;display:grid;grid-template-columns:28px 1fr 28px;align-items:center;gap:6px;width:min(320px,42%);padding:0;background:none;border:none;box-shadow:none;backdrop-filter:none}
 .ob-stage-nav{width:28px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(12,20,36,.55);color:#eaf2ff;display:grid;place-items:center;cursor:pointer}
 .ob-stage-nav:disabled{opacity:.35;cursor:default}
 .ob-stage-slide{position:relative;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.18);aspect-ratio:16/7;background:#0e182a;user-select:none}
@@ -572,20 +577,23 @@
 .ob-stage-dot{width:5px;height:5px;border-radius:999px;background:rgba(255,255,255,.25)}
 .ob-stage-dot.on{width:14px;background:#ffcc33}
 
-.ob-character-card{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid #31486f;border-radius:14px;overflow:hidden;background:linear-gradient(160deg,#16243d,#0c1526) center/cover;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),0 20px 50px #0006}
-.ob-character-card::after{content:"";position:absolute;inset:auto -20% -30% -20%;height:55%;background:radial-gradient(closest-side,var(--accent,#3b82f6),transparent);opacity:.16;filter:blur(30px);pointer-events:none}
-.ob-hero-top{position:relative;z-index:2;display:flex;gap:6px;padding:10px 10px 0;max-width:calc(100% - 360px);margin-left:auto;justify-content:flex-end}
+.ob-character-card{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid #31486f;border-radius:14px;overflow:hidden;background:#0c1526;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),0 20px 50px #0006}
+.ob-card-bg{position:absolute;inset:0;z-index:0}
+.ob-bg-stage{position:absolute;inset:0;background:center/cover no-repeat}
+.ob-bg-stage.blend{inset:0 38% 0 0;-webkit-mask-image:linear-gradient(to right,#000 72%,transparent 100%);mask-image:linear-gradient(to right,#000 72%,transparent 100%)}
+.ob-bg-char{position:absolute;inset:0 0 0 38%;background:right center/cover no-repeat;-webkit-mask-image:linear-gradient(to left,#000 72%,transparent 100%);mask-image:linear-gradient(to left,#000 72%,transparent 100%)}
+
+.ob-hero-art{position:relative;z-index:1;flex:1 1 0;min-height:360px;display:flex;align-items:flex-end;justify-content:center;padding:80px 20px 0}
+.ob-hero-fighter{position:relative;display:flex;flex-direction:column;align-items:center;pointer-events:none;transform-origin:bottom center}
+.ob-hero-fighter.solo{transform:scale(1.65)}
+.ob-hero-fighter .fighter-showcase-body,.ob-hero-fighter canvas,.ob-hero-fighter img{max-height:100%;width:auto;max-width:100%;filter:drop-shadow(0 18px 28px rgba(0,0,0,.55))}
+.ob-hero-fighter.me .fighter-showcase-body,.ob-hero-fighter.me canvas,.ob-hero-fighter.me img{filter:drop-shadow(0 0 22px var(--accent,#ffcc33)) drop-shadow(0 18px 28px rgba(0,0,0,.55))}
+
+.ob-char-info{position:relative;z-index:2;padding:8px 14px 14px;background:linear-gradient(180deg,rgba(8,13,24,0) 0%,rgba(8,13,24,.55) 18%,rgba(8,13,24,.92) 100%);border-top:1px solid rgba(120,160,220,.12)}
+.ob-hero-tags{display:flex;gap:6px;margin-bottom:4px}
 .ob-tag{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px;border-radius:999px;background:rgba(10,16,30,.7);border:1px solid rgba(255,255,255,.12);color:#ffdd73}
 .ob-tag.ready{color:#86efac;border-color:rgba(74,222,128,.4);display:inline-flex;align-items:center;gap:4px}
-.ob-hero-art{position:relative;z-index:1;flex:1 1 0;min-height:150px;padding:90px 6px 0;overflow:visible}
-.ob-hero-fighter{position:absolute;bottom:0;display:flex;flex-direction:column;align-items:center;transform-origin:bottom center;pointer-events:none}
-.ob-hero-fighter .fighter-showcase-body,.ob-hero-fighter canvas,.ob-hero-fighter img{max-height:100%;width:auto;max-width:100%;filter:drop-shadow(0 18px 28px rgba(0,0,0,.55))}
-.ob-hero-fighter.me .fighter-showcase-body,.ob-hero-fighter.me canvas,.ob-hero-fighter.me img{filter:drop-shadow(0 0 18px var(--pc,#ffcc33)) drop-shadow(0 18px 28px rgba(0,0,0,.55))}
-.ob-hero-fighter-badge{display:inline-flex;align-items:center;gap:4px;margin-bottom:2px;font-size:10px;font-weight:800;color:#fff;text-shadow:0 1px 4px #000}
-.ob-hero-fighter-badge span{padding:1px 7px;border-radius:999px;color:#081018;box-shadow:0 1px 5px #0008}
-.ob-hero-fighter-badge em{font-style:normal;color:#dff0ff}
-.ob-char-info{position:relative;z-index:2;padding:8px 12px 12px;background:linear-gradient(180deg,rgba(8,13,24,0) 0%,rgba(8,13,24,.55) 18%,rgba(8,13,24,.9) 100%);border-top:1px solid rgba(120,160,220,.12)}
-.ob-hero-name h3{margin:0;font:900 clamp(1.3rem,2.8vw,2rem) var(--font-display,system-ui);line-height:1;text-transform:uppercase;letter-spacing:.02em;text-shadow:0 2px 18px #000}
+.ob-hero-name h3{margin:0;font:900 clamp(1.4rem,3vw,2.2rem) var(--font-display,system-ui);line-height:1;text-transform:uppercase;letter-spacing:.02em;text-shadow:0 2px 18px #000}
 .ob-hero-name p{margin:2px 0 0;color:#cfe2ff;font-size:12px}
 .ob-quote{margin:4px 0 6px;font-style:italic;color:#a9bfdc;font-size:11px;border-left:3px solid var(--accent,#ffcc33);padding-left:8px}
 .ob-info-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:8px 12px;align-items:start}
@@ -603,8 +611,8 @@
 .ob-move.ult .ob-move-key{color:#ffcc33}
 .ob-move.ult .ob-move-name{color:#ffe08a}
 
-/* Player slots (shared) - transparent overlay style */
-.ob-panel-title{display:flex;align-items:center;gap:6px;margin:0 0 8px;font:800 12px var(--font-display,system-ui);text-transform:uppercase;letter-spacing:.1em;color:#cfe2ff}
+/* Player slots - transparent overlay style */
+.ob-panel-title{display:flex;align-items:center;gap:6px;margin:0;font:800 12px var(--font-display,system-ui);text-transform:uppercase;letter-spacing:.1em;color:#cfe2ff}
 .ob-panel-title span{margin-left:auto;color:#ffcc33}
 .ob-slots{display:flex;flex-direction:column;gap:6px}
 .ob-slot{display:grid;grid-template-columns:40px 1fr;gap:8px;align-items:center;padding:5px 6px;border-radius:10px;border:none;background:rgba(10,16,28,.45) center/cover no-repeat;position:relative;overflow:hidden;backdrop-filter:blur(2px)}
@@ -624,15 +632,15 @@
 .ob-slot-state{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#8fa9c9}
 .ob-slot-state.on{color:#86efac;font-weight:700}
 
-/* Right: roster grid + actions below */
+/* Right: roster grid (3 columns) + actions below */
 .ob-roster{display:flex;flex-direction:column;min-height:0;border:1px solid #283a5c;border-radius:14px;background:linear-gradient(180deg,#0f192c,#0b1322);overflow:hidden}
-.ob-roster-head{padding:8px 10px 6px;border-bottom:1px solid #223252;background:linear-gradient(180deg,rgba(30,48,78,.35),transparent)}
-.ob-roster-head h3{margin:0 0 6px;font:800 12px var(--font-display,system-ui);text-transform:uppercase;letter-spacing:.12em;color:#eaf2ff}
-.ob-filters{display:flex;flex-wrap:wrap;gap:4px}
-.ob-filters button{border:1px solid #2a3b59;background:#121d31;color:#a9c0de;border-radius:999px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer}
+.ob-roster-head{padding:8px 8px 6px;border-bottom:1px solid #223252;background:linear-gradient(180deg,rgba(30,48,78,.35),transparent)}
+.ob-roster-head h3{margin:0 0 6px;font:800 11px var(--font-display,system-ui);text-transform:uppercase;letter-spacing:.12em;color:#eaf2ff}
+.ob-filters{display:flex;flex-wrap:wrap;gap:3px}
+.ob-filters button{border:1px solid #2a3b59;background:#121d31;color:#a9c0de;border-radius:999px;padding:2px 7px;font-size:9px;font-weight:700;cursor:pointer}
 .ob-filters button[aria-pressed="true"]{color:#081018;background:#ffcc33;border-color:#ffcc33}
-.ob-grid{flex:1;min-height:0;overflow:auto;padding:8px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-content:start}
-.ob-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;border-radius:10px;border:1px solid #2a3956;background:linear-gradient(180deg,#16233a,#10192a);color:#eaf2ff;cursor:pointer;transition:border-color .12s,box-shadow .12s}
+.ob-grid{flex:1;min-height:0;overflow:auto;padding:6px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-content:start}
+.ob-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px;border-radius:10px;border:1px solid #2a3956;background:linear-gradient(180deg,#16233a,#10192a);color:#eaf2ff;cursor:pointer;transition:border-color .12s,box-shadow .12s}
 .ob-tile.taken{border-color:var(--ring,#4a648f);box-shadow:0 0 0 1px color-mix(in srgb,var(--ring,#4a648f) 55%,transparent),0 0 14px color-mix(in srgb,var(--ring,#4a648f) 25%,transparent)}
 .ob-tile.mine{border-color:#ffcc33;box-shadow:0 0 0 2px #ffcc3344,0 0 20px #ffcc3328;background:linear-gradient(180deg,#2a2414,#161b26)}
 .ob-tile-art{width:100%;aspect-ratio:1;border-radius:7px;background:radial-gradient(120% 100% at 50% 0%,#24365a,#0d1524);overflow:hidden;display:grid;place-items:center}
@@ -640,8 +648,8 @@
 .ob-tile-name{font-size:10px;font-weight:700;text-align:center;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ob-tile-badges{position:absolute;top:3px;left:3px;right:3px;display:flex;flex-wrap:wrap;gap:2px;justify-content:center;pointer-events:none}
 .ob-badge{font-size:9px;font-weight:900;color:#071018;padding:1px 5px;border-radius:999px;box-shadow:0 1px 4px #0009}
-.ob-tile-lock{position:absolute;bottom:20px;right:4px;width:16px;height:16px;border-radius:999px;background:#ffcc33;color:#081018;display:grid;place-items:center;box-shadow:0 2px 6px #000a}
-.ob-roster-actions{padding:8px 10px 10px;border-top:1px solid #223252;background:#0d1626;display:flex;flex-direction:column;gap:8px}
+.ob-tile-lock{position:absolute;bottom:18px;right:4px;width:16px;height:16px;border-radius:999px;background:#ffcc33;color:#081018;display:grid;place-items:center;box-shadow:0 2px 6px #000a}
+.ob-roster-actions{padding:8px 8px 10px;border-top:1px solid #223252;background:#0d1626;display:flex;flex-direction:column;gap:8px}
 .ob-ready{min-height:44px;border-radius:10px;border:1px solid #5a4a1f;background:linear-gradient(180deg,#2d2616,#1f1a10);color:#ffd966;font:800 13px var(--font-display,system-ui);letter-spacing:.08em;cursor:pointer}
 .ob-ready.on{border-color:#256b43;background:linear-gradient(180deg,#163628,#10261c);color:#86efac}
 .ob-ready:disabled{opacity:.45;cursor:not-allowed}
@@ -650,32 +658,31 @@
 .ob-status{margin:0;text-align:center;font-size:12px;color:#9ab2d1}
 
 @media (max-width:1100px){
-  .ob-main{grid-template-columns:minmax(300px,1.3fr) minmax(250px,.85fr)}
+  .ob-main{grid-template-columns:minmax(0,1fr) 270px}
   .ob-info-grid{grid-template-columns:1fr}
-  .ob-stage-carousel{width:min(300px,62%)}
-  .ob-players-overlay{width:min(360px,56%)}
+  .ob-stage-carousel{width:min(280px,42%)}
+  .ob-hero-art{min-height:320px}
+  .ob-hero-fighter.solo{transform:scale(1.45)}
 }
 @media (max-width:900px){
   .ob-lobby{overflow:auto}
   .ob-main{grid-template-columns:1fr;overflow:visible}
-  .ob-preview{min-height:520px}
+  .ob-preview{min-height:560px}
   .ob-roster{min-height:420px}
-  .ob-players-overlay{width:min(360px,92%)}
-  .ob-hero-top{max-width:100%;margin-left:0;justify-content:flex-start}
-  .ob-hero-art{padding-top:160px}
-  .ob-stage-carousel{width:min(360px,92%);top:auto;bottom:auto}
+  .ob-players-overlay{width:240px}
+  .ob-hero-art{padding:90px 10px 0;min-height:320px}
+  .ob-hero-fighter.solo{transform:scale(1.45)}
+  .ob-stage-carousel{width:min(300px,50%)}
   .ob-info-grid{grid-template-columns:1.1fr 1fr}
-  .ob-grid{max-height:none}
+  .ob-grid{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}
 }
-@media (max-width:520px){
-  .ob-players-overlay{position:relative;top:auto;left:auto;width:100%;margin:8px 8px 0;order:0}
-  .ob-players-overlay .ob-slots{grid-template-columns:1fr}
+@media (max-width:700px){
+  .ob-topbar{flex-wrap:wrap}
+  .ob-room-code{order:3;width:100%;flex-direction:row;gap:10px;padding:6px 12px}
+  .ob-players-overlay{position:relative;top:auto;left:auto;width:100%;max-height:none;margin:8px 8px 0}
   .ob-stage-carousel{position:relative;top:auto;right:auto;width:100%;margin:8px 8px 0}
-  .ob-character-card{display:flex}
-  .ob-hero-top{max-width:100%}
-  .ob-hero-art{padding-top:8px;min-height:180px}
+  .ob-hero-art{padding:10px 10px 0;min-height:280px}
+  .ob-hero-fighter.solo{transform:scale(1.25)}
   .ob-info-grid{grid-template-columns:1fr}
-  .ob-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .ob-top-actions .ob-invite{display:none}
 }
 
