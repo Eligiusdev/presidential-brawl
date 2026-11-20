@@ -163,6 +163,7 @@
   overflow: hidden;
   background: #0c1528;
 }
+.apex-arena-backdrop { display: none; }
 .apex-frame-menu { width: 100%; height: 100%; }
 .apex-menu {
   background: radial-gradient(ellipse at 70% 0%, #243b56 0%, #111d30 44%, #090f1d 100%);
@@ -364,6 +365,33 @@
   .apex-frame-combat .match-toolbar > :nth-child(2) { order: 3; flex-basis: 100%; }
   .apex-frame-combat .match-toolbar > :nth-child(2):empty { display: none; }
 }
+@media (orientation: landscape) and (max-height: 520px),
+       (orientation: landscape) and (any-pointer: coarse) {
+  .apex-frame-combat .apex-arena-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: var(--arena-day) center 55% / cover no-repeat;
+    filter: blur(7px);
+    transform: scale(1.035);
+  }
+  .apex-arena-backdrop::before,
+  .apex-arena-backdrop::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .apex-arena-backdrop::before {
+    background: var(--arena-night) center 55% / cover no-repeat;
+    opacity: var(--arena-night-mix, 0);
+  }
+  .apex-arena-backdrop::after {
+    background: linear-gradient(#070d19d9, #0b142456 50%, #070d198e);
+  }
+  .apex-frame-combat .apex-arena { position: relative; }
+}
+
 @media (orientation: landscape) and (max-height: 520px) {
   .match-fighter-card .match-portrait { width: 25px; height: 25px; }
   .match-fighter-card .match-fighter-badges { overflow: hidden; max-height: 18px; }

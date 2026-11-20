@@ -19,6 +19,7 @@ import {
 import { PRESIDENTS_DATA } from './data/presidents';
 import { STAGES_DATA } from './data/stages';
 import { GameEngine } from './engine/gameEngine';
+import { stageArtUrl, stageNightMix } from './engine/stageAtmosphere';
 import {
   CampaignState,
   GameConfig,
@@ -80,6 +81,7 @@ export default function App() {
 
   const roster = useMemo(() => [...PRESIDENTS_DATA, ...customPresidents], [customPresidents]);
 
+  const arenaBackdropRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
   const screenRef = useRef<GameScreenState>(screen);
@@ -377,6 +379,8 @@ export default function App() {
     let hudTick = 0;
     let halfSpeedToggle = 0;
 
+    let backdropStage = '';
+    let backdropNight = -1;
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
       const rawDt = now - last;
@@ -404,6 +408,21 @@ export default function App() {
           } else {
             engine.step(false);
           }
+        }
+      }
+
+      const backdrop = arenaBackdropRef.current;
+      if (backdrop) {
+        const stageId = engine.stage.id;
+        const night = stageNightMix(engine.config.video.stageTime, engine.T, engine.stageNightStart);
+        if (stageId !== backdropStage) {
+          backdropStage = stageId;
+          backdrop.style.setProperty('--arena-day', `url("${stageArtUrl(stageId, 'day')}")`);
+          backdrop.style.setProperty('--arena-night', `url("${stageArtUrl(stageId, 'night')}")`);
+        }
+        if (night !== backdropNight) {
+          backdropNight = night;
+          backdrop.style.setProperty('--arena-night-mix', String(night));
         }
       }
 
@@ -463,6 +482,7 @@ export default function App() {
         onHostRoom={onHostRoom} hideLaunch={screen !== 'TITLE' && screen !== 'SELECT'} canvas={canvasRef} onInput={(actions) => engineRef.current?.setRemoteActions(actions)} />
       {/* 16:9 Isolated Pixel-Art Game Stage */}
       <div className={`apex-frame ${['TITLE', 'SELECT', 'CUSTOMIZE'].includes(screen) ? 'apex-frame-menu' : ''} ${['PLAYING', 'PAUSED', 'REPLAY'].includes(screen) ? 'apex-frame-combat' : ''} ${crtClass}`}>
+        <div ref={arenaBackdropRef} className="apex-arena-backdrop" aria-hidden="true" />
         <canvas
           ref={canvasRef}
           width={960}

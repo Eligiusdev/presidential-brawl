@@ -2872,13 +2872,17 @@ export class GameEngine {
     }
   }
 
+  get stageNightStart() {
+    return stageStartsAtNight(this.replayData?.seed ?? this.currentMatchMeta?.seed ?? 0);
+  }
+
   render(targetCanvas: HTMLCanvasElement) {
     const world: WorldRenderContext = {
       T: this.T,
       W,
       H,
       stage: this.stage,
-      stageNightStart: stageStartsAtNight(this.replayData?.seed ?? this.currentMatchMeta?.seed ?? 0),
+      stageNightStart: this.stageNightStart,
       main: this.main,
       plats: this.plats,
       hzPhase: this.getHazardPhase(),
