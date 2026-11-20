@@ -1,3 +1,4 @@
+import { ultimateText } from '../engine/presidentUltimates';
 import { TouchControls } from './TouchControls';
 import {movesFor} from '../combat/roster.js';
 import { ChevronLeft, ChevronRight, Code2, Download, Film, Landmark, Pause, Play, RotateCcw, Settings, Volume2, VolumeX, X } from 'lucide-react';
@@ -623,20 +624,23 @@ export function GameHUD({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {hud.fighters.map((f) => {
                 const d = roster.find((p) => p.id === f.id) || roster[0];
+                const moves = movesFor(d);
+                const ultimate = ultimateText(d);
                 return (
                   <div key={f.pi} className="rounded-lg border border-[#252f47] bg-[#151c2e] p-4 space-y-2 text-xs">
                     <div className="font-display text-sm font-bold text-[#ffcc33]">
                       {f.pi === 0 ? 'J1' : f.isAI ? 'IA' : 'J2'} · {d.name}
                     </div>
                     <p className="text-[#cbd5e1]">
-                      <strong className="text-white">{d.sigName}</strong>
-                      {d.isCustom ? ' · '+d.ult.sigDesc : ' · ↑ '+movesFor(d)?.specialUp().name+' · ↓ '+movesFor(d)?.specialDown().name}
+                      {moves && <><strong className="text-white">Ligero</strong> · {moves.neutralAttack().name}<br /></>}
+                      <strong className="text-white">{moves?.specialNeutral().name ?? d.sigName}</strong>
+                      {d.isCustom ? ' · '+d.ult.sigDesc : ' · ↑ '+moves?.specialUp().name+' · ↓ '+moves?.specialDown().name}
                     </p>
                     <p className="text-[#cbd5e1]">
-                      <strong className="text-white">Ultimate ({d.ult.name}):</strong> {d.ult.ultDesc}
+                      <strong className="text-white">Ultimate ({ultimate.name}):</strong> {ultimate.ultDesc}
                     </p>
                     <p className="text-[#94a3b8]">
-                      <strong className="text-[#38bdf8]">Cómo esquivarlo:</strong> {d.ult.dodgeTip}
+                      <strong className="text-[#38bdf8]">Cómo esquivarlo:</strong> {ultimate.dodgeTip}
                     </p>
                   </div>
                 );

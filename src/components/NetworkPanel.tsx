@@ -163,7 +163,7 @@ export function NetworkPanel({canvas,onInput,hideLaunch,matchActive,onHostRoom,s
   return <section className={`network-panel ${session?.role==='guest'&&lobby.playing?'network-controller':''}`} aria-label="Sala en línea">
     <div className="network-heading"><strong>APEX · SALA EN LÍNEA</strong>{session?.role!=='guest'&&<button aria-label="Cerrar panel" onClick={()=>setOpen(false)}>×</button>}</div>
     {!session?<><p>Crea un duelo para dos jugadores y comparte el enlace con tu rival.</p><button disabled={busy} onClick={()=>connect(true)}>Crear sala</button><label>Código de sala<input value={code} maxLength={10} onChange={e=>setCode(e.target.value.toUpperCase())} autoCapitalize="characters" placeholder="Código de 10 caracteres"/></label><button disabled={busy||code.trim().length!==10} onClick={()=>connect(false)}>Conectar como J2</button></>:<>
-      <p>Sala <strong>{session.code}</strong> · {session.role==='host'?'Equipo principal':'Mando J2'}</p>
+      <p>Sala <strong>{session.code}</strong> · Mando J2</p>
 <><p>El anfitrión inicia la partida. Usa los controles táctiles o las flechas y U, I, O, M y /.</p>{image?<img src={image} alt="Partida en el equipo principal" draggable={false}/>:<p className="network-wait">Esperando imagen del equipo principal…</p>}<TouchControls inline onAction={press} /></>
       <button disabled={busy} onClick={leave}>Salir de la sala</button>
     </>}

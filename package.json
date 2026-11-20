@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test": "node --import tsx tests/movesets.mjs",
+    "test": "node --import tsx tests/movesets.mjs && node --import tsx tests/president-ultimates.mjs && node --import tsx tests/combat-balance.mjs",
     "start": "node server/index.mjs",
     "dev:server": "node --watch server/index.mjs --dev",
     "test:sprites": "node --import tsx tests/sprite-atlas.mjs && node --import tsx tests/sprite-replay.mjs && node --import tsx tests/roster-art.mjs",

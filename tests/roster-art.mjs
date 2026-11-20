@@ -54,11 +54,19 @@ for (const d of PRESIDENTS_DATA) {
     if (meta.image === 'atlas.png') for(const pickup of ['aim','fire','magazine','launcher','load','case']) {
       assert.ok(meta.animations[pickup],d.id+' '+pickup);
     }
-    const book=movesFor(d).book;
+    const book = movesFor(d, false, false, false).book;
+    const balanced = movesFor(d).book;
     for(const [slot,clip] of [['jab','jab'],['neutral','slash'],['up','up'],['down','down']]) {
       const move=book[slot];
       const ticks=meta.animations[clip].frames.reduce((sum,f)=>sum+f.ticks,0);
       assert.equal(ticks,move.effect==='hover'?120:move.dur,d.id+' '+slot);
+      const current = balanced[slot];
+      assert.equal(current.animationTiming.to[3], ticks, d.id + ' final del atlas');
+      const state = (t) => ({ atk: { spec: { ...current, k: slot === 'jab' ? 'l' : 'h',
+        downSpecial: slot === 'down', moveKind: slot === 'up' ? 'upSpec' : 'jab' }, t } });
+      assert.equal(spriteAction(state(current.frames.startup + 1), 0)[1],
+        current.animationTiming.to[1], d.id + ' sincronía del primer impacto');
+      assert.equal(spriteAction(state(current.dur), 0)[1], ticks, d.id + ' cierre de recuperación');
     }
     assert.equal(spriteAction({atk:{spec:{downSpecial:true,k:'h'},t:1}},1)[0],'down');
   }

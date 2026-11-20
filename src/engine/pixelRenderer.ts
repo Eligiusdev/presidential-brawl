@@ -1,3 +1,4 @@
+import { ultimatePoint, type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { stageArt, stageHazardColumns, stageNightMix } from './stageAtmosphere';
 import { paintCombatSprite, paintSprite, spritePortrait } from './fighterSprites';
 import { drawEffects, drawStrike, drawShot, shotTouches, strikeBox } from '../combat/effects.js';
@@ -79,6 +80,7 @@ export interface RenderFighterState {
       individual?: boolean; downSpecial?: boolean; effect?: string;
       moveKind?: string;
       dur: number;
+      animationTiming?: { from: number[]; to: number[] };
       heavy?: boolean;
       ph: Array<{ a: [number, number]; hb?: { fx: number; y: number; w: number; h: number }; fx?: string; armor?: boolean }>;
     };
@@ -129,6 +131,19 @@ export interface RenderParticle {
 }
 
 export interface RenderUltEffect {
+  dg?: number;
+  specialized?: {
+    ultimate: PresidentUltimate;
+    origin: UltimateOrigin;
+    point: { x: number; y: number };
+    box: { x: number; y: number; w: number; h: number };
+    contact: number;
+    originStock: number;
+    targetStock: number;
+    triggered: boolean;
+    active: boolean;
+    landed: boolean;
+  };
   t: number;
   dur: number;
   f: RenderFighterState;
@@ -193,13 +208,13 @@ export interface WorldRenderContext {
   crowd: CrowdState;
   crowdParticles: CrowdParticle[];
   ults: RenderUltEffect[];
-  cine: { t: number; f: RenderFighterState } | null;
-  telegraph: { t: number; zones: Array<{ x: number; y: number; w: number; h: number }> } | null;
+  cine: { t: number; f: RenderFighterState; name?: string; flash?: boolean } | null;
+  telegraph: { t: number; duration?: number; ultimateId?: string; aim?: { x: number; y: number }; zones: Array<{ x: number; y: number; w: number; h: number }> } | null;
   shake: number;
   bannerMsg: { t: string; l: number; m: number };
   floatTexts: Array<{ t: string; x: number; y: number; l: number; m: number }>;
   winnerPi: number | null;
-  strikes: Array<{x:number;y:number;w:number;h:number;color:string}>;
+  strikes: Array<{x:number;y:number;w:number;h:number;color:string;highlight?:string;direction?:number}>;
   hitboxes: Array<{ x: number; y: number; w: number; h: number; kind: string }>;
 }
 
@@ -3168,11 +3183,34 @@ export class PixelRenderer extends LegacyFighterGeometry {
     }
 
     if (world.cine) {
-      ctx.fillStyle = 'rgba(6, 8, 15, 0.72)';
+      ctx.fillStyle = world.cine.flash && world.cine.t < 3 ? 'rgba(255, 243, 207, 0.48)' : 'rgba(6, 8, 15, 0.72)';
       ctx.fillRect(-30, -30, W + 60, H + 60);
     }
     if (world.telegraph) {
-      const blink = world.telegraph.t % 6 < 3;
+      const { t, duration, ultimateId, aim, zones } = world.telegraph;
+      const blink = t % 6 < 3;
+      const aimBox = zones[0];
+      if (ultimateId === 'ult_simo' && aim && aimBox) {
+        ctx.save();
+        ctx.strokeStyle = '#91e8ff';
+        ctx.lineWidth = 1.6;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(sx(aim.x), sy(aim.y));
+        ctx.lineTo(sx(aimBox.x + aimBox.w / 2), sy(aimBox.y + aimBox.h / 2));
+        ctx.stroke();
+        ctx.restore();
+      } else if (ultimateId === 'ult_ricaurte' && aimBox) {
+        const fuse = Math.max(0, 1 - t / (duration ?? 39));
+        const x = sx(aimBox.x + aimBox.w / 2);
+        const y = sy(aimBox.y + aimBox.h / 2);
+        ctx.strokeStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(x, y, sw(28), -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * fuse);
+        ctx.stroke();
+        this.pxRect(ctx, x - 2, y - 2, 4, 4, blink ? '#fff3a0' : '#ef4444');
+      }
       for (const z of world.telegraph.zones) {
         ctx.fillStyle = blink ? 'rgba(255, 36, 36, 0.36)' : 'rgba(255, 36, 36, 0.16)';
         ctx.fillRect(sx(z.x), sy(z.y), sw(z.w), sw(z.h));
@@ -3207,7 +3245,21 @@ export class PixelRenderer extends LegacyFighterGeometry {
     ctx.save();
     ctx.translate(sx(0),sy(0)); ctx.scale(this.camZoom*W/1440,this.camZoom*H/810);
     for (const f of world.fighters) drawEffects(ctx,f);
-    for (const box of world.strikes) drawStrike(ctx,box);
+    for (const box of world.strikes) {
+      drawStrike(ctx, box);
+      if (box.highlight) {
+        ctx.save();
+        ctx.globalAlpha = .55;
+        ctx.strokeStyle = box.highlight;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo((box.direction ?? 1) > 0 ? box.x : box.x + box.w, box.y + box.h * .8);
+        ctx.quadraticCurveTo(box.x + box.w / 2, box.y - box.h * .35,
+          (box.direction ?? 1) > 0 ? box.x + box.w : box.x, box.y + box.h * .2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
     ctx.restore();
 
     if (cfg.video.showHitboxes) {
@@ -3363,7 +3415,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffffff';
       ctx.font = `900 ${Math.round(32 * ui)}px "Chakra Petch", system-ui`;
-      ctx.fillText(u.name.toUpperCase(), (1 - k) * -150, -4 * ui);
+      ctx.fillText((world.cine.name ?? world.cine.f.d.legacyUltimateName ?? u.name).toUpperCase(), (1 - k) * -150, -4 * ui, W * .9);
       ctx.fillStyle = world.cine.f.d.palette.accent.highlight;
       ctx.font = `bold ${Math.round(20 * ui)}px "Chakra Petch", system-ui`;
       ctx.fillText(`«${u.cry}»`, (1 - k) * 150, 26 * ui);
@@ -3411,6 +3463,100 @@ export class PixelRenderer extends LegacyFighterGeometry {
     const sx = (v: number) => this.sx(v);
     const sy = (v: number) => this.sy(v);
     const sw = (v: number) => this.sw(v);
+
+    const special = u.specialized;
+    if (special) {
+      const { ultimate, origin, point, box, active } = special;
+      const { spec, profile } = ultimate;
+      const [primary, highlight] = spec.colors;
+      const x = sx(point.x);
+      const y = sy(point.y);
+      const rx = sw(box.w) / 2;
+      const ry = sw(box.h) / 2;
+      ctx.save();
+      ctx.globalAlpha = active ? .75 : .24;
+      ctx.strokeStyle = highlight;
+      ctx.fillStyle = primary;
+      ctx.lineWidth = Math.max(1, sw(active ? 5 : 2));
+      if (spec.pattern === 'five_point_star_aerial_cuts_tricolor') {
+        const colors = [primary, '#2563eb', highlight];
+        for (let i = 1; i < profile.route.length; i++) {
+          const start = ultimatePoint(ultimate, origin, (i - 1) / (profile.route.length - 1));
+          const end = ultimatePoint(ultimate, origin, i / (profile.route.length - 1));
+          ctx.strokeStyle = colors[(i - 1) % colors.length];
+          ctx.beginPath();
+          ctx.moveTo(sx(start.x), sy(start.y));
+          ctx.lineTo(sx(end.x), sy(end.y));
+          ctx.stroke();
+        }
+        ctx.strokeStyle = highlight;
+      } else if (profile.route.length > 1) {
+        ctx.beginPath();
+        for (let i = 0; i < profile.route.length; i++) {
+          const node = ultimatePoint(ultimate, origin, i / (profile.route.length - 1));
+          if (i === 0) ctx.moveTo(sx(node.x), sy(node.y));
+          else ctx.lineTo(sx(node.x), sy(node.y));
+        }
+        ctx.stroke();
+      }
+      // The authored VFX key fixes the mote pattern for every replay and client.
+      let motif = 0;
+      for (let i = 0; i < spec.vfxKey.length; i++) motif = (Math.imul(motif, 31) + spec.vfxKey.charCodeAt(i)) >>> 0;
+      if (active) {
+        const count = 3 + motif % 6;
+        for (let i = 0; i < count; i++) {
+          const angle = (motif % 360) * Math.PI / 180 + i * 2 * Math.PI / count + u.t * .045;
+          const orbit = .6 + .17 * Math.sin(u.t * .15 + i);
+          const size = 2 + ((motif >>> (i * 3)) & 3);
+          this.pxRect(ctx, x + Math.cos(angle) * rx * orbit, y + Math.sin(angle) * ry * orbit,
+            size, size, i % 2 ? primary : highlight);
+        }
+      }
+      if (spec.id === 'ult_nyerere') {
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.ellipse(x, y, rx * (.53 + i * .23), ry * (.53 + i * .23), 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      if (spec.id === 'ult_macron') {
+        ctx.fillStyle = highlight;
+        for (let i = 0; i < 12; i++) {
+          const angle = i * Math.PI / 6 - Math.PI / 2;
+          this.pxRect(ctx, x + Math.cos(angle) * rx - 2, y + Math.sin(angle) * ry - 2, 4, 4, highlight);
+        }
+        ctx.fillStyle = primary;
+      }
+      ctx.beginPath();
+      if (profile.shape === 'orb' || profile.shape === 'ring') {
+        ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+      } else if (profile.shape === 'slash') {
+        ctx.moveTo(x - rx, y + ry);
+        ctx.quadraticCurveTo(x + rx * .3, y - ry, x + rx, y - ry * .76);
+        ctx.quadraticCurveTo(x + rx * .4, y + ry * .42, x - rx, y + ry);
+      } else if (profile.shape === 'beam') {
+        ctx.moveTo(x, y - ry);
+        ctx.lineTo(x + rx, y - ry * .64);
+        ctx.lineTo(x + rx * .52, y + ry);
+        ctx.lineTo(x - rx * .52, y + ry);
+        ctx.lineTo(x - rx, y - ry * .64);
+        ctx.closePath();
+      } else if (profile.shape === 'ground') {
+        ctx.moveTo(x - rx, y + ry);
+        ctx.lineTo(x - rx * .55, y - ry);
+        ctx.lineTo(x + rx * .34, y - ry * .7);
+        ctx.lineTo(x + rx, y + ry);
+        ctx.closePath();
+      } else {
+        ctx.rect(x - rx, y - ry, rx * 2, ry * 2);
+      }
+      ctx.globalAlpha *= .36;
+      ctx.fill();
+      ctx.globalAlpha = active ? .92 : .38;
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
 
     if (u.kind === 'muralla' && u.ty != null) {
       const X0 = sx(720 - 80);

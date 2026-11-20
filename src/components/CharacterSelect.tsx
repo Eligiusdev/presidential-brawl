@@ -1,3 +1,4 @@
+import { ultimateText } from '../engine/presidentUltimates';
 import {movesFor} from '../combat/roster.js';
 import { ArrowLeft, Crown, Film, Pencil, Play, Settings, Shield, Trash2, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -472,6 +473,7 @@ function FighterPreviewCard({
 }) {
   const accentCol = slot === 0 ? '#ffcc33' : '#38bdf8';
   const moves = useMemo(() => movesFor(president), [president]);
+  const ultimate = ultimateText(president);
   const statBars = [
     { name: 'Velocidad', val: (president.stats.speed / 6.5) * 100 },
     { name: 'Peso', val: (president.stats.weight / 1.6) * 100 },
@@ -539,8 +541,8 @@ function FighterPreviewCard({
           <div className="text-[11px] text-[#94a3b8] leading-snug">{president.ult.sigDesc}</div></>}
         </div>
         <div>
-          <div className="font-semibold text-[#38bdf8]">Ultimate: {president.ult.name}</div>
-          <div className="text-[11px] text-[#94a3b8] leading-snug">{president.ult.ultDesc}</div>
+          <div className="font-semibold text-[#38bdf8]">Ultimate: {ultimate.name}</div>
+          <div className="text-[11px] text-[#94a3b8] leading-snug">{ultimate.ultDesc}</div>
         </div>
         <button
           type="button"

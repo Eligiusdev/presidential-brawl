@@ -3,6 +3,7 @@ globalThis.document = { createElement: () => createCanvas(640, 360) };
 globalThis.window = {};
 
 const { GameEngine } = await import('../src/engine/gameEngine.ts');
+const { movesFor } = await import('../src/combat/roster.js');
 const { DEFAULT_CONFIG } = await import('../src/config/defaultConfig.ts');
 const cfg = structuredClone(DEFAULT_CONFIG);
 cfg.video.hitstopEnabled = false;
@@ -16,6 +17,7 @@ canvas.height = 360;
 const check = (cond, label) => {
   if (!cond) throw Error(label);
 };
+let legacy = false;
 function setup(id, id2 = 'robinson') {
   e.clearAllInputs();
   e.startMatch(
@@ -26,6 +28,13 @@ function setup(id, id2 = 'robinson') {
     'versus',
   );
   const [f, o] = e.fighters;
+  if (legacy) {
+    for (const fighter of [f, o]) {
+      fighter.balance = undefined;
+      fighter.S = { ...fighter.d.stats };
+      fighter.moves = movesFor(fighter.d, false, false, false);
+    }
+  }
   f.x = e.main.x + 120;
   o.x = f.x + 65;
   f.y = o.y = e.main.y - f.h;
@@ -58,6 +67,8 @@ for (const d of e.roster)
     step(5);
     e.render(canvas);
   }
+// Exercise the historical rules that remain available to old match recordings.
+legacy = true;
 const [b, bot] = setup('bolivar');
 press(keys[0]);
 step(25);
@@ -161,6 +172,7 @@ e.hurt(other, calm, dmg, 1);
 check(Math.abs(enragedSpeed / Math.hypot(other.vx, other.vy) - 1.55) < 1e-8, 'rage knockback');
 console.log({ fighters: e.roster.length, commands: activated, uniqueBySlot: signatures.map((s) => s.size) });
 
+legacy = false;
 setup('bolivar');
 const x1=e.fighters[0].x, x2=e.fighters[1].x;
 e.setRemoteActions(['right']);

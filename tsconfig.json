@@ -24,5 +24,13 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": ["dist"]
+  "exclude": [
+    "dist",
+    "server.ts",
+    "src/components/OnlineLobby.tsx",
+    "src/components/FighterSilhouetteCanvas.tsx",
+    "src/data/fighterSplashes.ts",
+    "src/engine/spriteAtlas.ts",
+    "src/net/multiplayerClient.ts"
+  ]
 }

@@ -1,3 +1,5 @@
+import { combatBalance, COMBAT_LIMITS, ultimateCategory, ULTIMATE_BUDGETS } from '../data/combatBalance';
+import { ultimateBox, ultimateDuration, ultimateFor, ultimatePoint, type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { movesFor } from '../combat/roster.js';
 import { activate, tickEffects, heel, shotTouches, strikeBox } from '../combat/effects.js';
 import { sound } from '../audio/soundEngine';
@@ -99,6 +101,10 @@ class FighterSim implements RenderFighterState {
   S: PresidentData['stats'];
   ai: boolean;
   moves: ReturnType<typeof movesFor>;
+  balance?: ReturnType<typeof combatBalance>;
+  projectileCD = 0;
+  ultimateRecovery = 0;
+  healedThisStock = false;
   field: {kind:string;x:number;y:number;w:number;h:number;life:number;floor?:PlatformDef} | null = null;
   heelBox?: {x:number;y:number;w:number;h:number};
   rage = 0;
@@ -166,7 +172,7 @@ class FighterSim implements RenderFighterState {
   atk: {
     spec: {
       k: string;
-      individual?: boolean; downSpecial?: boolean; effect?: string; pierce?: boolean;
+      individual?: boolean; balanced?: boolean; renewed?: boolean; tank?: boolean; frames?: { startup: number; active: number }; launch?: { vy: number; vx: number }; downSpecial?: boolean; effect?: string; pierce?: boolean;
       moveKind?: string;
       dur: number;
       heavy?: boolean;
@@ -220,11 +226,16 @@ class FighterSim implements RenderFighterState {
   kosDelivered = 0;
   perfectDodges = 0;
 
-  constructor(pi: number, d: PresidentData, isAI: boolean, matchCfg: GameConfig['match']) {
-    this.moves = movesFor(d);
+  constructor(pi: number, d: PresidentData, isAI: boolean, matchCfg: GameConfig['match'], competitive = true) {
+    this.moves = movesFor(d, false, false, competitive);
+    this.balance = competitive && !d.isCustom ? combatBalance(d.id) : undefined;
     this.pi = pi;
     this.d = d;
     this.S = { ...d.stats };
+    if (this.balance) {
+      this.S.weight *= this.balance.weight;
+      this.S.speed *= this.balance.speed;
+    }
     this.ai = isAI;
     this.stocks = matchCfg.stocks;
     this.maxStocks = matchCfg.stocks;
@@ -250,6 +261,9 @@ class FighterSim implements RenderFighterState {
     this.vy = 0;
     this.face = this.pi ? -1 : 1;
     this.field = null; this.rage = 0; this.speedTime = 0;
+    this.projectileCD = 0;
+    this.ultimateRecovery = 0;
+    this.healedThisStock = false;
     this.pct = 0;
     this.inv = first ? 0 : 120;
     this.stun = 0;
@@ -330,7 +344,7 @@ export class GameEngine {
   particles: RenderParticle[] = [];
   ults: RenderUltEffect[] = [];
   cine: { t: number; f: FighterSim; o: FighterSim } | null = null;
-  telegraph: { f: FighterSim; o: FighterSim; t: number; zones: Array<{ x: number; y: number; w: number; h: number }> } | null = null;
+  telegraph: { f: FighterSim; o: FighterSim; t: number; duration?: number; ultimateId?: string; origin?: UltimateOrigin; zones: Array<{ x: number; y: number; w: number; h: number }> } | null = null;
   winner: FighterSim | null = null;
   endT = 0;
 
@@ -617,8 +631,8 @@ export class GameEngine {
 
     const f1Data = this.roster.find((p) => p.id === replay.p1Id) || this.roster[0];
     const f2Data = this.roster.find((p) => p.id === replay.p2Id) || this.roster[1] || this.roster[0];
-    const f1 = new FighterSim(0, f1Data, false, replay.matchConfig);
-    const f2 = new FighterSim(1, f2Data, replay.vsAI, replay.matchConfig);
+    const f1 = new FighterSim(0, f1Data, false, replay.matchConfig, replay.version >= 7);
+    const f2 = new FighterSim(1, f2Data, replay.vsAI, replay.matchConfig, replay.version >= 7);
     if (replay.campaignRound != null) {
       const boss = replay.campaignRound === 6;
       f2.dif = boss ? 3 : replay.campaignRound >= 3 ? 2 : 1;
@@ -630,9 +644,9 @@ export class GameEngine {
       f2.dif = replay.matchConfig.aiDifficulty;
     }
 
-    if (replay.version <= 3) {
-      f1.moves = replay.version === 1 ? null : movesFor(f1Data, true);
-      f2.moves = replay.version === 1 ? null : movesFor(f2Data, true);
+    if (replay.version <= 5) {
+      f1.moves = replay.version === 1 ? null : movesFor(f1Data, replay.version <= 3, true);
+      f2.moves = replay.version === 1 ? null : movesFor(f2Data, replay.version <= 3, true);
     }
     this.strikes = [];
     this.fighters = [f1, f2];
@@ -1153,8 +1167,18 @@ export class GameEngine {
     dir: number, source = 'other', contact?: {x:number;y:number;w:number;h:number}, pierce = false
   ): boolean {
     if (f.inv > 0 || f.dead > 0) return false;
-    if (f.atk?.spec.effect === 'hover' && !d.ult && !pierce) return false;
-    if (f.atk?.spec.effect === 'testudo' && source === 'melee' && o && !pierce) {
+    const counter = this.ults.find(u => (!f.balance || !d.ult) && u.f === f && u.o === o &&
+      u.specialized?.ultimate.spec.primitive === 'counterStance' && !u.specialized.triggered);
+    if (counter?.specialized && !(f.balance && counter.kind === 'ult_macron')) {
+      counter.specialized.triggered = true;
+      counter.t = 0;
+      return false;
+    }
+    const attack = f.atk;
+    const defensive = attack && (!attack.spec.balanced || (attack.spec.frames &&
+      attack.t > attack.spec.frames.startup && attack.t <= attack.spec.frames.startup + attack.spec.frames.active));
+    if (defensive && attack.spec.effect === 'hover' && !d.ult && !pierce) return false;
+    if (defensive && attack.spec.effect === 'testudo' && source === 'melee' && o && !pierce) {
       f.atk=null;
       this.hurt(o,f,{dmg:8,bk:6,ks:.14,ang:-38},-dir);
       return true;
@@ -1163,7 +1187,7 @@ export class GameEngine {
     const voteMult = this.activeMatchCfg.voteGainMultiplier;
     const kbMult = this.activeMatchCfg.knockbackMultiplier;
 
-    if (!pierce && f.atk && f.atk.armor && !f.atk.ar && !d.ult) {
+    if (!pierce && f.atk && f.atk.armor && !f.atk.ar && !d.ult && (!f.atk.spec.tank || d.dmg <= COMBAT_LIMITS.tankArmorDamage)) {
       f.atk.ar = 1;
       f.pct += d.dmg * 0.5;
       f.hitFlash = 10;
@@ -1181,7 +1205,7 @@ export class GameEngine {
       o.cT = o.cMax;
       o.maxCombo = Math.max(o.maxCombo, o.combo);
       f.lastAttacker = o;
-      const comboMult = this.getComboMultiplier(o.combo);
+      const comboMult = d.ult && o.balance ? 1 : this.getComboMultiplier(o.combo);
       appliedDmg = d.dmg * comboMult;
       o.damageDealt += appliedDmg;
       this.vibrate(o.pi, d.ult ? 380 : d.heavy ? 200 : 65, d.ult ? 1 : d.heavy ? 0.7 : 0.3, d.ult ? 1 : d.heavy ? 0.85 : 0.15);
@@ -1198,8 +1222,8 @@ export class GameEngine {
     }
 
     if (!d.ult) {
-      f.vote = Math.min(100, f.vote + 5 * voteMult);
-      if (o) o.vote = Math.min(100, o.vote + (d.heavy ? 15 : d.every ? 3 : 8) * voteMult);
+      f.vote = Math.min(100, f.vote + 5 * voteMult * (f.balance?.vote ?? 1));
+      if (o) o.vote = Math.min(100, o.vote + (d.heavy ? 15 : d.every ? 3 : 8) * voteMult * (o.balance?.vote ?? 1));
     }
 
     f.pct += appliedDmg;
@@ -1255,7 +1279,51 @@ export class GameEngine {
     return true;
   }
 
-  private getUltZones(f: FighterSim, o: FighterSim): Array<{ x: number; y: number; w: number; h: number }> {
+  private specializedUltimate(f: FighterSim) {
+    if (this.replayData && this.replayData.version <= 5) return undefined;
+    const ultimate = ultimateFor(f.d);
+    if (!ultimate || !f.balance) return ultimate;
+    const category = ultimateCategory(f.d.id);
+    const budget = ULTIMATE_BUDGETS[category];
+    const spec = { ...ultimate.spec,
+      damage: f.d.id === 'simo' ? 28 : clamp(Math.round(ultimate.spec.damage * .72), budget.minDamage, budget.maxDamage),
+      rangePx: clamp(ultimate.spec.rangePx, budget.minRange, budget.maxRange),
+      knockback: budget.knockback * 60,
+      durationMs: f.d.id === 'macron' ? 1200 : f.d.id === 'simo' || f.d.id === 'ricaurte' ? 100 : ultimate.spec.durationMs,
+    };
+    return { ...ultimate, spec };
+  }
+
+  private ultimateOrigin(ultimate: PresidentUltimate, f: FighterSim, o: FighterSim) {
+    const anchor = ultimate.profile.anchor;
+    if (f.balance && f.d.id === 'simo') {
+      return { x: o.cx, y: o.y + o.h * .5, face: f.face };
+    }
+    if (anchor === 'target' && ultimate.spec.primitive === 'dashStrike') {
+      const range = ultimate.spec.rangePx;
+      const edge = f.w / 2;
+      return {
+        x: clamp(clamp(o.cx, f.cx - range, f.cx + range), this.main.x + edge, this.main.x + this.main.w - edge),
+        y: Math.min(clamp(o.y + o.h / 2, f.y + f.h / 2 - range, f.y + f.h / 2 + range),
+          this.main.y - f.h / 2),
+        face: f.face,
+      };
+    }
+    const subject = anchor === 'target' ? o : f;
+    return anchor === 'center'
+      ? { x: W / 2, y: this.main.y - 72, face: f.face }
+      : { x: subject.cx, y: subject.y + subject.h * 0.5, face: f.face };
+  }
+
+  private getUltZones(f: FighterSim, o: FighterSim, markedOrigin?: UltimateOrigin): Array<{ x: number; y: number; w: number; h: number }> {
+    const ultimate = this.specializedUltimate(f);
+    if (ultimate) {
+      const origin = markedOrigin ?? this.ultimateOrigin(ultimate, f, o);
+      const samples = ultimate.profile.route.length;
+      return Array.from({ length: samples }, (_, i) => ultimateBox(
+        ultimate, ultimatePoint(ultimate, origin, i / Math.max(1, samples - 1))
+      ));
+    }
     const powerId = f.d.powerSourceId || f.d.id;
     switch (powerId) {
       case 'muralla':
@@ -1290,7 +1358,7 @@ export class GameEngine {
   }
 
   private perfectDodge(o: FighterSim) {
-    o.vote = Math.min(100, o.vote + 20);
+    o.vote = Math.min(100, o.vote + 20 * (o.balance?.vote ?? 1));
     o.perfectDodges++;
     this.slowMo = 12;
     this.floatTexts.push({ t: '¡ESQUIVE PERFECTO!', x: o.cx, y: o.y - 12, l: 70, m: 70 });
@@ -1301,7 +1369,7 @@ export class GameEngine {
   }
 
   private ultHit(
-    u: RenderUltEffect & { dg?: number },
+    u: RenderUltEffect,
     ang: number,
     dir: number,
     override?: { dmg?: number; bk?: number }
@@ -1321,7 +1389,36 @@ export class GameEngine {
     );
   }
 
-  private fireUlt(f: FighterSim, o: FighterSim) {
+  private fireUlt(f: FighterSim, o: FighterSim, markedOrigin?: UltimateOrigin) {
+    const ultimate = this.specializedUltimate(f);
+    if (ultimate) {
+      if (f.dead > 0 || o.dead > 0) return;
+      const origin = markedOrigin ?? this.ultimateOrigin(ultimate, f, o);
+      const point = ultimatePoint(ultimate, origin, 0);
+      this.ults.push({
+        kind: ultimate.spec.id, f, o, t: 0, dur: ultimateDuration(ultimate.spec),
+        specialized: { ultimate, origin, point, box: ultimateBox(ultimate, point),
+          originStock: f.stocks, targetStock: o.stocks,
+          contact: -1, triggered: ultimate.spec.primitive !== 'counterStance' || Boolean(f.balance && f.d.id === 'macron'),
+          active: Boolean(f.balance && f.d.id === 'macron'), landed: false,
+          },
+      });
+      if (f.balance) {
+        f.atk = null;
+        f.ultimateRecovery = 0;
+        if (f.d.id === 'ricaurte') {
+          f.vx = -origin.face * 5;
+          f.ultimateRecovery = 6;
+        }
+      } else {
+        if (ultimate.profile.flags.includes('heal')) f.pct = Math.max(0, f.pct - 8);
+        if (ultimate.profile.flags.includes('guard') && ultimate.spec.primitive !== 'counterStance') {
+          f.inv = Math.max(f.inv, 20);
+        }
+      }
+      this.burst(origin.x, origin.y, ultimate.spec.colors[0], 14, 5);
+      return;
+    }
     const powerId = f.d.powerSourceId || f.d.id;
     const durMap: Record<string, number> = {
       muralla: 90,
@@ -1353,12 +1450,108 @@ export class GameEngine {
     });
   }
 
+  private advanceSpecializedUltimate(u: RenderUltEffect, f: FighterSim, o: FighterSim) {
+    const state = u.specialized!;
+    const { ultimate, origin } = state;
+    const { spec, profile } = ultimate;
+    if (f.dead > 0 || f.stocks !== state.originStock || o.stocks !== state.targetStock) {
+      u.t = u.dur;
+      return;
+    }
+
+    if (!state.triggered) {
+      origin.x = f.cx;
+      origin.y = f.y + f.h / 2;
+      state.point = { x: origin.x, y: origin.y };
+      state.box = ultimateBox(ultimate, state.point);
+      return;
+    }
+
+    const macron = f.balance && f.d.id === 'macron';
+    if (macron) {
+      state.point = { x: f.cx, y: f.y + f.h / 2 };
+      state.box = ultimateBox(ultimate, state.point);
+      state.active = true;
+    }
+
+    const previous = state.point;
+    const progress = u.t / u.dur;
+    const dash = spec.primitive === 'dashStrike';
+    if (!macron) {
+      state.point = ultimatePoint(ultimate, origin, progress);
+      state.box = ultimateBox(ultimate, state.point);
+    }
+
+    if (dash && f.stun <= 0) {
+      const travel = profile.flags.includes('speed') ? 23 : 17;
+      const x = clamp(state.point.x, this.main.x + f.w / 2, this.main.x + this.main.w - f.w / 2);
+      const y = Math.min(state.point.y, this.main.y - f.h / 2);
+      f.x += clamp(x - f.cx, -travel, travel);
+      f.y += clamp(y - (f.y + f.h / 2), -travel, travel);
+      f.on = f.y + f.h >= this.main.y;
+      f.pl = null;
+      f.vx = 0;
+      f.vy = 0;
+      state.point = { x: f.cx, y: f.y + f.h / 2 };
+      state.box = ultimateBox(ultimate, state.point);
+    }
+
+    const phase = Math.min(spec.hits - 1, Math.floor(progress * spec.hits));
+    const instant = f.balance && (f.d.id === 'simo' || f.d.id === 'ricaurte');
+    const damageActive = instant || (spec.hits === 1 ? progress >= .65 : progress * spec.hits - phase >= .25);
+    state.active = Boolean(macron || damageActive);
+    const projectile = spec.primitive === 'spawnProjectile' && f.balance && !instant;
+    const hitBox = projectile ? {
+      x: Math.min(state.box.x, previous.x - state.box.w / 2),
+      y: Math.min(state.box.y, previous.y - state.box.h / 2),
+      w: state.box.w + Math.abs(state.point.x - previous.x),
+      h: state.box.h + Math.abs(state.point.y - previous.y),
+    } : state.box;
+    if (!damageActive || phase === state.contact || o.dead > 0 || !ov(hitBox, o)) return;
+
+    const toward = Math.sign(state.point.x - previous.x);
+    const dir = toward || (o.cx >= origin.x ? 1 : -1);
+    const finished = phase === spec.hits - 1;
+    const category = f.balance ? ultimateCategory(f.d.id) : undefined;
+    const angle = category === 'zone' ? (finished ? -45 : -20)
+      : category === 'sweep' ? -23 : profile.shape === 'beam' ? -75 : profile.shape === 'ground' ? -32 : -46;
+    // The design's knockback is in pixels per second. The engine uses pixels per tick.
+    let damage = spec.damage / spec.hits;
+    if (f.balance && f.d.id === 'simo' && Math.hypot(o.cx - f.cx, o.y - f.y) > 240) damage = 22;
+    if (f.balance && f.d.id === 'nyerere' && finished) damage += 3 * Math.min(3, phase + 1);
+    const scale = phase === spec.hits - 1 ? 1 : .45;
+    if (!this.ultHit(u, angle, dir, { dmg: damage, bk: spec.knockback * scale / 60 })) return;
+    state.contact = phase;
+    if (u.dg) return;
+    state.landed = true;
+    if (f.balance && f.d.id === 'mandela' && !f.healedThisStock) {
+      f.pct = Math.max(0, f.pct - 8);
+      f.healedThisStock = true;
+    }
+    if (category === 'zone' && !finished) o.vx = clamp((state.point.x - o.cx) * .08, -5, 5);
+    if (profile.flags.includes('slow')) {
+      o.stun = Math.max(o.stun, 28);
+      o.maxStun = Math.max(o.maxStun, o.stun);
+    }
+    if (profile.flags.includes('pull') && !(category === 'zone' && finished)) o.vx = clamp((origin.x - o.cx) * .13, -12, 12);
+    this.burst(state.point.x, state.point.y, spec.colors[1], 8, 4);
+  }
+
   private updateUltEffects() {
-    for (const u of this.ults as Array<RenderUltEffect & { h?: number; hh?: boolean[]; dg?: number; vvx?: number; vvy?: number; sy?: number }>) {
+    for (const u of this.ults as Array<RenderUltEffect & { h?: number; hh?: boolean[]; vvx?: number; vvy?: number; sy?: number }>) {
       u.t++;
       const f = u.f as FighterSim;
       const o = u.o as FighterSim;
       const dir = o.cx >= f.cx ? 1 : -1;
+
+      if (u.specialized) {
+        this.advanceSpecializedUltimate(u, f, o);
+        if (f.balance && f.dead <= 0 && u.t >= u.dur) {
+          const recovery = f.d.id === 'ricaurte' ? 24 : u.specialized.landed ? 0 : ULTIMATE_BUDGETS[ultimateCategory(f.d.id)].whiff;
+          f.ultimateRecovery = Math.max(f.ultimateRecovery, recovery);
+        }
+        continue;
+      }
 
       if (u.kind === 'muralla') {
         const X0 = W / 2 - 80;
@@ -1555,6 +1748,8 @@ export class GameEngine {
       f.atk=null; f.moveKind='';
     }
     tickEffects(f);
+    if (f.projectileCD > 0) f.projectileCD--;
+    if (f.ultimateRecovery > 0) f.ultimateRecovery--;
     if (f.on && f.pl) f.y = f.pl.y - f.h;
     if (f.boss && this.T % 30 === 0) f.vote = Math.min(100, f.vote + 1);
     if (f.inv > 0) f.inv--;
@@ -1633,12 +1828,13 @@ export class GameEngine {
           });
         }
       }
-    } else {
+    } else if (!f.ultimateRecovery) {
       const a = f.atk;
       const dir = (i.right ? 1 : 0) - (i.left ? 1 : 0);
 
       // Ultimate trigger
-      if (f.vote >= 100 && !this.cine && !this.telegraph && (just.ult || (i.light && i.heavy && (just.light || just.heavy)))) {
+      if (f.vote >= 100 && !this.cine && !this.telegraph &&
+          (!f.balance || !this.ults.some(u => u.f === f)) && (just.ult || (i.light && i.heavy && (just.light || just.heavy)))) {
         this.cine = { t: 0, f, o };
         f.vote = 0;
         f.floating = false;
@@ -1921,7 +2117,7 @@ export class GameEngine {
               sound.reloadStart();
             }
           }
-        } else if (!f.pickupT && (!a || (a.spec.k === 'l' && a.t >= a.spec.dur * 0.55))) {
+        } else if (!f.pickupT && (!a || (!a.spec.balanced && a.spec.k === 'l' && a.t >= a.spec.dur * 0.55))) {
           const neutralJab = just.light && !i.dash && !i.down && !i.jump && dir === 0;
           if (f.moves && ((neutralJab && !a) || (just.heavy && !a))) {
             const up = just.heavy && i.jump && !i.down;
@@ -1930,10 +2126,11 @@ export class GameEngine {
                 ? i.down ? f.moves.specialDown() : up ? f.moves.specialUp() : f.moves.specialNeutral()
                 : f.moves.neutralAttack();
               const mk = up ? 'upSpec' : just.heavy ? 'sig' : 'jab';
-              activate(f, m, this);
+              const cooldown = f.balance && !up && !i.down && just.heavy && m.sp.length > 0;
+              if (!m.balanced) activate(f, m, this);
               f.moveKind = mk;
-              f.atk = {spec:{...m, individual:true, downSpecial:just.heavy && i.down, moveKind:mk, k:just.heavy?'h':'l',
-                heavy:just.heavy, dur:m.effect==='hover'?120:m.dur}, t:0,hits:{},ar:0,armor:false};
+              f.atk = {spec:{...m, sp:cooldown && f.projectileCD > 0 ? [] : m.sp, individual:true, downSpecial:just.heavy && i.down, moveKind:mk, k:just.heavy?'h':'l',
+                heavy:just.heavy, dur:!m.balanced && m.effect==='hover'?120:m.dur}, t:0,hits:{},ar:0,armor:false};
               sound.tone(just.heavy?330:480,0.09,'triangle',80,0.06);
               if (just.heavy) this.floatTexts.push({t:m.name,x:f.cx,y:f.y-12,l:45,m:45});
             }
@@ -2071,6 +2268,9 @@ export class GameEngine {
       const a = f.atk;
       const sp = a.spec;
       const t = ++a.t;
+      if (sp.balanced && t === (sp.frames?.startup ?? 0) + 1) {
+        activate(f, { ...sp, fieldLifetime: COMBAT_LIMITS.fieldLifetime }, this);
+      }
       a.armor = sp.ph.some((p) => Boolean(p.armor) && t >= p.a[0] && t <= p.a[1]);
       if (sp.hop && t === sp.hop.t) {
         f.vy = sp.hop.vy;
@@ -2079,6 +2279,9 @@ export class GameEngine {
       for (const s of sp.sp) {
         if (s.t === t) {
           const p = s.p;
+          if (sp.balanced && sp.k === 'h' && sp.moveKind === 'sig' && !sp.downSpecial) {
+            f.projectileCD = COMBAT_LIMITS.projectileCooldown;
+          }
           const travelDir = p.back ? -f.face : f.face;
           const spawnDir = sp.individual ? travelDir : f.face;
           const x = spawnDir > 0 ? f.cx + p.fx : f.cx - p.fx - p.w;
@@ -2094,7 +2297,7 @@ export class GameEngine {
             kind: p.kind,
             owner: f,
             dir: p.back ? -f.face : f.face,
-            d: { ...p, dmg: p.dmg * f.S.power, heavy: true },
+            d: { ...p, dmg: p.dmg * (sp.balanced ? 1 : f.S.power), heavy: true },
             hit: 0,
             ownerColor: f.d.palette.accent.base,
             ownerHighlight: f.d.palette.accent.highlight,
@@ -2157,7 +2360,7 @@ export class GameEngine {
       });
 
       // Agile Swordsman whiff recovery frames (risk-reward spacing!)
-      if (!a.whiffChecked && f.isAgileSwordsman && sp.k === 'h' && sp.moveKind === 'sig' && t === sp.dur - 6) {
+      if (!sp.balanced && !a.whiffChecked && f.isAgileSwordsman && sp.k === 'h' && sp.moveKind === 'sig' && t === sp.dur - 6) {
         a.whiffChecked = true;
         if (Object.keys(a.hits).length === 0) {
           sp.dur += 6;
@@ -2548,12 +2751,13 @@ export class GameEngine {
         const boosted = a.spec.k==='l' && f.wpn>0 && f.wk==='case';
         const box=strikeBox(f,p,a.t,boosted);
         this.strikes.push({...box, color:f.d.palette.accent.base,
+          highlight:a.spec.renewed ? f.d.palette.accent.highlight : undefined,
           weapon:f.d.id==='alejandro'?'sarissa':f.d.anatomy.weaponType,
           direction:p.rear?-f.face:f.face});
         this.debugHitboxes.push({...box,kind:a.spec.k});
         if (a.hits[idx] || o.dead || !this.collision.bodyTouches(o,this.T,box)) return;
         const dir = p.rear ? -f.face : f.face;
-        const hit = {dmg:(p.dmg ?? 4)*f.S.power*(boosted?1.35:1),bk:p.bk ?? 3,ks:p.ks ?? .12,ang:p.ang ?? -30,heavy:a.spec.heavy};
+        const hit = {dmg:(p.dmg ?? 4)*(a.spec.balanced ? 1 : f.S.power)*(boosted?1.35:1),bk:p.bk ?? 3,ks:p.ks ?? .12,ang:p.ang ?? -30,heavy:a.spec.heavy};
         contacts.push(() => {
           if(this.hurt(o,f,hit,dir,'melee',box,a.spec.pierce)) a.hits[idx]=true;
         });
@@ -2591,6 +2795,30 @@ export class GameEngine {
         this.particles.push({ x: p.x, y: p.y + 4, vx: -p.vx * 0.15, vy: -0.4, l: 16, m: 16, col: '#cbd5e1', z: 5, shape: 'puff' });
       }
       p.life--;
+
+      const shield = this.ults.find(u => u.specialized && (u.specialized.active || !u.specialized.triggered) && u.f !== p.owner &&
+        (u.f as FighterSim).dead <= 0 && ov(u.specialized.box, p) &&
+        u.specialized.ultimate.profile.flags.some(flag => flag === 'clear' || flag === 'reflect'));
+      if (shield?.specialized) {
+        const state = shield.specialized;
+        if (shield.kind === 'ult_macron' && (shield.f as FighterSim).balance) {
+          this.projectiles.splice(i, 1);
+        } else if (state.ultimate.profile.flags.includes('reflect')) {
+          p.owner = shield.f as FighterSim;
+          p.vx = -p.vx;
+          p.dir = -p.dir;
+          [p.ownerColor, p.ownerHighlight] = state.ultimate.spec.colors;
+          p.hit = 0;
+          p.done = undefined;
+          if (!state.triggered) {
+            state.triggered = true;
+            shield.t = 0;
+          }
+        } else {
+          this.projectiles.splice(i, 1);
+        }
+        continue;
+      }
 
       const targets = this.fighters.filter((f) => f !== p.owner && f.dead <= 0);
       if (targets.some(o => (o.field?.kind==='barrier' && shotTouches(p,o.field)) ||
@@ -2706,11 +2934,17 @@ export class GameEngine {
     if (this.shake < 0.3) this.shake = 0;
 
     if (this.cine) {
-      if (++this.cine.t >= 34) {
+      if (++this.cine.t >= (this.cine.f.balance ? COMBAT_LIMITS.activationHitstop : 34)) {
         const c = this.cine;
         this.cine = null;
-        this.telegraph = { f: c.f, o: c.o, t: 0, zones: this.getUltZones(c.f, c.o) };
-        c.f.inv = Math.max(c.f.inv, 24);
+        const ultimate = this.specializedUltimate(c.f);
+        const origin = ultimate ? this.ultimateOrigin(ultimate, c.f, c.o) : undefined;
+        const duration = c.f.balance && ultimate
+          ? ({ simo: 42, ricaurte: 39 }[c.f.d.id] ?? ULTIMATE_BUDGETS[ultimateCategory(c.f.d.id)].startup)
+          : 20;
+        this.telegraph = { f: c.f, o: c.o, t: 0, duration, ultimateId: ultimate?.spec.id, origin,
+          zones: this.getUltZones(c.f, c.o, origin) };
+        c.f.inv = Math.max(c.f.inv, c.f.balance ? COMBAT_LIMITS.maxUltimateInvulnerability : 24);
         this.shake = 12;
       }
       return;
@@ -2751,6 +2985,10 @@ export class GameEngine {
     this.debugHitboxes = [];
     this.gravityFactor = 1;
     this.updateStageHazards();
+    if (this.ults.some(u => u.specialized?.ultimate.profile.flags.includes('gravity') &&
+      (u.f as FighterSim).dead <= 0)) {
+      this.gravityFactor = this.replayData?.version === 6 ? this.gravityFactor * .5 : .5;
+    }
     if (this.fighters.length >= 2) {
       this.updateFighter(this.fighters[0], this.fighters[1]);
       this.updateFighter(this.fighters[1], this.fighters[0]);
@@ -2773,10 +3011,10 @@ export class GameEngine {
     if (!isAttract) this.updateItems();
     this.updateUltEffects();
 
-    if (this.telegraph && ++this.telegraph.t >= 20) {
+    if (this.telegraph && ++this.telegraph.t >= (this.telegraph.duration ?? 20)) {
       const q = this.telegraph;
       this.telegraph = null;
-      this.fireUlt(q.f, q.o);
+      this.fireUlt(q.f, q.o, q.origin);
       this.shake = 10;
     }
 
@@ -2851,7 +3089,7 @@ export class GameEngine {
         };
         if (this.currentMatchMeta) {
           const replay: MatchReplayData = {
-            version: 5,
+            version: 7,
             recordedAt: new Date().toISOString(),
             seed: this.currentMatchMeta.seed,
             mode: this.mode,
@@ -2896,8 +3134,8 @@ export class GameEngine {
       crowd: this.crowd,
       crowdParticles: this.crowdParticles,
       ults: this.ults,
-      cine: this.cine ? { t: this.cine.t, f: this.cine.f } : null,
-      telegraph: this.telegraph ? { t: this.telegraph.t, zones: this.telegraph.zones } : null,
+      cine: this.cine ? { t: this.cine.t, f: this.cine.f, name: this.specializedUltimate(this.cine.f)?.spec.name, flash: Boolean(this.cine.f.balance) } : null,
+      telegraph: this.telegraph ? { t: this.telegraph.t, duration: this.telegraph.duration, ultimateId: this.telegraph.f.balance ? this.telegraph.ultimateId : undefined, aim: { x: this.telegraph.f.cx, y: this.telegraph.f.y + this.telegraph.f.h / 2 }, zones: this.telegraph.zones } : null,
       shake: this.shake,
       bannerMsg: this.bannerMsg,
       floatTexts: this.floatTexts,

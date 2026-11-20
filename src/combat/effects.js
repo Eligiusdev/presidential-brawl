@@ -20,13 +20,13 @@ export function activate(f, move, stage) {
     f.vx = move.launch.vx * f.face;
   }
   if (move.effect === 'rage') f.rage = 300;
-  if (move.effect === 'seal') {
+  if (move.effect === 'seal' && (!move.balanced || !f.field)) {
     const floor = [stage.main, ...stage.plats]
       .filter((p) => f.cx >= p.x && f.cx <= p.x + p.w && p.y >= f.y + f.h - 2)
       .sort((a, b) => a.y - b.y)[0];
-    if (floor) f.field = { kind: 'seal', x: f.cx - 32, y: floor.y - 8, w: 64, h: 8, life: 210, floor };
+    if (floor) f.field = { kind: 'seal', x: f.cx - 32, y: floor.y - 8, w: 64, h: 8, life: move.fieldLifetime ?? 210, floor };
   }
-  if (move.effect === 'barrier')
+  if (move.effect === 'barrier' && (!move.balanced || !f.field))
     f.field = { kind: 'barrier', x: f.cx + f.face * 48 - 5, y: f.y - 10, w: 10, h: f.h + 20, life: 150 };
 }
 export function tickEffects(f) {

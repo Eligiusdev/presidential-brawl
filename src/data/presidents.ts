@@ -1,3 +1,5 @@
+import { MOVE_NAMES } from '../combat/moveNames';
+import { PRESIDENT_ULTIMATES } from './presidentUltimates';
 import {
   AnatomicalProfile,
   BodyBuild,
@@ -244,6 +246,8 @@ function buildPresident(s: PresidentSeed): PresidentData {
   const ultInfo = ULT_LIBRARY[s.powerSourceId];
   return {
     id: s.id,
+    ultimateId: PRESIDENT_ULTIMATES[s.id]?.id,
+    legacyUltimateName: s.ultName,
     powerSourceId: s.powerSourceId,
     region: s.region,
     rosterGroup: s.rosterGroup,
@@ -284,10 +288,11 @@ function buildPresident(s: PresidentSeed): PresidentData {
       face: s.face,
     },
     signatureType: s.sigType,
-    sigName: s.sigName,
+    sigName: MOVE_NAMES[s.id]?.[1] ?? s.sigName,
+    legacySignatureName: s.sigName,
     sig: structuredClone(SIGNATURE_TEMPLATES[s.sigType]),
     ult: {
-      name: s.ultName,
+      name: PRESIDENT_ULTIMATES[s.id]?.name ?? s.ultName,
       cry: s.ultCry,
       sigDesc: ultInfo.sigDescPrefix,
       ultDesc: ultInfo.ultDesc,

@@ -95,7 +95,14 @@ export function spriteAction(f: RenderFighterState, tick: number): [ClipName, nu
   }
   if (f.wpn > 0 && f.wk === 'mg' && f.shootRecoil > 0) return ['fire', 5 - f.shootRecoil];
   if (f.atk) {
-    const { spec, t } = f.atk;
+    const { spec } = f.atk;
+    let t = f.atk.t;
+    if (spec.animationTiming) {
+      const { from, to } = spec.animationTiming;
+      const i = t <= from[1] ? 0 : t <= from[2] ? 1 : 2;
+      const progress = Math.min(1, (t - from[i]) / (from[i + 1] - from[i]));
+      t = to[i] + progress * (to[i + 1] - to[i]);
+    }
     if (spec.effect === 'rage') return ['rage', t];
     if (spec.downSpecial) return ['down', t];
     if (spec.moveKind === 'upSpec') return ['up', t];

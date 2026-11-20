@@ -1,0 +1,18 @@
+# Balance competitivo
+
+Los 61 luchadores oficiales usan su kit, sus hitboxes y un arquetipo de peso, velocidad y carga del medidor. Los personajes del editor usan los valores que se guardaron al crearlos. La grabación de partidas nuevas usa la versión 7.
+
+| Comando | Preparación | Activo | Recuperación | Daño base |
+| --- | ---: | ---: | ---: | ---: |
+| Ligero | 4–6 | 3–4 | 7–10 | 5–7 % |
+| Especial neutral | 10–14 | 6–14 | 14–18 | 9–12 % |
+| Especial arriba | 8–11 | 8–12 | 16–22 | 10–13 % |
+| Especial abajo | 7–15 | 6–18 | 15–20 | 8–14 % |
+
+Los tiempos están en cuadros a 60 FPS. El daño base se reparte entre los impactos del comando. Las reglas de combos, objetos y efectos de combate pueden modificar el daño efectivo. Un especial neutral con proyectiles tiene 66 cuadros de enfriamiento desde el último disparo. Cada luchador puede mantener un campo táctico activo durante hasta 180 cuadros.
+
+Las definitivas tienen cuatro presupuestos de alcance y daño. Se activan con un destello de diez cuadros y hasta quince de invulnerabilidad al comenzar el aviso. El identificador determina el patrón, los puntos de impacto y la presentación procedural. El servidor de salas transmite la partida del anfitrión y los patrones de las definitivas usan rutas fijas.
+
+El control de TypeScript abarca el cliente y la configuración del build vigente. El servidor de producción sigue en `server/index.mjs` y `server/rooms.mjs`. El prototipo WebSocket y el selector asociado se conservan en el árbol y se excluyen del control del build actual; las pruebas de salas ejecutan el servidor vigente.
+
+Ejecuta `npm run lint`, `npm test`, `npm run test:sprites`, `npm run test:rooms` y `npm run build`.

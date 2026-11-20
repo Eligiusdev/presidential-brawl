@@ -185,6 +185,8 @@ export interface PresidentData {
   spriteSourceId?: string;
   rosterGroup?: 'mythic' | 'current' | 'former';
   termStart?: number;
+  ultimateId?: string;
+  legacyUltimateName?: string;
   powerSourceId?: string;
   region?: PresidentRegion;
   name: string;
@@ -209,6 +211,7 @@ export interface PresidentData {
   anatomy: AnatomicalProfile;
   signatureType: string;
   sigName: string;
+  legacySignatureName?: string;
   sig: SignatureSpec;
   ult: {
     name: string;
@@ -327,7 +330,7 @@ export interface ReplayKeyframe {
 }
 
 export interface MatchReplayData {
-  version: 1 | 2 | 3 | 4 | 5;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   recordedAt: string;
   seed: number;
   mode: GameMode;

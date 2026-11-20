@@ -1,4 +1,6 @@
+import { balanceMove } from '../engine/movesets';
 import { Fighter, move } from './Fighter.js';
+import { MOVE_NAMES } from './moveNames';
 
 // Las frases se leen de izquierda a derecha. La pausa crea una trampa de tiempo,
 // reverso cubre la espalda, suelo recorre el piso y arco describe una parábola.
@@ -181,19 +183,36 @@ const newSignatures = {
   sheinbaum: move('Trayectoria orbital', 'arco orbe arco'),
 };
 
-export function movesFor(data, legacySignatures = false) {
+function withNames(book, names, data, balanced) {
+  if (!names) return new Fighter(book);
+  const [jab, neutral, up, down] = names;
+  const named = {
+    jab: { ...book.jab, name: jab },
+    neutral: { ...book.neutral, name: neutral },
+    up: { ...book.up, name: up },
+    down: { ...book.down, name: down },
+  };
+  if (!balanced) return new Fighter(named);
+  return new Fighter(Object.fromEntries(Object.entries(named).map(([slot, move]) => [slot, balanceMove(move, data, slot)])));
+}
+
+export function movesFor(data, legacySignatures = false, legacyNames = legacySignatures, balanced = !legacyNames) {
   if (data.isCustom) return null; // El editor mantiene sus ataques configurados.
-  if (featured[data.id]) return new Fighter(featured[data.id]);
+  const names = legacyNames ? undefined : MOVE_NAMES[data.id];
+  if (featured[data.id]) return withNames(featured[data.id], names, data, balanced);
   const phrases = repertoire[data.id];
   if (!phrases) return null;
   const [jab, neutral, up, down] = phrases;
   const [jabName, upName, downName] = labels[data.id];
-  return new Fighter(
+  return withNames(
     book(
       move(jabName, jab),
-      (!legacySignatures && newSignatures[data.id]) || move(data.sigName, neutral),
+      (!legacySignatures && newSignatures[data.id]) || move(data.legacySignatureName ?? data.sigName, neutral),
       lift(upName, up, -data.stats.jumpForce - 3, up.startsWith('carga') ? 6 : 1),
       move(downName, down),
     ),
+    names,
+    data,
+    balanced,
   );
 }

@@ -1,10 +1,12 @@
 # Presidential Brawl · Apex Edition
 
-Apex Edition tiene 61 luchadores con 244 comandos, campaña, entrenamiento, editor y repeticiones. El modo en línea permite partidas 1 contra 1 mediante salas privadas con enlace de invitación.
+Apex Edition tiene 61 luchadores con 244 comandos y 61 definitivas, campaña, entrenamiento, editor y repeticiones. El modo en línea permite partidas 1 contra 1 mediante salas privadas con enlace de invitación.
 
 ## Plantel arcade
 
 Los 61 luchadores oficiales tienen atlas y retratos propios. La cuadrícula muestra miniaturas a color y la vista ampliada anima la guardia. En selección, **Míticos** reúne figuras legendarias e históricas, y **Presidentes actuales** y **Expresidentes recientes** ordenan por inicio del mandato correspondiente. El plantel presidencial se verificó en noviembre de 2026. [Guía del plantel y comprobaciones](docs/PLANTEL.md)
+
+Cada luchador tiene una [ficha de movimientos](docs/MOVIMIENTOS.md) con sus cuatro comandos, el efecto de su definitiva y cómo evitarla. También puedes consultarlos desde el selector y el menú de pausa. El [balance competitivo](docs/BALANCE.md) se aplica desde la versión 7 de las repeticiones.
 
 ## Piloto de Aquiles
 
@@ -77,7 +79,7 @@ npm run lint
 npm run build
 ```
 
-Las pruebas de combate recorren los 244 comandos y sus interacciones especiales. Las pruebas de salas comprueban tokens, exclusividad del mando, transmisión SSE, liberación por desconexión, validación de entradas y cierre. La prueba automática del backend usa clientes HTTP; sigue pendiente probar físicamente PC y móvil juntos.
+Las pruebas de combate recorren los 244 comandos y verifican activación, contacto y renderizado de las 61 definitivas. Las pruebas de salas comprueban tokens, exclusividad del mando, transmisión SSE, liberación por desconexión, validación de entradas y cierre. La prueba automática del backend usa clientes HTTP; sigue pendiente probar físicamente PC y móvil juntos.
 
 ## Referencias consultadas
 
