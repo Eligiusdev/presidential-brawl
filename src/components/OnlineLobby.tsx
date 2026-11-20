@@ -8,33 +8,15 @@ import { fighterArtPath } from '../engine/fighterSprites';
 import { movesFor } from '../combat/roster.js';
 import { ultimateText } from '../engine/presidentUltimates';
 import type { RoomState } from '../network/matchState';
-import type { PresidentData, PresidentRegion } from '../types/game';
+import { RosterDisplay, REGION_TABS, matchesFilter, matchesSearch, useRosterDisplay, type RegionFilter } from './CharacterSelect';
 import { FighterPreview } from './FighterPreview';
 import { PortraitCanvas } from './PortraitCanvas';
-
-type RegionFilter = 'all' | PresidentRegion | 'current' | 'former' | 'mythic';
-
-const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
-  { id: 'all', label: 'Todos' },
-  { id: 'current', label: 'Actuales' },
-  { id: 'former', label: 'Recientes' },
-  { id: 'mythic', label: 'Míticos' },
-  { id: 'latam', label: 'Latam' },
-  { id: 'na', label: 'Norteamérica' },
-  { id: 'eu', label: 'Europa' },
-  { id: 'af_as', label: 'África/Asia' },
-];
-
-function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
-  if (filter === 'all') return true;
-  if (fighter.isCustom) return false;
-  if (filter === 'current' || filter === 'former' || filter === 'mythic') return fighter.rosterGroup === filter;
-  return fighter.rosterGroup !== 'mythic' && fighter.region === filter;
-}
 
 export function OnlineLobby({ room, slot, send, leave }: {
   room: RoomState; slot: number; send: (message: object) => void; leave: () => void;
 }) {
+  const display = useRosterDisplay();
+  const { query, view } = display;
   const [filter, setFilter] = useState<RegionFilter>('all');
   const [copied, setCopied] = useState(false);
   const drag = useRef<{ x: number; id: number } | null>(null);
@@ -46,10 +28,10 @@ export function OnlineLobby({ room, slot, send, leave }: {
 
   const roster = PRESIDENTS_DATA;
   const filteredRoster = useMemo(() => {
-    const list = roster.filter(d => matchesFilter(d, filter));
+    const list = roster.filter(d => matchesFilter(d, filter) && matchesSearch(d, query));
     if (filter === 'current' || filter === 'former') list.sort((a, b) => (b.termStart ?? 0) - (a.termStart ?? 0));
     return list;
-  }, [filter]);
+  }, [filter, query]);
 
   const info = roster.find(f => f.id === self?.fighterId) || filteredRoster[0] || roster[0];
   const infoArt = fighterArtPath(info);
@@ -76,7 +58,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
   };
 
   const pickRandom = () => {
-    const pool = filteredRoster.length ? filteredRoster : roster;
+    const pool = filteredRoster;
     const choice = pool[Math.floor(Math.random() * pool.length)];
     if (choice) pick(choice.id);
   };
@@ -227,13 +209,15 @@ export function OnlineLobby({ room, slot, send, leave }: {
       <aside className="ob-roster" aria-label="Selector de personajes">
         <div className="ob-roster-head">
           <h3>Personajes</h3>
+          <RosterDisplay display={display} />
           <div className="ob-filters">
-            {REGION_TABS.map(rt => <button key={rt.id} type="button" aria-pressed={filter === rt.id}
+            {REGION_TABS.filter(rt => rt.id !== 'custom').map(rt => <button key={rt.id} type="button" aria-pressed={filter === rt.id}
               onClick={() => { sound.uiClick(); setFilter(rt.id); }}>{rt.label}</button>)}
           </div>
         </div>
-        <div className="ob-grid" role="listbox" aria-label="Personajes">
-          <button type="button" className="ob-tile ob-tile-random" aria-label="Personaje aleatorio" onClick={pickRandom}>
+        {!filteredRoster.length && <p role="status">No se encontraron luchadores.</p>}
+        <div className={`ob-grid${view === 'rail' ? ' ob-roster-rail' : ''}`} aria-label="Personajes">
+          <button type="button" className="ob-tile ob-tile-random" aria-label="Personaje aleatorio" disabled={!filteredRoster.length} onClick={pickRandom}>
             <span className="ob-tile-art ob-tile-art-random"><Shuffle className="h-7 w-7" /></span>
             <span className="ob-tile-name">Aleatorio</span>
           </button>
@@ -243,7 +227,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
               .filter((x): x is { slot: number; color: string; ready: boolean; me: boolean } => Boolean(x));
             const mine = pickers.some(p => p.me);
             const ring = mine ? '#ffcc33' : pickers[0]?.color;
-            return <button key={d.id} type="button" role="option" aria-selected={mine}
+            return <button key={d.id} type="button" aria-pressed={mine} data-gamepad-initial={mine || undefined}
               className={`ob-tile ${mine ? 'mine' : ''} ${pickers.length ? 'taken' : ''}`}
               style={ring ? { ['--ring' as any]: ring } : undefined}
               onClick={() => pick(d.id)}>

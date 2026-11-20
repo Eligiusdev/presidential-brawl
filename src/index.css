@@ -453,7 +453,6 @@
   .online-duel-hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-<<<<<<< HEAD
 /* Online selector: local-like layout with live opponent picks */
 .online-lobby.apex-selector { overflow-y: auto; }
 .online-invite-input { min-width: 180px; max-width: 320px; flex: 1 1 180px; font-size: 12px; }
@@ -963,7 +962,6 @@
   text-align: center;
 }
 .console-modal-status.is-error { border-color: rgba(248, 113, 113, 0.35); color: #fecaca; background: rgba(60, 20, 28, 0.35); }
-=======
 .apex-app [data-gamepad-focus] {
   outline: 3px solid #ffdc72;
   outline-offset: -3px;
@@ -996,4 +994,11 @@
   overflow-y: auto;
   scroll-snap-type: none;
 }
->>>>>>> upstream/main
+
+.ob-grid.ob-roster-rail {
+  grid-auto-flow: column;
+  grid-template-columns: none;
+  grid-auto-columns: minmax(84px, 110px);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}

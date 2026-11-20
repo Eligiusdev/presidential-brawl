@@ -18,13 +18,15 @@ for (const bindings of [DEFAULT_P1_KEYS, DEFAULT_P2_KEYS]) {
   }
 }
 
+const roomCodePattern = /^(?:[A-F0-9]{5}|[A-F0-9]{10})$/;
+
 type Seat = Extract<ServerRoomMessage, { type: 'seat' }>;
 type Samples = { previous: MatchSnapshot; latest: MatchSnapshot; at: number };
 
-export function NetworkPanel({ config, hideLaunch, onActive, openSignal = 0 }: {
-  config: GameConfig; hideLaunch: boolean; onActive: (active: boolean) => void; openSignal?: number;
+export function NetworkPanel({ config, onActive, openSignal = 0 }: {
+  config: GameConfig; onActive: (active: boolean) => void; openSignal?: number;
 }) {
-  const invited = (new URLSearchParams(location.search).get('room') ?? '').toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 5);
+  const invited = (new URLSearchParams(location.search).get('room') ?? '').trim().toUpperCase();
   const [open, setOpen] = useState(Boolean(invited));
   useEffect(() => { if (openSignal) setOpen(true); }, [openSignal]);
   const [code, setCode] = useState(invited);
@@ -134,7 +136,7 @@ export function NetworkPanel({ config, hideLaunch, onActive, openSignal = 0 }: {
   }, []);
 
   useEffect(() => {
-    if (invited && /^[A-F0-9]{5}$/.test(invited) && !autoJoined.current) {
+    if (invited && roomCodePattern.test(invited) && !autoJoined.current) {
       autoJoined.current = true;
       enter.current({ type: 'join', code: invited });
     }
@@ -187,7 +189,7 @@ export function NetworkPanel({ config, hideLaunch, onActive, openSignal = 0 }: {
       const blend = Math.min(1, (now - buffer.at) / span);
       const since = (now - buffer.at) / (1000 / 60);
       const ping = room?.players[slot]?.ping ?? 0;
-      const prediction = Math.max(0, since) + Math.min(5, 1 + ping / 20);
+      const prediction = Math.min(8, Math.max(0, since) + Math.min(5, 1 + ping / 20));
       sound.tickMusic(buffer.latest.players.some(p => p.stocks === 1 || p.damage > 150));
       renderer.renderWorld(target, renderMatchState(buffer.previous, buffer.latest, blend, slot, actions(), prediction, jumpSequence.current), config);
     }
@@ -251,15 +253,14 @@ export function NetworkPanel({ config, hideLaunch, onActive, openSignal = 0 }: {
     <footer><span role="status">{status || `J${seat.slot + 1} · WASD · J/K/L · C: definitiva`}</span><button data-gamepad-back onClick={leave}>Salir</button></footer>
   </section>;
 
-<<<<<<< HEAD
-  return <div className="console-modal-overlay" role="dialog" aria-modal="true" aria-label="Salas en línea" onMouseDown={(e) => { if (e.target === e.currentTarget) leave(); }}>
+  return <div data-gamepad-online className="console-modal-overlay" role="dialog" aria-modal="true" aria-label="Salas en línea" onMouseDown={(e) => { if (e.target === e.currentTarget) leave(); }}>
     <section className="console-modal">
       <header className="console-modal-head">
         <div>
           <p className="console-modal-kicker">Multijugador</p>
           <h2>Salas en línea</h2>
         </div>
-        <button type="button" className="console-modal-close" onClick={leave} aria-label="Cerrar">×</button>
+        <button type="button" data-gamepad-back className="console-modal-close" onClick={leave} aria-label="Cerrar">×</button>
       </header>
 
       <div className="console-modal-body">
@@ -280,10 +281,10 @@ export function NetworkPanel({ config, hideLaunch, onActive, openSignal = 0 }: {
 
         <div className="console-field">
           <label htmlFor="room-code">Código de sala</label>
-          <input id="room-code" value={code} maxLength={5} placeholder="ABCDE" autoComplete="off" spellCheck={false}
-            onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 5))} />
+          <input id="room-code" value={code} maxLength={10} placeholder="ABCDE" autoComplete="off" spellCheck={false}
+            onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 10))} />
         </div>
-        <button type="button" className="console-btn" disabled={busy || !/^[A-F0-9]{5}$/.test(code)} onClick={() => enter.current({ type: 'join', code })}>
+        <button type="button" className="console-btn" disabled={busy || !roomCodePattern.test(code)} onClick={() => enter.current({ type: 'join', code })}>
           Entrar a la sala
         </button>
 
@@ -291,17 +292,4 @@ export function NetworkPanel({ config, hideLaunch, onActive, openSignal = 0 }: {
       </div>
     </section>
   </div>;
-=======
-  return <section data-gamepad-online className="network-panel" aria-label="Salas en línea">
-    <div className="network-heading"><strong>Salas en línea</strong><button data-gamepad-back onClick={leave} aria-label="Cerrar">×</button></div>
-    <label>Modo <select value={capacity} disabled={busy} onChange={e => setCapacity(Number(e.target.value) as RoomCapacity)}>
-      <option value={2}>Duelo · 2</option><option value={4}>Campal · 4</option>
-      <option value={6}>Campal · 6</option><option value={8}>Gran Campal · 8</option>
-    </select></label>
-    <button disabled={busy} onClick={() => enter.current({ type: 'create', maxPlayers: capacity })}>Crear sala</button>
-    <label>Código <input value={code} maxLength={10} onChange={e => setCode(e.target.value.toUpperCase())} /></label>
-    <button disabled={busy || !/^[A-F0-9]{10}$/.test(code)} onClick={() => enter.current({ type: 'join', code })}>Entrar a la sala</button>
-    {(busy || status) && <p role="status">{busy ? 'Conectando…' : status}</p>}
-  </section>;
->>>>>>> upstream/main
 }

@@ -12,7 +12,7 @@ import { FighterPreview } from './FighterPreview';
 import { PortraitCanvas } from './PortraitCanvas';
 import { SelectionRail } from './SelectionRail';
 
-type RegionFilter = 'new' | 'all' | PresidentRegion | 'current' | 'former' | 'mythic';
+export type RegionFilter = 'new' | 'all' | PresidentRegion | 'current' | 'former' | 'mythic';
 
 const NEW_FIGHTERS = new Set(['maduro', 'putin', 'obama', 'napoleon', 'antoinette', 'bathory', 'xiomara', 'diazcanel', 'ortega']);
 
@@ -20,11 +20,11 @@ function normalizeSearch(value: string) {
   return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
 }
 
-function matchesSearch(fighter: PresidentData, query: string) {
+export function matchesSearch(fighter: PresidentData, query: string) {
   return normalizeSearch(`${fighter.name} ${fighter.title}`).includes(normalizeSearch(query));
 }
 
-function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
+export function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
   if (filter === 'new') return NEW_FIGHTERS.has(fighter.id);
   if (filter === 'all') return true;
   if (filter === 'custom') return Boolean(fighter.isCustom);
@@ -33,7 +33,7 @@ function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
   return fighter.rosterGroup !== 'mythic' && fighter.region === filter;
 }
 
-const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
+export const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
   { id: 'all', label: 'Todos' },
   { id: 'new', label: 'Nuevos' },
   { id: 'current', label: 'Presidentes actuales' },
@@ -46,7 +46,7 @@ const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
   { id: 'custom', label: 'Propios' },
 ];
 
-function useRosterDisplay() {
+export function useRosterDisplay() {
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'rail' | 'grid'>(() => {
     try {
@@ -65,7 +65,7 @@ function useRosterDisplay() {
   };
 }
 
-function RosterDisplay({ display }: { display: ReturnType<typeof useRosterDisplay> }) {
+export function RosterDisplay({ display }: { display: ReturnType<typeof useRosterDisplay> }) {
   return (
     <div className="roster-display">
       <label>
@@ -636,27 +636,4 @@ export function FighterPreviewCard({
       </div>
     </div>
   );
-}
-
-export function OnlineRoster({ pickedId, onPick }: { pickedId: string | null; onPick: (id: string) => void }) {
-  const [filter, setFilter] = useState<RegionFilter>('all');
-  const display = useRosterDisplay();
-  const fighters = PRESIDENTS_DATA.filter(fighter => matchesFilter(fighter, filter) && matchesSearch(fighter, display.query));
-  if (filter === 'current' || filter === 'former') fighters.sort((a, b) => (b.termStart ?? 0) - (a.termStart ?? 0));
-  return <>
-    <RosterDisplay display={display} />
-    <div className="selector-filters flex flex-wrap gap-1.5" aria-label="Filtrar luchadores">
-      {REGION_TABS.filter(tab => tab.id !== 'custom').map(tab =>
-        <button key={tab.id} type="button" aria-pressed={filter === tab.id}
-          onClick={() => setFilter(tab.id)}>{tab.label}</button>)}
-    </div>
-    {!fighters.length && <p role="status">No se encontraron luchadores.</p>}
-    <SelectionRail label="Luchadores" variant="fighters" grid={display.view === 'grid'} resetKey={filter + display.query}>
-      {fighters.map(fighter =>
-        <button key={fighter.id} type="button" aria-pressed={pickedId === fighter.id} onClick={() => onPick(fighter.id)}>
-          <FighterPreview president={fighter} selected={pickedId === fighter.id} />
-          <span className="block truncate">{fighter.name}</span>
-        </button>)}
-    </SelectionRail>
-  </>;
 }

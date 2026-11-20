@@ -439,7 +439,7 @@ export default function App() {
   return (
     <main ref={appRef} className="apex-app">
       <LandscapePrompt />
-      <NetworkPanel config={config} hideLaunch={screen !== 'TITLE' && screen !== 'SELECT'}
+      <NetworkPanel config={config}
         openSignal={netOpenSignal}
         onActive={active => { onlineActive.current = active; }} />
       {/* 16:9 Isolated Pixel-Art Game Stage */}

@@ -55,12 +55,10 @@ export function attachRooms(app, { allowedOrigins = process.env.ALLOWED_ORIGINS 
     upgrade: (res, req, context) => {
       const origin = req.getHeader('origin');
       const host = req.getHeader('host');
-      if (origin && origins.size) {
+      if (origin) {
         let sameHost = false;
         try { sameHost = new URL(origin).host === host; } catch {}
-        const local = /^(localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|\[::1\])(?::\d+)?$/i;
-        const dev = local.test(new URL(origin).host) || local.test(host);
-        if (!sameHost && !dev && !origins.has(origin)) {
+        if (!sameHost && !origins.has(origin)) {
           res.writeStatus('403 Forbidden').end();
           return;
         }
