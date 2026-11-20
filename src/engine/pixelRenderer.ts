@@ -1,3 +1,4 @@
+import { paintUltimatePreview, paintUltimateSprite, preloadUltimateSprite } from './ultimateSprites';
 import { ultimatePoint, type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { stageArt, stageHazardColumns, stageNightMix } from './stageAtmosphere';
 import { paintCombatSprite, paintSprite, spritePortrait } from './fighterSprites';
@@ -3186,9 +3187,24 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.fillStyle = world.cine.flash && world.cine.t < 3 ? 'rgba(255, 243, 207, 0.48)' : 'rgba(6, 8, 15, 0.72)';
       ctx.fillRect(-30, -30, W + 60, H + 60);
     }
+    // Keep the emblem behind the fighters and leave hit warnings legible.
+    for (const fighter of world.fighters) {
+      if (!fighter.d.isCustom && fighter.d.ultimateId) preloadUltimateSprite(fighter.d.ultimateId);
+    }
+    for (const u of world.ults) {
+      const state = u.specialized;
+      if (!state) continue;
+      paintUltimateSprite(ctx, u, {
+        x: sx(state.point.x), y: sy(state.point.y),
+        hitWidth: sw(state.box.w), hitHeight: sw(state.box.h), unit: sw(100) / 100,
+      });
+    }
     if (world.telegraph) {
       const { t, duration, ultimateId, aim, zones } = world.telegraph;
       const blink = t % 6 < 3;
+      if (ultimateId && aim) {
+        paintUltimatePreview(ctx, ultimateId, sx(aim.x), sy(aim.y - 95), sw(100), t);
+      }
       const aimBox = zones[0];
       if (ultimateId === 'ult_simo' && aim && aimBox) {
         ctx.save();
