@@ -4,6 +4,31 @@ import type { RenderUltEffect } from './pixelRenderer';
 type AtlasEntry = { sheet: number; box: readonly number[] };
 const entries: Record<string, AtlasEntry | undefined> = atlas;
 const images = new Map<number, HTMLImageElement>();
+const animatedSheets = import.meta.env ? import.meta.glob<string>('../art/ultimates/ult_*.webp', {
+  eager: true, query: '?url', import: 'default',
+}) : {};
+const animatedImages = new Map<string, HTMLImageElement>();
+const FRAME_SIZE = 256;
+const FRAME_COLUMNS = 4;
+const FRAME_ROWS = 3;
+
+function getAnimatedSprite(id: string, frame: number) {
+  const url = animatedSheets[`../art/ultimates/${id}.webp`];
+  if (!url || typeof Image === 'undefined') return;
+  let image = animatedImages.get(id);
+  if (!image) {
+    image = new Image();
+    image.src = url;
+    animatedImages.set(id, image);
+  }
+  if (!image.complete || image.naturalWidth !== FRAME_SIZE * FRAME_COLUMNS ||
+      image.naturalHeight !== FRAME_SIZE * FRAME_ROWS) return;
+  return {
+    image,
+    box: [frame % FRAME_COLUMNS * FRAME_SIZE, Math.floor(frame / FRAME_COLUMNS) * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE],
+  };
+}
+
 const locomotives = new Set(['ult_lincoln', 'ult_alfaro', 'ult_biden']);
 const traces: Record<string, 'steam' | 'water' | 'ember' | 'frost' | 'light'> = {
   ult_lincoln: 'steam', ult_alfaro: 'steam', ult_biden: 'steam', ult_fdr: 'steam',
@@ -34,6 +59,7 @@ function getSprite(id: string) {
 }
 
 export function preloadUltimateSprite(id: string) {
+  getAnimatedSprite(id, 0);
   getSprite(id);
   if (id === 'ult_bolivar') getSprite('ult_uribe');
 }
@@ -47,7 +73,7 @@ function spriteLayer(ctx: CanvasRenderingContext2D, sprite: NonNullable<ReturnTy
 
 export function paintUltimatePreview(ctx: CanvasRenderingContext2D, id: string,
   x: number, y: number, size: number, time: number) {
-  const sprite = getSprite(id);
+  const sprite = getAnimatedSprite(id, Math.min(3, Math.floor(time / 8))) ?? getSprite(id);
   if (!sprite) return;
   const [,, width, height] = sprite.box;
   const scale = size / Math.max(width, height);
@@ -70,13 +96,16 @@ interface Placement {
 export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltEffect, placement: Placement) {
   if (!u.specialized) return false;
   const { ultimate: { spec, profile }, origin, active, triggered } = u.specialized;
-  const sprite = getSprite(spec.id);
+  const progress = Math.min(1, u.t / Math.max(1, u.dur));
+  const frame = 4 + Math.min(7, Math.floor(progress * 8));
+  const animated = getAnimatedSprite(spec.id, frame);
+  const sprite = animated ?? getSprite(spec.id);
   if (!sprite) return false;
 
   const { x, y, hitWidth, hitHeight, unit } = placement;
   const train = locomotives.has(spec.id);
   const cavalry = profile.travel === 'cavalry';
-  const horse = cavalry ? getSprite('ult_uribe') : undefined;
+  const horse = cavalry && !animated ? getSprite('ult_uribe') : undefined;
   const slash = spec.primitive === 'dashStrike';
   const heavy = spec.primitive === 'spawnEntity';
   const vertical = ['ult_kennedy', 'ult_cardenas', 'ult_teddy', 'ult_sankara'].includes(spec.id);
@@ -84,7 +113,6 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
   const [primary, highlight] = spec.colors;
   const accents = traceColors[trace];
   const time = u.t;
-  const progress = Math.min(1, time / Math.max(1, u.dur));
   const opacity = Math.min(1, (time + 2) / 7, (u.dur - time + 6) / 12);
   const spring = active ? 1 + .075 * Math.sin(time * .37) : .93;
   const ratio = sprite.box[2] / sprite.box[3];
@@ -102,19 +130,6 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
   const bob = moving ? Math.sin(time * .28) * unit * 2 : -Math.sin(time * .13) * unit * 5;
   const beat = (time * spec.hits / Math.max(1, u.dur)) % 1;
   const accent = Math.sin(beat * Math.PI);
-
-  if (train) {
-    const rail = height * .49;
-    ctx.fillStyle = '#13202f';
-    ctx.fillRect(-width * .8, rail + 2 * unit, width * 1.55, Math.max(2, 5 * unit));
-    ctx.fillStyle = '#f8bf71';
-    ctx.fillRect(-width * .8, rail, width * 1.55, Math.max(1, unit));
-    for (let i = 0; i < 8; i++) {
-      const offset = ((i * 20 + time * 5) % 160) / 160;
-      ctx.fillStyle = '#6a4f45';
-      ctx.fillRect((offset - .8) * width * 1.55, rail + 5 * unit, Math.max(2, unit * 7), Math.max(1, unit * 3));
-    }
-  }
 
   const motes = trace === 'light' ? 6 : 11;
   for (let i = 0; i < motes; i++) {
@@ -150,9 +165,28 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
     }
   }
 
-  if (moving && active && !train && !horse) {
-    ctx.globalAlpha = opacity * .22;
-    spriteLayer(ctx, sprite, width, height, -unit * 19, bob + unit * 3);
+  if (!animated && spec.id === 'ult_robinson') {
+    for (let i = 0; i < 30; i++) {
+      const level = (i % 10) / 9;
+      const angle = time * .29 + i * 2.4;
+      const depth = Math.sin(angle);
+      const radius = width * (.12 + level * .48);
+      const drift = Math.sin(time * .12 + level * 4) * unit * 9;
+      ctx.globalAlpha = opacity * (.33 + depth * .22);
+      ctx.fillStyle = accents[i % 3];
+      ctx.fillRect(drift + Math.cos(angle) * radius, height * (.44 - level),
+        Math.max(1, unit * (3 + level * 9)), Math.max(1, unit * (2 + level * 4)));
+    }
+  }
+  if (moving && active) {
+    for (let i = 0; i < 12; i++) {
+      const age = ((time + i * 3) % 24) / 24;
+      const lift = Math.sin(i * 2.4 + time * .1) * height * .28;
+      ctx.globalAlpha = opacity * (1 - age) * .64;
+      ctx.fillStyle = i % 2 ? primary : highlight;
+      ctx.fillRect(-width * (.15 + age * .68), bob + lift + age * unit * 11,
+        Math.max(1, unit * (3 + age * 7)), Math.max(1, unit * (4 - age * 2)));
+    }
   }
   if (spec.primitive === 'counterStance') {
     ctx.globalAlpha = opacity * (triggered ? .66 : .4);
@@ -175,7 +209,7 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
   }
   ctx.restore();
 
-  if (spec.id === 'ult_lincoln') {
+  if (!animated && spec.id === 'ult_lincoln') {
     const wheelY = height * .31 + bob;
     const radius = height * .086;
     ctx.globalAlpha = opacity * .72;
@@ -191,16 +225,6 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
         ctx.stroke();
       }
     }
-  }
-  if (train && active) {
-    ctx.globalAlpha = opacity * (.25 + .25 * Math.sin(time * .3) ** 2);
-    ctx.fillStyle = '#ffda91';
-    ctx.beginPath();
-    ctx.moveTo(width * .38, -height * .1);
-    ctx.lineTo(width * .85, -height * .25);
-    ctx.lineTo(width * .85, height * .24);
-    ctx.closePath();
-    ctx.fill();
   }
   ctx.restore();
   return true;

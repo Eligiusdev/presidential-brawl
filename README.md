@@ -54,6 +54,8 @@ Vite sirve la interfaz en el puerto 3000 y reenvía HTTP y WebSocket bajo `/api`
 
 Mantén arriba o abajo al pulsar especial para las variantes. Los controles pueden reasignarse en configuración.
 
+En los menús, usa la cruceta o el stick izquierdo para mover el foco, el botón inferior (A / Cruz) para confirmar y el botón derecho (B / Círculo) para volver. Start / Options pausa o reanuda el combate local. Con izquierda y derecha puedes ajustar deslizadores y cambiar opciones de listas. Los campos de texto se editan con el teclado.
+
 ## Cambios visuales
 
 La selección muestra figuras completas de mayor tamaño, con las no seleccionadas atenuadas y las elegidas a color. La cámara permite acercarse más cuando los luchadores están juntos; se mantiene el alejamiento cuando se separan. No se cambian el tamaño físico ni las colisiones de los luchadores. Se elimina el uso de `__dirname` de la configuración de Vite.

@@ -19,11 +19,11 @@ export function OnlineLobby({ room, slot, send, leave }: {
       await navigator.clipboard.writeText(url.href);
     } catch { linkField.current?.select(); }
   };
-  return <section className="online-screen online-lobby" aria-label="Selección en línea">
+  return <section data-gamepad-online className="online-screen online-lobby" aria-label="Selección en línea">
     <header>
       <div><h2>{room.maxPlayers === 2 ? 'Duelo' : room.maxPlayers === 8 ? 'Gran Campal' : 'Campal'} · {room.maxPlayers} jugadores</h2>
         <p>J{slot + 1} · Sala {room.code}</p></div>
-      <button onClick={leave}>Salir</button>
+      <button data-gamepad-back onClick={leave}>Salir</button>
     </header>
     <div className="online-slots">
       {room.players.map((p, index) => {

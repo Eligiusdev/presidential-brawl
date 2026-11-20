@@ -218,11 +218,11 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
     <OnlineLobby room={room} slot={seat.slot} send={send} leave={leave} />
     {status && <p className="online-status" role="status">{status}</p>}
   </>;
-  if (room && seat) return <section className="online-screen online-match" aria-label="Combate en línea">
+  if (room && seat) return <section data-gamepad-online data-gamepad-playing={playing || undefined} className="online-screen online-match" aria-label="Combate en línea">
     <OnlineGameHUD fighters={hud} room={room} localSlot={seat.slot} />
     <div className="online-arena">
       <canvas ref={canvas} aria-label="Arena multijugador" />
-      {playing && <div className="network-touch"><TouchControls inline onAction={(action, down) => {
+      {playing && <div data-gamepad-ignore className="network-touch"><TouchControls inline onAction={(action, down) => {
         if (down) {
           if (action === 'jump' && !actions().has('jump')) jumpSequence.current = sequence.current + 1;
           touch.current.add(action);
@@ -238,11 +238,11 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
         {room.hostSlot === seat.slot && <button onClick={() => send({ type: 'lobby' })}>Volver a la sala</button>}
       </section>}
     </div>
-    <footer><span role="status">{status || `J${seat.slot + 1} · WASD · J/K/L · C: definitiva`}</span><button onClick={leave}>Salir</button></footer>
+    <footer><span role="status">{status || `J${seat.slot + 1} · WASD · J/K/L · C: definitiva`}</span><button data-gamepad-back onClick={leave}>Salir</button></footer>
   </section>;
 
-  return <section className="network-panel" aria-label="Salas en línea">
-    <div className="network-heading"><strong>Salas en línea</strong><button onClick={leave} aria-label="Cerrar">×</button></div>
+  return <section data-gamepad-online className="network-panel" aria-label="Salas en línea">
+    <div className="network-heading"><strong>Salas en línea</strong><button data-gamepad-back onClick={leave} aria-label="Cerrar">×</button></div>
     <label>Modo <select value={capacity} disabled={busy} onChange={e => setCapacity(Number(e.target.value) as RoomCapacity)}>
       <option value={2}>Duelo · 2</option><option value={4}>Campal · 4</option>
       <option value={6}>Campal · 6</option><option value={8}>Gran Campal · 8</option>

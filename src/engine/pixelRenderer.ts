@@ -1,6 +1,6 @@
 import type { RoomCapacity } from '../data/stages';
 import { paintUltimatePreview, paintUltimateSprite, preloadUltimateSprite } from './ultimateSprites';
-import { ultimatePoint, type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
+import { type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { stageArt, stageHazardColumns, stageNightMix } from './stageAtmosphere';
 import { paintCombatSprite, paintSprite, spritePortrait } from './fighterSprites';
 import { drawEffects, drawStrike, drawShot, shotTouches, strikeBox } from '../combat/effects.js';
@@ -3236,7 +3236,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
         ctx.stroke();
         this.pxRect(ctx, x - 2, y - 2, 4, 4, blink ? '#fff3a0' : '#ef4444');
       }
-      for (const z of world.telegraph.zones) {
+      for (const z of ultimateId ? [] : zones) {
         ctx.fillStyle = blink ? 'rgba(255, 36, 36, 0.36)' : 'rgba(255, 36, 36, 0.16)';
         ctx.fillRect(sx(z.x), sy(z.y), sw(z.w), sw(z.h));
         ctx.strokeStyle = '#ff3838';
@@ -3491,8 +3491,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
 
     const special = u.specialized;
     if (special) {
-      const { ultimate, origin, point, box, active } = special;
-      const { spec, profile } = ultimate;
+      const { ultimate: { spec }, point, box, active } = special;
       const [primary, highlight] = spec.colors;
       const x = sx(point.x);
       const y = sy(point.y);
@@ -3503,39 +3502,6 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.strokeStyle = highlight;
       ctx.fillStyle = primary;
       ctx.lineWidth = Math.max(1, sw(active ? 5 : 2));
-      if (profile.travel || profile.tempo) {
-        const trail = ultimatePoint(ultimate, origin, Math.max(0, (u.t - 5) / u.dur));
-        const colors = profile.travel === 'cavalry' ? [primary, '#2563eb', highlight] : [highlight];
-        colors.forEach((color, index) => {
-          const offset = sw(6) * index;
-          ctx.strokeStyle = color;
-          ctx.beginPath();
-          ctx.moveTo(sx(trail.x), sy(trail.y) + offset);
-          ctx.lineTo(x, y + offset);
-          ctx.stroke();
-        });
-        ctx.strokeStyle = highlight;
-      } else if (spec.pattern === 'five_point_star_aerial_cuts_tricolor') {
-        const colors = [primary, '#2563eb', highlight];
-        for (let i = 1; i < profile.route.length; i++) {
-          const start = ultimatePoint(ultimate, origin, (i - 1) / (profile.route.length - 1));
-          const end = ultimatePoint(ultimate, origin, i / (profile.route.length - 1));
-          ctx.strokeStyle = colors[(i - 1) % colors.length];
-          ctx.beginPath();
-          ctx.moveTo(sx(start.x), sy(start.y));
-          ctx.lineTo(sx(end.x), sy(end.y));
-          ctx.stroke();
-        }
-        ctx.strokeStyle = highlight;
-      } else if (profile.route.length > 1) {
-        ctx.beginPath();
-        for (let i = 0; i < profile.route.length; i++) {
-          const node = ultimatePoint(ultimate, origin, i / (profile.route.length - 1));
-          if (i === 0) ctx.moveTo(sx(node.x), sy(node.y));
-          else ctx.lineTo(sx(node.x), sy(node.y));
-        }
-        ctx.stroke();
-      }
       // The authored VFX key fixes the mote pattern for every replay and client.
       let motif = 0;
       for (let i = 0; i < spec.vfxKey.length; i++) motif = (Math.imul(motif, 31) + spec.vfxKey.charCodeAt(i)) >>> 0;
@@ -3564,33 +3530,6 @@ export class PixelRenderer extends LegacyFighterGeometry {
         }
         ctx.fillStyle = primary;
       }
-      ctx.beginPath();
-      if (profile.shape === 'orb' || profile.shape === 'ring') {
-        ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-      } else if (profile.shape === 'slash') {
-        ctx.moveTo(x - rx, y + ry);
-        ctx.quadraticCurveTo(x + rx * .3, y - ry, x + rx, y - ry * .76);
-        ctx.quadraticCurveTo(x + rx * .4, y + ry * .42, x - rx, y + ry);
-      } else if (profile.shape === 'beam') {
-        ctx.moveTo(x, y - ry);
-        ctx.lineTo(x + rx, y - ry * .64);
-        ctx.lineTo(x + rx * .52, y + ry);
-        ctx.lineTo(x - rx * .52, y + ry);
-        ctx.lineTo(x - rx, y - ry * .64);
-        ctx.closePath();
-      } else if (profile.shape === 'ground') {
-        ctx.moveTo(x - rx, y + ry);
-        ctx.lineTo(x - rx * .55, y - ry);
-        ctx.lineTo(x + rx * .34, y - ry * .7);
-        ctx.lineTo(x + rx, y + ry);
-        ctx.closePath();
-      } else {
-        ctx.rect(x - rx, y - ry, rx * 2, ry * 2);
-      }
-      ctx.globalAlpha *= .36;
-      ctx.fill();
-      ctx.globalAlpha = active ? .92 : .38;
-      ctx.stroke();
       ctx.restore();
       return;
     }

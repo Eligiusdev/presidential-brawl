@@ -47,6 +47,7 @@ interface CharacterSelectProps {
   remoteOpponent?: boolean;
   remoteReady?: boolean;
   onStartVersus: () => void;
+  campaignSelection?: boolean;
   onStartCampaign: () => void;
   onStartTraining: () => void;
   onWatchLastReplay: () => void;
@@ -69,6 +70,7 @@ export function CharacterSelect({
   remoteOpponent = false,
   remoteReady = false,
   onStartVersus,
+  campaignSelection = false,
   onStartCampaign,
   onStartTraining,
   onWatchLastReplay,
@@ -82,7 +84,7 @@ export function CharacterSelect({
   const p1 = roster[sel[0]] || roster[0];
   const p2 = roster[sel[1]] || roster[0];
 
-  const activeFighter = activeSlot === 0 ? p1 : p2;
+  const activeFighter = (campaignSelection ? 0 : activeSlot) === 0 ? p1 : p2;
   const artPath = fighterArtPath(activeFighter);
 
   const filteredRoster = useMemo(() => {
@@ -97,7 +99,7 @@ export function CharacterSelect({
   const pickPresident = (idx: number) => {
     sound.uiClick();
     const next: [number, number] = [...sel] as [number, number];
-    next[remoteOpponent ? 0 : activeSlot] = idx;
+    next[remoteOpponent || campaignSelection ? 0 : activeSlot] = idx;
     onChangeSel(next);
 
   };
@@ -108,6 +110,7 @@ export function CharacterSelect({
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#222d4a]">
         <div className="flex items-center gap-3">
           <button
+            data-gamepad-back
             onClick={() => {
               sound.uiClick();
               onBack();
@@ -118,7 +121,7 @@ export function CharacterSelect({
             Inicio
           </button>
           <h2 className="font-display text-lg font-bold uppercase tracking-wide text-white sm:text-2xl">
-            Selección de Combatientes
+            {campaignSelection ? "Cumbre Mundial · Elige tu luchador" : "Selección de Combatientes"}
           </h2>
         </div>
 
@@ -185,7 +188,7 @@ export function CharacterSelect({
       )}
 
       {/* Main 3-Column Selection Layout */}
-      <div className="selector-layout mx-auto my-3 grid w-full max-w-6xl flex-1 gap-3">
+      <div className={`selector-layout mx-auto my-3 grid w-full max-w-6xl flex-1 gap-3${campaignSelection ? ' selector-layout-campaign' : ''}`}>
         {/* P1 Preview Card */}
         <div className="selector-side">
           <FighterPreviewCard
@@ -219,7 +222,7 @@ export function CharacterSelect({
             >
               Eligiendo J1: {p1.name}
             </button>
-            <button
+            {!campaignSelection && <button
               onClick={() => {
                 sound.uiClick();
                 if (!remoteOpponent) setActiveSlot(1);
@@ -229,7 +232,7 @@ export function CharacterSelect({
               }`}
             >
               {remoteOpponent ? "J2 elige desde su dispositivo" : <>Eligiendo {vsAI ? 'IA' : 'J2'}: {p2.name}</>}
-            </button>
+            </button>}
           </div>
 
           {/* Region Filter Bar */}
@@ -259,12 +262,13 @@ export function CharacterSelect({
           <SelectionRail label="Luchadores" variant="fighters" resetKey={regionFilter}>
             {filteredRoster.map(({ d, idx }) => {
               const isP1 = sel[0] === idx;
-              const isP2 = sel[1] === idx;
+              const isP2 = !campaignSelection && sel[1] === idx;
               return (
                 <div
                   key={d.id}
                   onClick={() => pickPresident(idx)}
                   role="button"
+                  data-gamepad-initial={activeSlot === 0 ? isP1 || undefined : isP2 || undefined}
                   aria-pressed={activeSlot === 0 ? isP1 : isP2}
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -347,7 +351,7 @@ export function CharacterSelect({
           </SelectionRail>
 
           {/* Stage Selector (12 Presidential Palaces) */}
-          <div>
+          {!campaignSelection && <div>
             <SelectionRail label="Escenarios" variant="stages">
               {STAGES_DATA.map((st, idx) => (
                 <button
@@ -394,11 +398,11 @@ export function CharacterSelect({
               {config.video.stageTime !== 'day' && config.video.stageTime !== 'night' && 'Día o noche al azar. '}
               {STAGES_DATA[stageSel]?.hazardMsg ?? 'El escenario se sortea al iniciar.'}
             </p>
-          </div>
+          </div>}
         </div>
 
         {/* P2 Preview Card */}
-        <div className="selector-side">
+        {!campaignSelection && <div className="selector-side">
           <FighterPreviewCard
             slot={1}
             label={vsAI ? `IA (${['Novato', 'Comp.', 'Leyenda', 'Brutal'][config.match.aiDifficulty]})` : 'Jugador 2'}
@@ -413,12 +417,12 @@ export function CharacterSelect({
               onOpenCustomizer(p2);
             }}
           />
-        </div>
+        </div>}
       </div>
 
       {/* Bottom Launch Bar */}
-      <div className="selector-launch mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 pt-2">
-        <div className="flex flex-wrap gap-2">
+      <div className={`selector-launch mx-auto flex w-full max-w-6xl flex-wrap items-center gap-2 pt-2 ${campaignSelection ? 'justify-end' : 'justify-between'}`}>
+        {!campaignSelection && <div className="flex flex-wrap gap-2">
           <button
             onClick={() => {
               sound.uiConfirm();
@@ -439,18 +443,19 @@ export function CharacterSelect({
             <Shield className="h-4 w-4 text-[#38bdf8]" />
             Entrenamiento
           </button>
-        </div>
+        </div>}
 
         <button
           disabled={remoteOpponent && !remoteReady}
           onClick={() => {
             sound.uiConfirm();
-            void onStartVersus();
+            if (campaignSelection) onStartCampaign();
+            else void onStartVersus();
           }}
           className="flex min-h-[46px] items-center gap-2.5 rounded-lg bg-[#ffcc33] px-8 py-2.5 font-display text-base font-bold uppercase tracking-wider text-[#0b0e17] transition-transform active:scale-[0.98] hover:bg-[#ffd95e]"
         >
           <Play className="h-4 w-4 fill-current" />
-          {remoteOpponent && !remoteReady ? "Esperando a J2" : "¡Pelear!"}
+          {campaignSelection ? "Iniciar Cumbre · 7 combates" : remoteOpponent && !remoteReady ? "Esperando a J2" : "¡Pelear!"}
         </button>
       </div>
     </div>

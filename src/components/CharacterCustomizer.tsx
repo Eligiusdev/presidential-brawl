@@ -334,6 +334,7 @@ export function CharacterCustomizer({ initialBase, onSave, onDelete, onClose }: 
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 border-b border-[#1f2840] pb-3.5">
         <div className="flex items-center gap-3">
           <button
+            data-gamepad-back
             onClick={() => {
               sound.uiClick();
               onClose();

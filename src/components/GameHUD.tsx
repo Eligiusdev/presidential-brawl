@@ -608,7 +608,7 @@ export function GameHUD({
 
       {/* Pause Modal */}
       {screen === 'PAUSED' && hud && (
-        <div className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/88 p-4">
+        <div data-gamepad-overlay className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/88 p-4">
           <div className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-5 overflow-y-auto rounded-xl border border-[#2a344d] bg-[#111726] p-6">
             <div className="flex items-center justify-between border-b border-[#222b42] pb-3">
               <h2 className="font-display text-2xl font-bold uppercase text-[#ffcc33]">Combate en Pausa</h2>
@@ -669,6 +669,8 @@ export function GameHUD({
                 Reiniciar Pelea
               </button>
               <button
+                data-gamepad-back
+                data-gamepad-initial
                 onClick={onTogglePause}
                 className="rounded-lg bg-[#ffcc33] px-6 py-2.5 font-display text-sm font-bold text-[#0b0e17] hover:bg-[#ffd95e]"
               >
@@ -681,7 +683,7 @@ export function GameHUD({
 
       {/* Replay Completed Overlay */}
       {isReplay && replayEnded && (
-        <div className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/80 p-4">
+        <div data-gamepad-overlay className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/80 p-4">
           <div className="w-full max-w-md rounded-xl border border-[#a855f7]/60 bg-[#111726] p-6 text-center">
             <div className="text-xs font-bold uppercase tracking-widest text-[#c084fc]">Secuencia Completada</div>
             <h2 className="mt-1 font-display text-2xl font-bold uppercase text-white">Repetición Finalizada</h2>
@@ -712,6 +714,7 @@ export function GameHUD({
                 JSON
               </button>
               <button
+                data-gamepad-back
                 onClick={() => {
                   sound.uiClick();
                   onExitReplay();
@@ -727,7 +730,7 @@ export function GameHUD({
 
       {/* Versus Game Over */}
       {screen === 'GAME_OVER' && summary && (
-        <div className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4 overflow-y-auto">
+        <div data-gamepad-overlay className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4 overflow-y-auto">
           <div className="w-full max-w-lg rounded-xl border border-[#2a344d] bg-[#111726] p-6 text-center">
             <div className="text-xs font-bold uppercase tracking-widest text-[#ffcc33]">Presidente Electo</div>
             <h2 className="mt-1 font-display text-3xl font-bold uppercase text-white">{summary.winnerName}</h2>
@@ -816,6 +819,7 @@ export function GameHUD({
 
             <div className="mt-5 flex gap-3">
               <button
+                data-gamepad-back
                 onClick={onExitToSelect}
                 className="flex-1 rounded-lg border border-[#2f3b57] bg-[#161e31] py-2.5 text-xs font-bold text-[#cbd5e1] hover:text-white"
               >
@@ -834,7 +838,7 @@ export function GameHUD({
 
       {/* Campaign Censure / Continue */}
       {screen === 'CENSURE' && campaign && (
-        <div className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4">
+        <div data-gamepad-overlay className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4">
           <div className="w-full max-w-md rounded-xl border border-[#ef4444]/50 bg-[#111726] p-6 text-center">
             <div className="text-xs font-bold uppercase tracking-widest text-[#ef4444]">Moción de Censura</div>
             <h2 className="mt-1 font-display text-3xl font-bold text-white">¿Continuar Campaña?</h2>
@@ -844,6 +848,7 @@ export function GameHUD({
             </p>
             <div className="mt-6 flex flex-wrap gap-2.5">
               <button
+                data-gamepad-back
                 onClick={onExitToSelect}
                 className="flex-1 rounded-lg border border-[#2f3b57] bg-[#161e31] py-2.5 text-xs font-bold text-[#cbd5e1] hover:text-white"
               >
@@ -874,7 +879,7 @@ export function GameHUD({
 
       {/* Campaign Champion */}
       {screen === 'CHAMPION' && campaign && (
-        <div className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4">
+        <div data-gamepad-overlay className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4">
           <div className="w-full max-w-lg rounded-xl border-2 border-[#ffcc33] bg-[#111726] p-6 text-center">
             <div className="text-xs font-bold uppercase tracking-widest text-[#ffcc33]">★ Victoria Total ★</div>
             <h2 className="mt-1 font-display text-3xl font-bold uppercase text-white">
@@ -925,6 +930,7 @@ export function GameHUD({
                 </button>
               )}
               <button
+                data-gamepad-back
                 onClick={onExitToSelect}
                 className="flex-1 rounded-lg bg-[#ffcc33] py-3 font-display text-sm font-bold uppercase text-[#0b0e17] hover:bg-[#ffd95e]"
               >

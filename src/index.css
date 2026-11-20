@@ -279,6 +279,7 @@
 
 @media (min-width: 1024px) {
   .selector-layout { grid-template-columns: minmax(185px, 1fr) minmax(0, 3fr) minmax(185px, 1fr); }
+  .selector-layout-campaign { grid-template-columns: minmax(185px, 1fr) minmax(0, 3fr); }
 }
 @media (max-width: 1023px) {
   .selector-side { display: none; }
@@ -449,4 +450,9 @@
   .online-hud article { padding: 3px; gap: 3px; }
   .online-hud article > div { font-size: .65rem; }
   .online-duel-hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.apex-app [data-gamepad-focus] {
+  outline: 3px solid #ffdc72;
+  outline-offset: -3px;
 }

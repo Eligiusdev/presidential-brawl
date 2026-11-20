@@ -78,6 +78,7 @@ export function TitleScreen({
         {/* Primary CTA Stack */}
         <div className="mt-8 flex flex-col gap-3 sm:max-w-md">
           <button
+            data-gamepad-initial
             onClick={() => {
               sound.init();
               sound.uiConfirm();

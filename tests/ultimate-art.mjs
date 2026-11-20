@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { PRESIDENTS_DATA } from '../src/data/presidents.ts';
 import atlas from '../src/data/ultimateAtlas.json' with { type: 'json' };
@@ -74,3 +74,37 @@ for (const fighter of PRESIDENTS_DATA) {
 assert.deepEqual(new Set(Object.keys(atlas)), ids);
 assert.equal(sprites.size, 61);
 console.log('61 sprites de definitivas distintos, transparentes y animados.');
+
+const animatedRoot = new URL('../src/art/ultimates/', import.meta.url);
+const animatedFiles = readdirSync(animatedRoot).filter(file => /^ult_.*\.webp$/.test(file));
+assert.deepEqual(new Set(animatedFiles.map(file => file.slice(0, -5))), ids);
+const frameCanvas = createCanvas(256, 256);
+const frameContext = frameCanvas.getContext('2d');
+for (const file of animatedFiles) {
+  const id = file.slice(0, -5);
+  assert.ok(ids.has(id), file);
+  const image = await loadImage(readFileSync(new URL(file, animatedRoot)));
+  assert.deepEqual([image.width, image.height], [1024, 768], file);
+  const frames = new Set();
+  for (let index = 0; index < 12; index++) {
+    const x = index % 4 * 256;
+    const y = Math.floor(index / 4) * 256;
+    frameContext.clearRect(0, 0, 256, 256);
+    frameContext.drawImage(image, x, y, 256, 256, 0, 0, 256, 256);
+    const { data } = frameContext.getImageData(0, 0, 256, 256);
+    let visible = false;
+    for (let row = 0; row < 256; row++) {
+      for (let col = 0; col < 256; col++) {
+        const alpha = data[(row * 256 + col) * 4 + 3];
+        if (row < 8 || row >= 248 || col < 8 || col >= 248) {
+          assert.equal(alpha, 0, `${file} fotograma ${index}: margen transparente`);
+        }
+        if (alpha >= 190) visible = true;
+      }
+    }
+    assert.ok(visible, `${file} fotograma ${index}: silueta visible`);
+    frames.add(createHash('sha256').update(data).digest('hex'));
+  }
+  assert.equal(frames.size, 12, `${file}: fotogramas distintos`);
+}
+console.log(`${animatedFiles.length} atlas de definitivas con 12 fotogramas y margen transparente.`);
