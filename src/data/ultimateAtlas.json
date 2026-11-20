@@ -59,5 +59,14 @@
   "ult_robinson": {"sheet":3,"box":[198,391,179,178]},
   "ult_mandela": {"sheet":3,"box":[385,393,188,176]},
   "ult_allende": {"sheet":3,"box":[597,397,151,167]},
-  "ult_pertini": {"sheet":3,"box":[3,585,187,177]}
+  "ult_pertini": {"sheet":3,"box":[3,585,187,177]},
+  "ult_maduro": {"sheet":4,"box":[0,0,256,256]},
+  "ult_putin": {"sheet":4,"box":[256,0,256,256]},
+  "ult_obama": {"sheet":4,"box":[512,0,256,256]},
+  "ult_napoleon": {"sheet":4,"box":[0,256,256,256]},
+  "ult_antoinette": {"sheet":4,"box":[256,256,256,256]},
+  "ult_bathory": {"sheet":4,"box":[512,256,256,256]},
+  "ult_xiomara": {"sheet":4,"box":[0,512,256,256]},
+  "ult_diazcanel": {"sheet":4,"box":[256,512,256,256]},
+  "ult_ortega": {"sheet":4,"box":[512,512,256,256]}
 }

@@ -49,7 +49,7 @@ for (const fighter of PRESIDENTS_DATA) {
   assert.ok(spec.damage >= budget.minDamage && spec.damage <= budget.maxDamage);
   assert.ok(spec.rangePx >= budget.minRange && spec.rangePx <= budget.maxRange);
 }
-assert.deepEqual(Object.fromEntries(counts), { vanguard: 13, tank: 10, controller: 13, artillery: 9, assassin: 9, specialist: 7 });
+assert.deepEqual(Object.fromEntries(counts), { vanguard: 14, tank: 12, controller: 15, artillery: 11, assassin: 10, specialist: 8 });
 assert.equal(COMBAT_LIMITS.projectileCooldown, 66);
 
 for (const [distance, damage] of [[110, 28], [285, 22]]) {
@@ -161,4 +161,4 @@ for (const id of ['kalam', 'eisenhower', 'cesar', 'bukele']) {
   };
   assert.deepEqual(simulate(), simulate(), id + ' trayectoria determinista');
 }
-console.log('Balance de 61 kits y seis reglas antiabuso verificados.');
+console.log('Balance de 70 kits y seis reglas antiabuso verificados.');

@@ -18,7 +18,7 @@ config.match.hazardFrequency = 'off';
 const game = new GameEngine(config);
 const canvas = createCanvas(640, 360);
 const ids = PRESIDENTS_DATA.map(f => f.id).sort();
-assert.equal(ids.length, 61);
+assert.equal(ids.length, 70);
 assert.deepEqual(Object.keys(MOVE_NAMES).sort(), ids);
 assert.deepEqual(Object.keys(PRESIDENT_ULTIMATES).sort(), ids);
 const routes = new Set();
@@ -64,8 +64,8 @@ for (const [index, president] of PRESIDENTS_DATA.entries()) {
   }
   assert.ok(o.pct > 0, president.id + ' produce daño al conectar');
 }
-assert.equal(names.size, 61);
-assert.equal(routes.size, 61);
+assert.equal(names.size, ids.length);
+assert.equal(routes.size, ids.length);
 assert.equal(ultimateFor({ ...PRESIDENTS_DATA[0], isCustom: true }), undefined);
 
 for (const version of [5, 6, 7, 8, 9]) {
@@ -75,7 +75,7 @@ for (const version of [5, 6, 7, 8, 9]) {
   assert.equal(game.ults[0].kind, version === 5 ? 'libertador' : 'ult_bolivar');
   assert.equal(game.ults[0].specialized?.ultimate.profile.travel, version >= 8 ? 'cavalry' : undefined);
 }
-console.log('61 definitivas, 244 nombres, activación, contacto, render y compatibilidad de repeticiones.');
+console.log('70 definitivas, 280 nombres, activación, contacto, render y compatibilidad de repeticiones.');
 
 for (const id of ['lincoln', 'robinson', 'bolivar']) {
   for (const face of [-1, 1]) {

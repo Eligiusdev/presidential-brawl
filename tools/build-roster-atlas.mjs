@@ -65,7 +65,7 @@ const clip = (loop, ...frames) => ({ loop, frames: frames.map(([pose, ticks]) =>
 for (const [row, id] of ids.entries()) {
   const fighter = PRESIDENTS_DATA.find(({ id: key }) => key === id);
   if (!fighter) throw Error(`Luchador desconocido: ${id}`);
-  const { jab, neutral, up, down } = movesFor(fighter).book;
+  const { jab, neutral, up, down } = movesFor(fighter, false, false, false).book;
   const cells = cellsByIndex.slice(row * 3, row * 3 + 3);
   const baseScale = Math.min(150 / cells[0].h, 183 / Math.max(...cells.map(c => c.w)));
   const artwork = {

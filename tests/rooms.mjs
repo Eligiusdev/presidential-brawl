@@ -80,13 +80,14 @@ test('salas WebSocket de 2/4/6/8, snapshots autoritativos y migración', { timeo
       }
       leader.send({ type: 'stage', stage: 1 });
       for (const p of players) {
-        p.send({ type: 'select', fighterId: 'bolivar' });
+        p.send({ type: 'select', fighterId: maxPlayers === 2 ? 'xiomara' : 'bolivar' });
         p.send({ type: 'ready', ready: true });
       }
       await leader.next(m => m.type === 'room' && m.stage === 1 && m.players.every(p => p?.ready));
       leader.send({ type: 'start' });
       const sample = await players.at(-1).next(m => m.type === 'snapshot');
       assert.equal(sample.players.length, maxPlayers);
+      assert.equal(sample.players[0].fighterId, maxPlayers === 2 ? 'xiomara' : 'bolivar');
       assert.equal(sample.stage, 1);
       assert.ok(sample.world.camera.zoom > 0);
       assert.ok(JSON.stringify(sample).length < 16000);

@@ -91,6 +91,16 @@ define('mandela','center','ring',[[-.89,.03],[-.35,-.37],[.35,-.37],[.89,.03]],'
 define('allende','center','ground',[[0,0],[.62,.1],[-.62,.1],[1.16,.13],[-1.16,.13]],'Dos oleadas salen del centro hacia extremos opuestos.');
 define('pertini','target','block',[[-.82,-.85],[-.55,-.62],[-.36,-.24],[0,.17],[.46,.3]],'Humo en altura precede una avalancha diagonal.');
 
+define('maduro', 'caster', 'ground', [[0.12,0.27],[0.38,0.04],[0.68,0.07],[0.92,0.27]], "Las cuerdas del arpa levantan un oleaje de notas doradas.");
+define('putin', 'caster', 'block', [[0.02,-0.1],[0.3,-0.26],[0.65,0.12]], "Un escudo de hielo devuelve el impacto en una ráfaga.");
+define('obama', 'caster', 'ring', [[0.18,0],[0.38,-0.2],[0.73,-0.14],[1.08,0.03]], "Un micrófono de plata lanza tres ondas azules y doradas.");
+define('napoleon', 'caster', 'slash', [[0.18,0.04],[0.47,-0.29],[0.85,-0.13],[1.18,0.18]], "El águila imperial abre un barrido diagonal bajo el estandarte.");
+define('antoinette', 'target', 'orb', [[0,0.21],[0.43,-0.15],[-0.35,-0.4],[0.05,-0.04]], "Un abanico rococó dispersa pétalos alrededor de un espejo.");
+define('bathory', 'target', 'ring', [[0.05,0.04],[-0.43,-0.14],[0.39,-0.36],[-0.04,0.19]], "Un espejo de amatista se abre entre rosas y niebla carmesí.");
+define('xiomara', 'target', 'beam', [[0.05,0.3],[-0.31,0.13],[0.28,0.12],[0.02,-0.42]], "Una ceiba turquesa brota entre cinco estrellas y raíces de luz.");
+define('diazcanel', 'caster', 'ground', [[0.17,0.27],[0.46,0.17],[0.72,0.24],[1.12,-0.06]], "Una ola azul recorre el malecón al ritmo de notas luminosas.");
+define('ortega', 'target', 'block', [[-0.42,0.27],[-0.14,-0.38],[0.22,-0.5],[0.4,0.2]], "Un sol ámbar ilumina el volcán y eleva fragmentos de obsidiana.");
+
 const sweepingUltimates: Record<string, { travel: 'sweep' | 'cavalry'; durationMs: number; hits: number; description: string } | undefined> = {
   lincoln: { travel: 'sweep', durationMs: 750, hits: 1, description: 'La locomotora cruza toda la plataforma a ras del suelo y lanza al rival al contacto.' },
   robinson: { travel: 'sweep', durationMs: 900, hits: 3, description: 'Un tornado cruza la arena, arrastra al rival hacia el vórtice y lo expulsa.' },

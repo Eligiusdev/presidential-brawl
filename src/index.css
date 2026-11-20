@@ -279,6 +279,7 @@
 
 @media (min-width: 1024px) {
   .selector-layout { grid-template-columns: minmax(185px, 1fr) minmax(0, 3fr) minmax(185px, 1fr); }
+  .selector-layout-campaign { grid-template-columns: minmax(185px, 1fr) minmax(0, 3fr); }
 }
 @media (max-width: 1023px) {
   .selector-side { display: none; }
@@ -452,6 +453,7 @@
   .online-duel-hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+<<<<<<< HEAD
 /* Online selector: local-like layout with live opponent picks */
 .online-lobby.apex-selector { overflow-y: auto; }
 .online-invite-input { min-width: 180px; max-width: 320px; flex: 1 1 180px; font-size: 12px; }
@@ -961,3 +963,37 @@
   text-align: center;
 }
 .console-modal-status.is-error { border-color: rgba(248, 113, 113, 0.35); color: #fecaca; background: rgba(60, 20, 28, 0.35); }
+=======
+.apex-app [data-gamepad-focus] {
+  outline: 3px solid #ffdc72;
+  outline-offset: -3px;
+}
+
+.roster-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+}
+.roster-display label {
+  display: grid;
+  gap: .25rem;
+  color: #cbd5e1;
+  font-size: .8rem;
+}
+.roster-display input, .roster-display select {
+  min-width: 0;
+  padding: .4rem .55rem;
+  border: 1px solid #445a76;
+  border-radius: .4rem;
+  background: #111b2a;
+  color: #edf4ff;
+}
+.selection-rail-grid {
+  grid-auto-flow: row;
+  grid-auto-columns: auto;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 110px), 1fr));
+  max-height: min(55dvh, 440px);
+  overflow-y: auto;
+  scroll-snap-type: none;
+}
+>>>>>>> upstream/main

@@ -12,9 +12,20 @@ import { FighterPreview } from './FighterPreview';
 import { PortraitCanvas } from './PortraitCanvas';
 import { SelectionRail } from './SelectionRail';
 
-type RegionFilter = 'all' | PresidentRegion | 'current' | 'former' | 'mythic';
+type RegionFilter = 'new' | 'all' | PresidentRegion | 'current' | 'former' | 'mythic';
+
+const NEW_FIGHTERS = new Set(['maduro', 'putin', 'obama', 'napoleon', 'antoinette', 'bathory', 'xiomara', 'diazcanel', 'ortega']);
+
+function normalizeSearch(value: string) {
+  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+}
+
+function matchesSearch(fighter: PresidentData, query: string) {
+  return normalizeSearch(`${fighter.name} ${fighter.title}`).includes(normalizeSearch(query));
+}
 
 function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
+  if (filter === 'new') return NEW_FIGHTERS.has(fighter.id);
   if (filter === 'all') return true;
   if (filter === 'custom') return Boolean(fighter.isCustom);
   if (fighter.isCustom) return false;
@@ -24,8 +35,9 @@ function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
 
 const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
   { id: 'all', label: 'Todos' },
+  { id: 'new', label: 'Nuevos' },
   { id: 'current', label: 'Presidentes actuales' },
-  { id: 'former', label: 'Expresidentes recientes' },
+  { id: 'former', label: 'Expresidentes' },
   { id: 'mythic', label: 'Míticos' },
   { id: 'latam', label: 'Latinoamérica' },
   { id: 'na', label: 'Norteamérica' },
@@ -33,6 +45,44 @@ const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
   { id: 'af_as', label: 'África y Asia' },
   { id: 'custom', label: 'Propios' },
 ];
+
+function useRosterDisplay() {
+  const [query, setQuery] = useState('');
+  const [view, setView] = useState<'rail' | 'grid'>(() => {
+    try {
+      return localStorage.getItem('presidential-brawl.roster-view') === 'grid' ? 'grid' : 'rail';
+    } catch {
+      return 'rail';
+    }
+  });
+
+  return {
+    query, setQuery, view,
+    changeView(next: 'rail' | 'grid') {
+      setView(next);
+      try { localStorage.setItem('presidential-brawl.roster-view', next); } catch { /* vista temporal */ }
+    },
+  };
+}
+
+function RosterDisplay({ display }: { display: ReturnType<typeof useRosterDisplay> }) {
+  return (
+    <div className="roster-display">
+      <label>
+        Buscar luchador
+        <input type="search" value={display.query} onChange={e => display.setQuery(e.target.value)}
+          placeholder="Nombre o país" />
+      </label>
+      <label>
+        Vista del plantel
+        <select value={display.view} onChange={e => display.changeView(e.target.value === 'grid' ? 'grid' : 'rail')}>
+          <option value="rail">Carrusel</option>
+          <option value="grid">Cuadrícula</option>
+        </select>
+      </label>
+    </div>
+  );
+}
 
 interface CharacterSelectProps {
   roster: PresidentData[];
@@ -47,6 +97,7 @@ interface CharacterSelectProps {
   remoteOpponent?: boolean;
   remoteReady?: boolean;
   onStartVersus: () => void;
+  campaignSelection?: boolean;
   onStartCampaign: () => void;
   onStartTraining: () => void;
   onWatchLastReplay: () => void;
@@ -69,6 +120,7 @@ export function CharacterSelect({
   remoteOpponent = false,
   remoteReady = false,
   onStartVersus,
+  campaignSelection = false,
   onStartCampaign,
   onStartTraining,
   onWatchLastReplay,
@@ -78,26 +130,28 @@ export function CharacterSelect({
   onBack,
 }: CharacterSelectProps) {
   const [activeSlot, setActiveSlot] = useState<0 | 1>(0);
+  const display = useRosterDisplay();
+  const { query, view } = display;
   const [regionFilter, setRegionFilter] = useState<RegionFilter>('all');
   const p1 = roster[sel[0]] || roster[0];
   const p2 = roster[sel[1]] || roster[0];
 
-  const activeFighter = activeSlot === 0 ? p1 : p2;
+  const activeFighter = (campaignSelection ? 0 : activeSlot) === 0 ? p1 : p2;
   const artPath = fighterArtPath(activeFighter);
 
   const filteredRoster = useMemo(() => {
     const mapped = roster.map((d, idx) => ({ d, idx }));
-    const filtered = mapped.filter(({ d }) => matchesFilter(d, regionFilter));
+    const filtered = mapped.filter(({ d }) => matchesFilter(d, regionFilter) && matchesSearch(d, query));
     if (regionFilter === 'current' || regionFilter === 'former') {
       filtered.sort((a, b) => (b.d.termStart ?? 0) - (a.d.termStart ?? 0));
     }
     return filtered;
-  }, [roster, regionFilter]);
+  }, [roster, regionFilter, query]);
 
   const pickPresident = (idx: number) => {
     sound.uiClick();
     const next: [number, number] = [...sel] as [number, number];
-    next[remoteOpponent ? 0 : activeSlot] = idx;
+    next[remoteOpponent || campaignSelection ? 0 : activeSlot] = idx;
     onChangeSel(next);
 
   };
@@ -108,6 +162,7 @@ export function CharacterSelect({
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#222d4a]">
         <div className="flex items-center gap-3">
           <button
+            data-gamepad-back
             onClick={() => {
               sound.uiClick();
               onBack();
@@ -118,7 +173,7 @@ export function CharacterSelect({
             Inicio
           </button>
           <h2 className="font-display text-lg font-bold uppercase tracking-wide text-white sm:text-2xl">
-            Selección de Combatientes
+            {campaignSelection ? "Cumbre Mundial · Elige tu luchador" : "Selección de Combatientes"}
           </h2>
         </div>
 
@@ -185,7 +240,7 @@ export function CharacterSelect({
       )}
 
       {/* Main 3-Column Selection Layout */}
-      <div className="selector-layout mx-auto my-3 grid w-full max-w-6xl flex-1 gap-3">
+      <div className={`selector-layout mx-auto my-3 grid w-full max-w-6xl flex-1 gap-3${campaignSelection ? ' selector-layout-campaign' : ''}`}>
         {/* P1 Preview Card */}
         <div className="selector-side">
           <FighterPreviewCard
@@ -219,7 +274,7 @@ export function CharacterSelect({
             >
               Eligiendo J1: {p1.name}
             </button>
-            <button
+            {!campaignSelection && <button
               onClick={() => {
                 sound.uiClick();
                 if (!remoteOpponent) setActiveSlot(1);
@@ -229,8 +284,10 @@ export function CharacterSelect({
               }`}
             >
               {remoteOpponent ? "J2 elige desde su dispositivo" : <>Eligiendo {vsAI ? 'IA' : 'J2'}: {p2.name}</>}
-            </button>
+            </button>}
           </div>
+
+          <RosterDisplay display={display} />
 
           {/* Region Filter Bar */}
           <div className="selector-filters flex items-center gap-1.5">
@@ -239,6 +296,7 @@ export function CharacterSelect({
               return (
                 <button
                   key={rt.id}
+                  aria-pressed={regionFilter === rt.id}
                   onClick={() => {
                     sound.uiClick();
                     setRegionFilter(rt.id);
@@ -256,7 +314,8 @@ export function CharacterSelect({
           </div>
 
           {/* Roster Grid (Built-in + Custom Fighters) */}
-          <SelectionRail label="Luchadores" variant="fighters" resetKey={regionFilter}>
+          {!filteredRoster.length && <p role="status">No se encontraron luchadores.</p>}
+          <SelectionRail label="Luchadores" variant="fighters" grid={view === 'grid'} resetKey={regionFilter + query}>
             <button
               type="button"
               onClick={() => {
@@ -273,12 +332,13 @@ export function CharacterSelect({
             </button>
             {filteredRoster.map(({ d, idx }) => {
               const isP1 = sel[0] === idx;
-              const isP2 = sel[1] === idx;
+              const isP2 = !campaignSelection && sel[1] === idx;
               return (
                 <div
                   key={d.id}
                   onClick={() => pickPresident(idx)}
                   role="button"
+                  data-gamepad-initial={activeSlot === 0 ? isP1 || undefined : isP2 || undefined}
                   aria-pressed={activeSlot === 0 ? isP1 : isP2}
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -361,7 +421,7 @@ export function CharacterSelect({
           </SelectionRail>
 
           {/* Stage Selector (12 Presidential Palaces) */}
-          <div>
+          {!campaignSelection && <div>
             <SelectionRail label="Escenarios" variant="stages">
               {STAGES_DATA.map((st, idx) => (
                 <button
@@ -408,11 +468,11 @@ export function CharacterSelect({
               {config.video.stageTime !== 'day' && config.video.stageTime !== 'night' && 'Día o noche al azar. '}
               {STAGES_DATA[stageSel]?.hazardMsg ?? 'El escenario se sortea al iniciar.'}
             </p>
-          </div>
+          </div>}
         </div>
 
         {/* P2 Preview Card */}
-        <div className="selector-side">
+        {!campaignSelection && <div className="selector-side">
           <FighterPreviewCard
             slot={1}
             label={vsAI ? `IA (${['Novato', 'Comp.', 'Leyenda', 'Brutal'][config.match.aiDifficulty]})` : 'Jugador 2'}
@@ -427,12 +487,12 @@ export function CharacterSelect({
               onOpenCustomizer(p2);
             }}
           />
-        </div>
+        </div>}
       </div>
 
       {/* Bottom Launch Bar */}
-      <div className="selector-launch mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 pt-2">
-        <div className="flex flex-wrap gap-2">
+      <div className={`selector-launch mx-auto flex w-full max-w-6xl flex-wrap items-center gap-2 pt-2 ${campaignSelection ? 'justify-end' : 'justify-between'}`}>
+        {!campaignSelection && <div className="flex flex-wrap gap-2">
           <button
             onClick={() => {
               sound.uiConfirm();
@@ -453,18 +513,19 @@ export function CharacterSelect({
             <Shield className="h-4 w-4 text-[#38bdf8]" />
             Entrenamiento
           </button>
-        </div>
+        </div>}
 
         <button
           disabled={remoteOpponent && !remoteReady}
           onClick={() => {
             sound.uiConfirm();
-            void onStartVersus();
+            if (campaignSelection) onStartCampaign();
+            else void onStartVersus();
           }}
           className="flex min-h-[46px] items-center gap-2.5 rounded-lg bg-[#ffcc33] px-8 py-2.5 font-display text-base font-bold uppercase tracking-wider text-[#0b0e17] transition-transform active:scale-[0.98] hover:bg-[#ffd95e]"
         >
           <Play className="h-4 w-4 fill-current" />
-          {remoteOpponent && !remoteReady ? "Esperando a J2" : "¡Pelear!"}
+          {campaignSelection ? "Iniciar Cumbre · 7 combates" : remoteOpponent && !remoteReady ? "Esperando a J2" : "¡Pelear!"}
         </button>
       </div>
     </div>
@@ -579,14 +640,19 @@ export function FighterPreviewCard({
 
 export function OnlineRoster({ pickedId, onPick }: { pickedId: string | null; onPick: (id: string) => void }) {
   const [filter, setFilter] = useState<RegionFilter>('all');
+  const display = useRosterDisplay();
+  const fighters = PRESIDENTS_DATA.filter(fighter => matchesFilter(fighter, filter) && matchesSearch(fighter, display.query));
+  if (filter === 'current' || filter === 'former') fighters.sort((a, b) => (b.termStart ?? 0) - (a.termStart ?? 0));
   return <>
+    <RosterDisplay display={display} />
     <div className="selector-filters flex flex-wrap gap-1.5" aria-label="Filtrar luchadores">
       {REGION_TABS.filter(tab => tab.id !== 'custom').map(tab =>
         <button key={tab.id} type="button" aria-pressed={filter === tab.id}
           onClick={() => setFilter(tab.id)}>{tab.label}</button>)}
     </div>
-    <SelectionRail label="Luchadores" variant="fighters" resetKey={filter}>
-      {PRESIDENTS_DATA.filter(fighter => matchesFilter(fighter, filter)).map(fighter =>
+    {!fighters.length && <p role="status">No se encontraron luchadores.</p>}
+    <SelectionRail label="Luchadores" variant="fighters" grid={display.view === 'grid'} resetKey={filter + display.query}>
+      {fighters.map(fighter =>
         <button key={fighter.id} type="button" aria-pressed={pickedId === fighter.id} onClick={() => onPick(fighter.id)}>
           <FighterPreview president={fighter} selected={pickedId === fighter.id} />
           <span className="block truncate">{fighter.name}</span>

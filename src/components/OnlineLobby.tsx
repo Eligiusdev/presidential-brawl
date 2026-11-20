@@ -146,7 +146,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
     </div>
   );
 
-  return <section className="ob-lobby" aria-label="Selección en línea">
+  return <section data-gamepad-online className="ob-lobby" aria-label="Selección en línea">
     <header className="ob-topbar">
       <div className="ob-brand">
         <Swords className="h-5 w-5 text-[#ffcc33]" aria-hidden />
@@ -161,7 +161,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
       </div>
       <div className="ob-top-actions">
         <button type="button" className="ob-invite-btn" onClick={() => void copy()}><Copy className="h-4 w-4" />{copied ? 'Copiado' : 'Copiar invitación'}</button>
-        <button type="button" onClick={leave}><LogOut className="h-4 w-4" />Salir</button>
+        <button type="button" data-gamepad-back onClick={leave}><LogOut className="h-4 w-4" />Salir</button>
       </div>
     </header>
 

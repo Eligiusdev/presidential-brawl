@@ -1,10 +1,10 @@
 # Presidential Brawl · Apex Edition
 
-Apex Edition tiene 61 luchadores con 244 comandos y 61 definitivas, campaña, entrenamiento, editor y repeticiones. El modo en línea permite partidas 1 contra 1 mediante salas privadas con enlace de invitación.
+Apex Edition tiene 70 luchadores con 280 comandos y 70 definitivas, campaña, entrenamiento, editor y repeticiones. El modo en línea permite partidas 1 contra 1 mediante salas privadas con enlace de invitación.
 
 ## Plantel arcade
 
-Los 61 luchadores oficiales tienen atlas y retratos propios. La cuadrícula muestra miniaturas a color y la vista ampliada anima la guardia. En selección, **Míticos** reúne figuras legendarias e históricas, y **Presidentes actuales** y **Expresidentes recientes** ordenan por inicio del mandato correspondiente. El plantel presidencial se verificó en noviembre de 2026. [Guía del plantel y comprobaciones](docs/PLANTEL.md)
+Los 70 luchadores oficiales tienen atlas y retratos propios. La cuadrícula muestra miniaturas a color y la vista ampliada anima la guardia. En selección, **Míticos** reúne figuras legendarias e históricas, y **Presidentes actuales** y **Expresidentes** ordenan por inicio del mandato correspondiente. El filtro **Nuevos** reúne las nueve incorporaciones. Puedes buscar por nombre o país y alternar entre carrusel y cuadrícula tanto en el selector local como en las salas en línea. [Guía del plantel y comprobaciones](docs/PLANTEL.md)
 
 Cada luchador tiene una [ficha de movimientos](docs/MOVIMIENTOS.md) con sus cuatro comandos, el efecto de su definitiva y cómo evitarla. También puedes consultarlos desde el selector y el menú de pausa. El [balance competitivo](docs/BALANCE.md) se aplica desde la versión 7 de las repeticiones.
 
@@ -54,6 +54,8 @@ Vite sirve la interfaz en el puerto 3000 y reenvía HTTP y WebSocket bajo `/api`
 
 Mantén arriba o abajo al pulsar especial para las variantes. Los controles pueden reasignarse en configuración.
 
+En los menús, usa la cruceta o el stick izquierdo para mover el foco, el botón inferior (A / Cruz) para confirmar y el botón derecho (B / Círculo) para volver. Start / Options pausa o reanuda el combate local. Con izquierda y derecha puedes ajustar deslizadores y cambiar opciones de listas. Los campos de texto se editan con el teclado.
+
 ## Cambios visuales
 
 La selección muestra figuras completas de mayor tamaño, con las no seleccionadas atenuadas y las elegidas a color. La cámara permite acercarse más cuando los luchadores están juntos; se mantiene el alejamiento cuando se separan. No se cambian el tamaño físico ni las colisiones de los luchadores. Se elimina el uso de `__dirname` de la configuración de Vite.
@@ -67,7 +69,7 @@ npm run lint
 npm run build
 ```
 
-Las pruebas de combate recorren los 244 comandos y verifican activación, contacto y renderizado de las 61 definitivas. Las pruebas de salas comprueban tokens, exclusividad del mando, transmisión SSE, liberación por desconexión, validación de entradas y cierre. La prueba automática del backend usa clientes HTTP; sigue pendiente probar físicamente PC y móvil juntos.
+Las pruebas de combate recorren los 280 comandos y verifican activación, contacto y renderizado de las 70 definitivas. Las pruebas de salas comprueban tokens, exclusividad del mando, transmisión SSE, liberación por desconexión, validación de entradas y cierre. La prueba automática del backend usa clientes HTTP; sigue pendiente probar físicamente PC y móvil juntos.
 
 ## Referencias consultadas
 

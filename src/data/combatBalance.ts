@@ -7,12 +7,12 @@ export const COMBAT_LIMITS = {
 } as const;
 
 const archetypes = {
-  vanguard: { weight: 1, speed: 1.08, vote: 1, ids: 'bolivar sanmartin sucre ohiggins artigas alejandro cesar aquiles musashi elcid wallace ataturk washington' },
-  tank: { weight: 1.22, speed: .86, vote: .95, ids: 'lincoln teddy vargas alfaro lula chirac trump mujica walesa sankara' },
-  controller: { weight: 1.02, speed: .96, vote: 1.02, ids: 'juarez degaulle eisenhower fdr batlle nyerere kubitschek masaryk allende mandela santos kast uribe' },
-  artillery: { weight: .94, speed: 1, vote: 1, ids: 'kalam kennedy sheinbaum cardenas nkrumah robinson sarmiento petro bukele' },
-  assassin: { weight: .88, speed: 1.16, vote: 1.05, ids: 'simo policarpa juana espartaco ricaurte milei noboa biden macron' },
-  specialist: { weight: .96, speed: 1.06, vote: 1.02, ids: 'havel kekkonen pertini mitterrand duque sunyatsen abelardo' },
+  vanguard: { weight: 1, speed: 1.08, vote: 1, ids: 'bolivar sanmartin sucre ohiggins artigas alejandro cesar aquiles musashi elcid wallace ataturk washington napoleon' },
+  tank: { weight: 1.22, speed: .86, vote: .95, ids: 'lincoln teddy vargas alfaro lula chirac trump mujica walesa sankara putin ortega' },
+  controller: { weight: 1.02, speed: .96, vote: 1.02, ids: 'juarez degaulle eisenhower fdr batlle nyerere kubitschek masaryk allende mandela santos kast uribe maduro xiomara' },
+  artillery: { weight: .94, speed: 1, vote: 1, ids: 'kalam kennedy sheinbaum cardenas nkrumah robinson sarmiento petro bukele obama diazcanel' },
+  assassin: { weight: .88, speed: 1.16, vote: 1.05, ids: 'simo policarpa juana espartaco ricaurte milei noboa biden macron bathory' },
+  specialist: { weight: .96, speed: 1.06, vote: 1.02, ids: 'havel kekkonen pertini mitterrand duque sunyatsen abelardo antoinette' },
 } as const;
 
 export type Archetype = keyof typeof archetypes;

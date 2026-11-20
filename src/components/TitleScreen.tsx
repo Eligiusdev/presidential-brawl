@@ -121,6 +121,7 @@ export function TitleScreen({
                 ref={(el) => { btnRefs.current[idx] = el; }}
                 role="menuitem"
                 type="button"
+                data-gamepad-initial={item.primary || undefined}
                 className={`console-menu-item ${item.primary ? 'is-primary' : ''} ${focused ? 'is-focused' : ''}`}
                 onFocus={() => setFocusIdx(idx)}
                 onMouseEnter={() => { setFocusIdx(idx); btnRefs.current[idx]?.focus(); }}

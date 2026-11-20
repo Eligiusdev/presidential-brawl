@@ -1,4 +1,5 @@
 import { LandscapePrompt } from './components/LandscapePrompt';
+import { useMenuGamepad } from './input/useMenuGamepad';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sound } from './audio/soundEngine';
 import { NetworkPanel } from './components/NetworkPanel';
@@ -39,6 +40,7 @@ export default function App() {
   const [customizerReturn, setCustomizerReturn] = useState<'TITLE' | 'SELECT'>('TITLE');
   const [replayReturn, setReplayReturn] = useState<'TITLE' | 'SELECT' | 'GAME_OVER' | 'CENSURE' | 'CHAMPION'>('GAME_OVER');
   const [customizerBase, setCustomizerBase] = useState<PresidentData | undefined>(undefined);
+  const [campaignSelection, setCampaignSelection] = useState(false);
   const [mode, setMode] = useState<GameMode>('versus');
   const [sel, setSel] = useState<[number, number]>(() => {
     const i1 = PRESIDENTS_DATA.findIndex((p) => p.id === 'bolivar');
@@ -431,8 +433,11 @@ export default function App() {
         ? 'crt-pvm'
         : '';
 
+  const appRef = useRef<HTMLElement>(null);
+  useMenuGamepad(appRef, screen, configOpen, togglePause);
+
   return (
-    <main className="apex-app">
+    <main ref={appRef} className="apex-app">
       <LandscapePrompt />
       <NetworkPanel config={config} hideLaunch={screen !== 'TITLE' && screen !== 'SELECT'}
         openSignal={netOpenSignal}
@@ -450,8 +455,8 @@ export default function App() {
         {screen === 'TITLE' && (
           <TitleScreen
             hasReplay={Boolean(lastReplay)}
-            onQuickSelect={() => setScreen('SELECT')}
-            onStartCampaign={startCampaign}
+            onQuickSelect={() => { setCampaignSelection(false); setScreen('SELECT'); }}
+            onStartCampaign={() => { setCampaignSelection(true); setScreen('SELECT'); }}
             onStartTraining={startTraining}
             onWatchLastReplay={() => startReplay('TITLE')}
             onOpenCustomizer={() => openCustomizer('TITLE')}
@@ -462,6 +467,7 @@ export default function App() {
 
         {screen === 'SELECT' && (
           <CharacterSelect
+            campaignSelection={campaignSelection}
             roster={roster}
             sel={sel}
             stageSel={stageSel}

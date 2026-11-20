@@ -228,11 +228,11 @@ export function NetworkPanel({ config, hideLaunch, onActive, openSignal = 0 }: {
     <OnlineLobby room={room} slot={seat.slot} send={send} leave={leave} />
     {status && <p className="online-status" role="status">{status}</p>}
   </>;
-  if (room && seat) return <section className="online-screen online-match" aria-label="Combate en línea">
+  if (room && seat) return <section data-gamepad-online data-gamepad-playing={playing || undefined} className="online-screen online-match" aria-label="Combate en línea">
     <OnlineGameHUD fighters={hud} room={room} localSlot={seat.slot} />
     <div className="online-arena">
       <canvas ref={canvas} aria-label="Arena multijugador" />
-      {playing && <div className="network-touch"><TouchControls inline onAction={(action, down) => {
+      {playing && <div data-gamepad-ignore className="network-touch"><TouchControls inline onAction={(action, down) => {
         if (down) {
           if (action === 'jump' && !actions().has('jump')) jumpSequence.current = sequence.current + 1;
           touch.current.add(action);
@@ -248,9 +248,10 @@ export function NetworkPanel({ config, hideLaunch, onActive, openSignal = 0 }: {
         {room.hostSlot === seat.slot && <button onClick={() => send({ type: 'lobby' })}>Volver a la sala</button>}
       </section>}
     </div>
-    <footer><span role="status">{status || `J${seat.slot + 1} · WASD · J/K/L · C: definitiva`}</span><button onClick={leave}>Salir</button></footer>
+    <footer><span role="status">{status || `J${seat.slot + 1} · WASD · J/K/L · C: definitiva`}</span><button data-gamepad-back onClick={leave}>Salir</button></footer>
   </section>;
 
+<<<<<<< HEAD
   return <div className="console-modal-overlay" role="dialog" aria-modal="true" aria-label="Salas en línea" onMouseDown={(e) => { if (e.target === e.currentTarget) leave(); }}>
     <section className="console-modal">
       <header className="console-modal-head">
@@ -290,4 +291,17 @@ export function NetworkPanel({ config, hideLaunch, onActive, openSignal = 0 }: {
       </div>
     </section>
   </div>;
+=======
+  return <section data-gamepad-online className="network-panel" aria-label="Salas en línea">
+    <div className="network-heading"><strong>Salas en línea</strong><button data-gamepad-back onClick={leave} aria-label="Cerrar">×</button></div>
+    <label>Modo <select value={capacity} disabled={busy} onChange={e => setCapacity(Number(e.target.value) as RoomCapacity)}>
+      <option value={2}>Duelo · 2</option><option value={4}>Campal · 4</option>
+      <option value={6}>Campal · 6</option><option value={8}>Gran Campal · 8</option>
+    </select></label>
+    <button disabled={busy} onClick={() => enter.current({ type: 'create', maxPlayers: capacity })}>Crear sala</button>
+    <label>Código <input value={code} maxLength={10} onChange={e => setCode(e.target.value.toUpperCase())} /></label>
+    <button disabled={busy || !/^[A-F0-9]{10}$/.test(code)} onClick={() => enter.current({ type: 'join', code })}>Entrar a la sala</button>
+    {(busy || status) && <p role="status">{busy ? 'Conectando…' : status}</p>}
+  </section>;
+>>>>>>> upstream/main
 }

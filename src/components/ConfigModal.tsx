@@ -88,7 +88,7 @@ export function ConfigModal({ config, onChange, onClose }: ConfigModalProps) {
   ];
 
   return (
-    <div className="apex-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div data-gamepad-config role="dialog" aria-modal="true" aria-label="Configuración del Sistema" className="apex-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-[#2a344d] bg-[#111726] shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#222b42] px-6 py-4">
@@ -105,6 +105,7 @@ export function ConfigModal({ config, onChange, onClose }: ConfigModalProps) {
               sound.uiClick();
               onClose();
             }}
+            data-gamepad-back
             aria-label="Cerrar configuración"
             className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#2c3752] bg-[#182034] text-[#cbd5e1] transition-colors hover:bg-[#232f4a] hover:text-white"
           >
