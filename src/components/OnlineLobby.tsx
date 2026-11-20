@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Check, Copy, Crown, LogOut, Map as MapIcon, Swords, Users, WifiOff } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Crown, LogOut, Swords, Users, WifiOff } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
 import { sound } from '../audio/soundEngine';
@@ -38,6 +38,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
   const linkField = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<RegionFilter>('all');
   const [copied, setCopied] = useState(false);
+  const drag = useRef<{ x: number; id: number } | null>(null);
   const self = room.players[slot];
   const host = room.hostSlot === slot;
   const allReady = room.players.every(p => p?.ready && p.connected);
@@ -51,16 +52,16 @@ export function OnlineLobby({ room, slot, send, leave }: {
     return list;
   }, [filter]);
 
-  const preview = roster.find(f => f.id === self?.fighterId) || filteredRoster[0] || roster[0];
-  const artPath = fighterArtPath(preview);
-  const moves = useMemo(() => movesFor(preview), [preview]);
-  const ultimate = ultimateText(preview);
+  const info = roster.find(f => f.id === self?.fighterId) || filteredRoster[0] || roster[0];
+  const infoArt = fighterArtPath(info);
+  const moves = useMemo(() => movesFor(info), [info]);
+  const ultimate = ultimateText(info);
   const statBars = useMemo(() => ([
-    { name: 'Velocidad', val: (preview.stats.speed / 6.5) * 100, color: '#38bdf8' },
-    { name: 'Peso', val: (preview.stats.weight / 1.6) * 100, color: '#f97316' },
-    { name: 'Salto', val: (preview.stats.jumpForce / 14.5) * 100, color: '#4ade80' },
-    { name: 'Potencia', val: (preview.stats.power / 1.3) * 100, color: '#f43f5e' },
-  ]), [preview]);
+    { name: 'Velocidad', val: (info.stats.speed / 6.5) * 100, color: '#38bdf8' },
+    { name: 'Peso', val: (info.stats.weight / 1.6) * 100, color: '#f97316' },
+    { name: 'Salto', val: (info.stats.jumpForce / 14.5) * 100, color: '#4ade80' },
+    { name: 'Potencia', val: (info.stats.power / 1.3) * 100, color: '#f43f5e' },
+  ]), [info]);
   const moveRows = useMemo(() => moves
     ? [
         ['Ligero', moves.neutralAttack().name],
@@ -68,7 +69,16 @@ export function OnlineLobby({ room, slot, send, leave }: {
         ['↑ Esp.', moves.specialUp().name],
         ['↓ Esp.', moves.specialDown().name],
       ] as const
-    : [['Signature', preview.sigName]] as const, [moves, preview]);
+    : [['Signature', info.sigName]] as const, [moves, info]);
+
+  const picked = useMemo(() => room.players
+    .map((p, i) => {
+      if (!p?.fighterId) return null;
+      const fighter = roster.find(f => f.id === p.fighterId);
+      return fighter ? { slot: i, color: p.color || '#94a3b8', fighter, ready: p.ready, me: i === slot } : null;
+    })
+    .filter((x): x is { slot: number; color: string; fighter: PresidentData; ready: boolean; me: boolean } => Boolean(x)),
+    [room.players, roster]);
 
   const pick = (fighterId: string) => {
     sound.uiClick();
@@ -84,7 +94,28 @@ export function OnlineLobby({ room, slot, send, leave }: {
     window.setTimeout(() => setCopied(false), 1500);
   };
 
+  const stageCount = STAGES_DATA.length;
+  const setStage = (idx: number) => {
+    if (!host) return;
+    sound.uiClick();
+    const next = ((idx % stageCount) + stageCount) % stageCount;
+    send({ type: 'stage', stage: next });
+  };
   const stage = STAGES_DATA[room.stage] || STAGES_DATA[0];
+
+  const onDragStart = (e: React.PointerEvent) => {
+    if (!host) return;
+    drag.current = { x: e.clientX, id: e.pointerId };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onDragEnd = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    const dx = e.clientX - d.x;
+    if (dx < -40) setStage(room.stage + 1);
+    else if (dx > 40) setStage(room.stage - 1);
+  };
 
   return <section className="ob-lobby" aria-label="Selección en línea">
     <header className="ob-topbar">
@@ -104,24 +135,58 @@ export function OnlineLobby({ room, slot, send, leave }: {
 
     <div className="ob-main">
       <section className="ob-preview" aria-label="Vista previa del personaje">
+        <div className="ob-stage-carousel" aria-label="Escenario">
+          <button type="button" className="ob-stage-nav" disabled={!host}
+            aria-label="Escenario anterior" onClick={() => setStage(room.stage - 1)}><ChevronLeft className="h-4 w-4" /></button>
+          <div className="ob-stage-slide"
+            onPointerDown={onDragStart} onPointerUp={onDragEnd} onPointerCancel={onDragEnd}
+            style={{ touchAction: host ? 'pan-y' : 'auto', cursor: host ? 'grab' : 'default' }}>
+            <img src={stageArtUrl(stage.id, 'day')} alt="" draggable={false} />
+            <div className="ob-stage-slide-meta">
+              <b>{stage.name}</b>
+              <small>{stage.city} · {room.stage + 1}/{stageCount}</small>
+            </div>
+          </div>
+          <button type="button" className="ob-stage-nav" disabled={!host}
+            aria-label="Siguiente escenario" onClick={() => setStage(room.stage + 1)}><ChevronRight className="h-4 w-4" /></button>
+          <div className="ob-stage-dots" aria-hidden>
+            {STAGES_DATA.map((_, i) => <span key={i} className={`ob-stage-dot ${i === room.stage ? 'on' : ''}`} />)}
+          </div>
+        </div>
+
         <div className="ob-character-card"
           style={{
-            backgroundImage: artPath ? `linear-gradient(180deg,rgba(5,9,16,.08) 0%,rgba(5,9,16,.18) 30%,rgba(6,11,20,.78) 60%,rgba(7,12,22,.98) 100%), url("${artPath}selection.webp")` : undefined,
-            ['--accent' as any]: preview.palette.accent.base,
+            backgroundImage: infoArt ? `linear-gradient(180deg,rgba(5,9,16,.08) 0%,rgba(5,9,16,.18) 30%,rgba(6,11,20,.78) 60%,rgba(7,12,22,.98) 100%), url("${infoArt}selection.webp")` : undefined,
+            ['--accent' as any]: info.palette.accent.base,
           }}>
           <div className="ob-hero-top">
             <span className="ob-tag">{self?.fighterId ? 'Tu selección' : 'Elige tu luchador'}</span>
             {self?.ready && <span className="ob-tag ready"><Check className="h-3 w-3" />Listo</span>}
           </div>
           <div className="ob-hero-art">
-            <FighterPreview president={preview} selected large />
+            {picked.length > 0 ? picked.map(p => (
+              <div key={p.slot} className={`ob-hero-fighter ${p.me ? 'me' : ''} ${p.ready ? 'ready' : ''}`}
+                style={{
+                  left: `${((p.slot + 1) / (room.maxPlayers + 1)) * 100}%`,
+                  zIndex: p.me ? 3 : 2,
+                  ['--pc' as any]: p.color,
+                  transform: `translateX(-50%) scale(${p.me ? 1 : 0.9})`,
+                }}>
+                <div className="ob-hero-fighter-badge">
+                  <span style={{ background: p.color }}>J{p.slot + 1}</span>{p.me ? <em>Tú</em> : null}{p.ready ? <Check className="h-3 w-3" /> : null}
+                </div>
+                <FighterPreview president={p.fighter} selected={p.me || p.ready} large />
+              </div>
+            )) : <div className="ob-hero-fighter solo" style={{ left: '50%', transform: 'translateX(-50%)' }}>
+              <FighterPreview president={info} selected large />
+            </div>}
           </div>
           <div className="ob-char-info">
             <div className="ob-hero-name">
-              <h3>{preview.name}</h3>
-              <p>{preview.title} · {preview.role}</p>
+              <h3>{info.name}</h3>
+              <p>{info.title} · {info.role}</p>
             </div>
-            <div className="ob-quote">«{preview.taunt}»</div>
+            <div className="ob-quote">«{info.taunt}»</div>
             <div className="ob-info-grid">
               <div className="ob-bars">
                 {statBars.map(s => <div key={s.name} className="ob-bar-row">
@@ -139,14 +204,19 @@ export function OnlineLobby({ room, slot, send, leave }: {
         </div>
       </section>
 
-      <section className="ob-center" aria-label="Sala y escenario">
+      <section className="ob-center" aria-label="Sala">
         <div className="ob-panel">
           <h3 className="ob-panel-title"><Users className="h-4 w-4" />Jugadores <span>{room.players.filter(p => p?.connected).length}/{room.maxPlayers}</span></h3>
           <div className="ob-slots">
             {room.players.map((p, i) => {
               const fighter = roster.find(f => f.id === p?.fighterId) || null;
+              const art = fighter ? fighterArtPath(fighter) : null;
               const accent = p?.color || '#425675';
-              return <div key={i} className={`ob-slot ${i === slot ? 'me' : ''} ${p?.ready ? 'ready' : ''}`} style={{ ['--pc' as any]: accent }}>
+              return <div key={i} className={`ob-slot ${i === slot ? 'me' : ''} ${p?.ready ? 'ready' : ''} ${art ? 'has-art' : ''}`}
+                style={{
+                  ['--pc' as any]: accent,
+                  ...(art ? { backgroundImage: `linear-gradient(90deg, rgba(10,16,28,.93) 0%, rgba(10,16,28,.78) 45%, rgba(10,16,28,.35) 100%), url("${art}selection.webp")` } : {}),
+                }}>
                 <div className="ob-slot-port">
                   {fighter ? <PortraitCanvas president={fighter} className="h-full w-full" /> : <span className="ob-slot-q">?</span>}
                 </div>
@@ -166,26 +236,6 @@ export function OnlineLobby({ room, slot, send, leave }: {
               </div>;
             })}
           </div>
-        </div>
-
-        <div className="ob-panel ob-stage-panel">
-          <h3 className="ob-panel-title"><MapIcon className="h-4 w-4" />Escenario <small>{host ? 'elige tú' : 'elige anfitrión'}</small></h3>
-          <div className="ob-stage-grid">
-            {STAGES_DATA.map((st, i) => {
-              const sel = room.stage === i;
-              return <button key={st.id} type="button" disabled={!host} aria-pressed={sel}
-                className={`ob-stage-card ${sel ? 'sel' : ''}`}
-                onClick={() => { if (!host) return; sound.uiClick(); send({ type: 'stage', stage: i }); }}>
-                <img src={stageArtUrl(st.id, 'day')} alt="" loading="lazy" />
-                <span className="ob-stage-meta">
-                  <b>{st.name}</b>
-                  <small>{st.city}</small>
-                </span>
-                {sel && <span className="ob-stage-check"><Check className="h-3.5 w-3.5" /></span>}
-              </button>;
-            })}
-          </div>
-          <p className="ob-stage-hazard">{stage.hazardMsg}</p>
         </div>
       </section>
 
