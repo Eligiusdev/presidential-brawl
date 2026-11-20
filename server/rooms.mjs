@@ -12,7 +12,12 @@ export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGI
   const origins = new Set(allowedOrigins.split(',').map(origin => origin.trim()).filter(Boolean));
   const roster = new Set(fighterIds);
   const rooms = new Map();
-  const sockets = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 4096 });
+  const sockets = new WebSocketServer({
+    noServer: true,
+    perMessageDeflate: false,
+    maxPayload: 4096,
+    skipUTF8Validation: true,
+  });
   const send = (ws, message) => {
     if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
   };
@@ -51,7 +56,8 @@ export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGI
       let sameHost = false;
       try { sameHost = new URL(origin).host === req.headers.host; } catch {}
       if (!sameHost && !origins.has(origin)) {
-        socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+        socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+        socket.destroy();
         return;
       }
     }
@@ -59,7 +65,9 @@ export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGI
   }
   server.on('upgrade', upgrade);
 
-  sockets.on('connection', ws => {
+  sockets.on('connection', (ws, req) => {
+    const sock = req?.socket ?? ws._socket;
+    try { sock?.setNoDelay?.(true); sock?.setKeepAlive?.(true, 15000); } catch {}
     let room, player, slot;
     ws.alive = true;
     ws.on('error', () => {});
@@ -72,7 +80,7 @@ export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGI
     });
     ws.on('message', raw => {
       let msg;
-      try { msg = JSON.parse(raw.toString()); } catch { return; }
+      try { msg = JSON.parse(typeof raw === 'string' ? raw : raw.toString()); } catch { return; }
       if (!msg || typeof msg !== 'object') return;
       if (!player) {
         if (msg.type === 'create') {
