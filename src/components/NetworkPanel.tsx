@@ -176,8 +176,9 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
       if (target.height !== height) target.height = height;
       const span = Math.max(33.33, (buffer.latest.tick - buffer.previous.tick) * 1000 / 60);
       const blend = Math.min(1, (now - buffer.at) / span);
+      const since = (now - buffer.at) / (1000 / 60);
       const ping = room?.players[slot]?.ping ?? 0;
-      const prediction = Math.min(3, 1 + ping / 34);
+      const prediction = Math.max(0, since) + Math.min(5, 1 + ping / 20);
       sound.tickMusic(buffer.latest.players.some(p => p.stocks === 1 || p.damage > 150));
       renderer.renderWorld(target, renderMatchState(buffer.previous, buffer.latest, blend, slot, actions(), prediction, jumpSequence.current), config);
     }
@@ -199,7 +200,7 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
     window.addEventListener('keyup', key);
     window.addEventListener('blur', clearInput);
     document.addEventListener('visibilitychange', visibility);
-    const timer = window.setInterval(sendInput, 100);
+    const timer = window.setInterval(sendInput, 1000 / 30);
     raf = requestAnimationFrame(frame);
     return () => {
       cancelAnimationFrame(raf);
