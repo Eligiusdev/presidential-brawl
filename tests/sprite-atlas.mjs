@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { frameAt, paintSprite, preloadFighter, spriteAction } from '../src/engine/fighterSprites.ts';
+import { frameAt, paintCombatSprite, paintSprite, preloadFighter, spriteAction } from '../src/engine/fighterSprites.ts';
 
 const directory = new URL('../public/assets/fighters/achilles/', import.meta.url);
 const meta = JSON.parse(readFileSync(new URL('atlas.json', directory)));
@@ -69,3 +69,30 @@ assert.equal(spriteAction({on:false,vy:-8,jumpTick:20},23)[0],'jump');
 assert.equal(spriteAction({on:false,vy:1},30)[0],'fall');
 assert.equal(spriteAction({on:true,landT:5},40)[0],'land');
 console.log('Atlas, duraciones, orientación, anclaje, caché y transiciones verificados.');
+
+
+const juanaDirectory = new URL('../public/assets/fighters/juana/', import.meta.url);
+const juanaMeta = JSON.parse(readFileSync(new URL('atlas.json', juanaDirectory)));
+for (const name of [juanaMeta.image, juanaMeta.portrait]) {
+  images.set(name, await loadImage(readFileSync(new URL(name, juanaDirectory))));
+}
+globalThis.fetch = async url => {
+  assert.equal(url, '/assets/fighters/juana/atlas.json');
+  return { ok: true, json: async () => juanaMeta };
+};
+const juana = { id: 'juana' };
+await preloadFighter(juana);
+const equippedCanvas = createCanvas(320, 220);
+const equippedContext = equippedCanvas.getContext('2d');
+const drawEquipped = equippedContext.drawImage.bind(equippedContext);
+equippedContext.drawImage = (img, ...args) => drawEquipped(images.get(img.name), ...args);
+equippedContext.translate(160, 190);
+for (const wk of ['mg', 'rocket', 'case']) {
+  for (const state of [{}, { pickupT: 9 }, { vx: 3 }, { on: false, vy: -3 }, { reloadT: 10 }, { shootRecoil: 4 }]) {
+    const f = { d: juana, face: 1, wpn: 100, on: true, wk, reloadDur: 20, ...state };
+    assert.deepEqual(paintCombatSprite(equippedContext, f, 42, 2), { drawn: true, equipment: true });
+  }
+}
+assert.deepEqual(paintCombatSprite(equippedContext, { d: juana, face: 1, wpn: 0, on: true }, 42, 2),
+  { drawn: true, equipment: false });
+console.log('El atlas se conserva al recoger, sostener, mover y recargar el equipo.');

@@ -135,7 +135,7 @@ export function loadLastReplay(): MatchReplayData | null {
     const raw = localStorage.getItem(LAST_REPLAY_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && (parsed.version === 1 || parsed.version === 2 || parsed.version === 3) && Array.isArray(parsed.keyframes)) {
+    if (parsed && (parsed.version === 1 || parsed.version === 2 || parsed.version === 3 || parsed.version === 4) && Array.isArray(parsed.keyframes)) {
       return parsed as MatchReplayData;
     }
     return null;

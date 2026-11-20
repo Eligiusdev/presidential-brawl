@@ -5,7 +5,7 @@ type ClipName = 'guard' | 'walk' | 'jump' | 'fall' | 'land' | 'crouch' | 'jab' |
   'aim' | 'fire' | 'magazine' | 'launcher' | 'load' | 'case' | 'up' | 'down' | 'rage' | 'ultimate' | 'hurt' | 'defeat' | 'victory';
 type Pose = { region: [number, number, number, number]; anchor: [number, number]; scale: number };
 type Clip = { loop: boolean; frames: { pose: string; ticks: number }[] };
-type Manifest = { image: string; portrait: string; poses: Record<string, Pose>; animations: Record<ClipName, Clip> };
+type Manifest = { equipmentOverlay?: boolean; image: string; portrait: string; poses: Record<string, Pose>; animations: Record<ClipName, Clip> };
 type Art = { atlas: HTMLImageElement; portrait?: HTMLImageElement; meta: Manifest };
 type Entry = { ready?: Art; loading: Promise<void>; used: number };
 
@@ -126,4 +126,19 @@ export function paintSprite(ctx: CanvasRenderingContext2D, d: PresidentData, cli
   ctx.drawImage(art.atlas, ...pose.region, -pose.anchor[0], -pose.anchor[1], pose.region[2], pose.region[3]);
   ctx.restore();
   return true;
+}
+
+
+const equipmentClips: Partial<Record<ClipName, ClipName>> = {
+  aim: 'guard', fire: 'guard', launcher: 'guard', magazine: 'crouch', load: 'crouch', case: 'guard',
+};
+
+export function paintCombatSprite(ctx: CanvasRenderingContext2D, f: RenderFighterState, tick: number, scale: number) {
+  const art = entry(f.d)?.ready;
+  if (!art) return { drawn: false, equipment: false };
+  const [requested, frame] = spriteAction(f, tick);
+  const clip = art.meta.animations[requested] ? requested : equipmentClips[requested] ?? 'guard';
+  const drawn = paintSprite(ctx, f.d, clip, frame, f.face, scale);
+  const equipment = drawn && !!art.meta.equipmentOverlay && f.wpn > 0 && !f.winning;
+  return { drawn, equipment };
 }

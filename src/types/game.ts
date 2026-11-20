@@ -318,7 +318,7 @@ export interface ReplayKeyframe {
 }
 
 export interface MatchReplayData {
-  version: 1 | 2 | 3;
+  version: 1 | 2 | 3 | 4;
   recordedAt: string;
   seed: number;
   mode: GameMode;

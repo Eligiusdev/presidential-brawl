@@ -81,8 +81,18 @@ for (const [row, id] of ids.entries()) {
     kneel: [1, 0.96, 0.63, 0.13],
     prone: [0, 1, 1, -Math.PI / 2],
     victory: [0, 1.01, 1.04, -0.06],
+    thrust: [2, 1.06, 0.98, 0.04],
+    uppercut: [2, 0.92, 1.02, -0.32],
+    sweep: [2, 1.02, 0.70, 0.09],
+    hammer: [2, 0.96, 0.93, 0.24],
+    backstrike: [2, -0.9, 0.92, 0.08],
+    rush: [1, 1.04, 0.91, 0.18],
+    cast: [2, 0.89, 1, -0.12],
+    arcCast: [2, 0.88, 0.97, -0.39],
+    charge: [0, 0.92, 0.87, -0.18],
+    recover: [1, 0.92, 0.97, -0.12],
   };
-  const atlas = createCanvas(240 * 4, 184 * 3);
+  const atlas = createCanvas(240 * 4, 184 * Math.ceil(Object.keys(artwork).length / 4));
   const ctx = atlas.getContext('2d');
   const poses = {};
   for (const [index, [name, [col, sx, sy, angle]]] of Object.entries(artwork).entries()) {
@@ -94,19 +104,36 @@ for (const [row, id] of ids.entries()) {
     ctx.save();
     ctx.beginPath(); ctx.rect(x, y, 240, 184); ctx.clip();
     if (name === 'prone') ctx.translate(x + rootX + h / 2, y + rootY - anchorX);
-    else ctx.translate(x + rootX, y + rootY);
+    else ctx.translate(x + rootX + (name === 'backstrike' ? 12 : 0), y + rootY);
     ctx.rotate(angle);
     ctx.scale(sx, sy);
     ctx.drawImage(source, cell.x, cell.y, cell.w, cell.h, -anchorX, -h, w, h);
     ctx.restore();
     poses[name] = { region: [x, y, 240, 184], anchor: [rootX, rootY], scale: 0.5 };
   }
-  function attack(move, prep, impact) {
+  const strikePoses = {
+    toque: 'strike', punta: 'thrust', alto: 'uppercut', bajo: 'sweep',
+    gancho: 'uppercut', carga: 'rush', martillo: 'hammer', reverso: 'backstrike',
+    barrido: 'sweep', sarissa: 'thrust', cruce: 'rush', retorno: 'backstrike',
+  };
+  const castPoses = { arco: 'arcCast', suelo: 'sweep' };
+  function attack(move, opening) {
     const duration = move.effect === 'hover' ? 120 : move.dur;
-    const firstActive = move.ph[0]?.a[0] ?? move.sp[0]?.t ?? 5;
-    const start = Math.min(duration - 2, Math.max(1, firstActive));
-    const hit = Math.min(duration - start - 1, 7);
-    return clip(false, [prep, start], [impact, hit], ['guard', duration - start - hit]);
+    const beats = [
+      ...move.ph.map(phase => ({ start: phase.a[0], end: phase.a[1], pose: strikePoses[phase.beat] ?? 'strike' })),
+      ...move.sp.map(({ t, p }) => ({ start: t, end: t + 2, pose: castPoses[p.kind] ?? 'cast' })),
+    ].sort((a, b) => a.start - b.start);
+    const frames = [];
+    for (let tick = 0; tick < duration; tick++) {
+      const active = beats.find(beat => tick >= beat.start && tick <= beat.end);
+      const next = beats.find(beat => beat.start > tick);
+      const pose = active?.pose ?? (next ? (tick < (beats[0]?.start ?? 0) ? opening : 'charge') :
+        tick < duration - 3 ? 'recover' : 'guard');
+      const last = frames.at(-1);
+      if (last?.[0] === pose) last[1]++;
+      else frames.push([pose, 1]);
+    }
+    return clip(false, ...frames);
   }
   const animations = {
     guard: clip(true, ['guard', 18], ['breath', 14]),
@@ -119,10 +146,10 @@ for (const [row, id] of ids.entries()) {
     defeat: clip(false, ['hurt', 5], ['kneel', 7], ['prone', 20]),
     victory: clip(true, ['victory', 24], ['breath', 15]),
     ultimate: clip(false, ['crouch', 8], ['rise', 8], ['strike', 12], ['guard', 8]),
-    jab: attack(jab, 'stride', 'strike'),
-    slash: attack(neutral, 'crouch', 'strike'),
-    up: attack(up, 'crouch', 'rise'),
-    down: attack(down, 'crouch', 'strike'),
+    jab: attack(jab, 'stride'),
+    slash: attack(neutral, 'charge'),
+    up: attack(up, 'crouch'),
+    down: attack(down, 'crouch'),
   };
   const guard = cells[0];
   const thumb = createCanvas(224, 224);
@@ -148,7 +175,7 @@ for (const [row, id] of ids.entries()) {
   await mkdir(dest, { recursive: true });
   await Promise.all([
     writeFile(resolve(dest, 'atlas.webp'), atlas.toBuffer('image/webp', 88)),
-    writeFile(resolve(dest, 'atlas.json'), JSON.stringify({ image: 'atlas.webp', portrait: 'portrait.png', poses, animations }) + '\n'),
+    writeFile(resolve(dest, 'atlas.json'), JSON.stringify({ equipmentOverlay: true, image: 'atlas.webp', portrait: 'portrait.png', poses, animations }) + '\n'),
     writeFile(resolve(dest, 'thumb.webp'), thumb.toBuffer('image/webp', 92)),
     writeFile(resolve(dest, 'portrait.png'), portrait.toBuffer('image/png')),
     writeFile(resolve(dest, 'selection.webp'), selection.toBuffer('image/webp', 86)),

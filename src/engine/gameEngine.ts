@@ -627,7 +627,10 @@ export class GameEngine {
       f2.dif = replay.matchConfig.aiDifficulty;
     }
 
-    if (replay.version === 1) { f1.moves = null; f2.moves = null; }
+    if (replay.version <= 3) {
+      f1.moves = replay.version === 1 ? null : movesFor(f1Data, true);
+      f2.moves = replay.version === 1 ? null : movesFor(f2Data, true);
+    }
     this.strikes = [];
     this.fighters = [f1, f2];
     this.projectiles = [];
@@ -2742,7 +2745,7 @@ export class GameEngine {
         };
         if (this.currentMatchMeta) {
           const replay: MatchReplayData = {
-            version: 3,
+            version: 4,
             recordedAt: new Date().toISOString(),
             seed: this.currentMatchMeta.seed,
             mode: this.mode,

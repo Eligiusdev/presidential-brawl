@@ -1,4 +1,4 @@
-import { paintSprite, spriteAction, spritePortrait } from './fighterSprites';
+import { paintCombatSprite, paintSprite, spritePortrait } from './fighterSprites';
 import { drawEffects, drawStrike, drawShot, shotTouches, strikeBox } from '../combat/effects.js';
 import { PIXEL_PRESET_DIMS } from '../config/defaultConfig';
 import { ColorRamp, GameConfig, PlatformDef, PresidentData, StageDef } from '../types/game';
@@ -1837,6 +1837,23 @@ export class LegacyFighterGeometry {
     }
   }
 
+  protected drawAtlasEquipment(ctx: CanvasRenderingContext2D, f: RenderFighterState, T: number, scale: number) {
+    const ras = this.spriteRas;
+    const reload = f.reloadT > 0 ? Math.sin(Math.PI * f.reloadT / Math.max(1, f.reloadDur)) : 0;
+    const recoil = Math.min(1, f.shootRecoil / 5);
+    const stride = f.on && Math.abs(f.vx) > 0.45 ? Math.sin(T * 0.5) * 3 : 0;
+    const reach = f.pickupT ? Math.min(1, f.pickupT / 9) : 0;
+    const handX = 13 - recoil * 4;
+    const handY = (f.wk === 'case' ? -37 : -51) + reload * 10 + reach * 21 + stride;
+    ras.clear();
+    this.rasterDetailedWeapon(ras, f, ANCHOR_X + handX * f.face, ANCHOR_Y + handY,
+      0.68 * reload + 0.3 * reach - 0.24 * recoil, T, false);
+    ras.applyChromaticOutline(true);
+    ras.flushToContext();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(ras.canvas, -ANCHOR_X * scale, -ANCHOR_Y * scale, SPR_W * scale, SPR_H * scale);
+  }
+
   protected rasterBody(f:RenderFighterState, pose:JointPose, T:number, isFlash:boolean, bodyOnly:boolean) {
     const p=f.d.palette, an=f.d.anatomy;
     const ras = this.spriteRas;
@@ -2100,8 +2117,9 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.scale(1 + 0.06 * reach, 1 - 0.24 * reach);
     }
     ctx.scale(f.squashX, f.squashY);
-    const [clip, tick] = spriteAction(f, T);
-    if (!paintSprite(ctx, f.d, clip, tick, f.face, pxScale)) {
+    const sprite = paintCombatSprite(ctx, f, T, pxScale);
+    if (sprite.equipment) this.drawAtlasEquipment(ctx, f, T, pxScale);
+    if (!sprite.drawn) {
       const pose = (f as {moves?:unknown}).moves ? this.fightingPose(f,T) : this.solveBlendedPose(f, T, memKey);
       const ras = this.rasterBody(f, pose, T, isFlash, false);
       ras.applyChromaticOutline(useOutline && !isFlash);

@@ -8,7 +8,8 @@ Con Node.js 24, descomprime el paquete y ejecuta `npm ci` y `npm start`. El serv
 
 ## Arte y tiempos
 
-- Los 21 luchadores recientes tienen 12 regiones por atlas. Cada atlas parte de tres dibujos originales de guardia, paso e impacto. Las poses restantes se derivan con ajuste de escala y rotación. Los estados especiales de equipamiento, disparo y recarga de esos 21 luchadores utilizan el renderizador procedural.
+- Los 21 luchadores recientes tienen 22 regiones por atlas, derivadas de tres dibujos de guardia, paso e impacto. Las secuencias marcan cada golpe, barrido, ataque hacia atrás y lanzamiento según los tiempos del libro de movimientos. El armamento se compone sobre el atlas durante el combate, con desplazamientos de recogida, retroceso y recarga.
+- Juana, Espartaco, Musashi, Policarpa, Petro, Bukele y Sheinbaum tienen nuevos especiales neutrales. Las repeticiones anteriores a la versión 4 conservan sus movimientos originales.
 - La cuadrícula y los retratos usan recursos a color. En la vista ampliada aparece la miniatura hasta que la guardia animada está lista.
 
 - Los 39 luchadores migrados aportan 33 regiones de atlas por personaje. Cada conjunto comprende 25 poses de combate y movimiento, dos cuadros intermedios de respiración y seis poses con objetos. Con las 39 regiones del piloto de Aquiles, hay 1.326 regiones en total.

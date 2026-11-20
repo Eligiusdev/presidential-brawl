@@ -171,7 +171,17 @@ const featured = {
   ),
 };
 
-export function movesFor(data) {
+const newSignatures = {
+  juana: move('Estandarte de Orleans', 'onda punta'),
+  espartaco: move('Ruptura de cadenas', 'carga martillo barrido'),
+  musashi: move('Cruce de los dos cielos', 'cruce pausa reverso punta'),
+  policarpa: move('Finta de La Pola', 'bajo pausa retorno'),
+  petro: move('Órbita de la plaza', 'orbe suelo'),
+  bukele: move('Doble destello', 'rayo pausa rayo punta'),
+  sheinbaum: move('Trayectoria orbital', 'arco orbe arco'),
+};
+
+export function movesFor(data, legacySignatures = false) {
   if (data.isCustom) return null; // El editor mantiene sus ataques configurados.
   if (featured[data.id]) return new Fighter(featured[data.id]);
   const phrases = repertoire[data.id];
@@ -181,7 +191,7 @@ export function movesFor(data) {
   return new Fighter(
     book(
       move(jabName, jab),
-      move(data.sigName, neutral),
+      (!legacySignatures && newSignatures[data.id]) || move(data.sigName, neutral),
       lift(upName, up, -data.stats.jumpForce - 3, up.startsWith('carga') ? 6 : 1),
       move(downName, down),
     ),

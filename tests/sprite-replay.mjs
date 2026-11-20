@@ -38,3 +38,11 @@ for (const version of [1,2]) {
   assert.equal(fingerprint, original[version - 1]);
   console.log('Repetición v'+version+': trayectoria, daño, talón y máscara coinciden.');
 }
+
+for (const version of [3, 4]) {
+  e.startReplay({ version, seed: 617, mode: 'versus', p1Id: 'petro', p2Id: 'cesar',
+    vsAI: false, stageIdx: 0, matchConfig: cfg.match, totalFrames: 216, keyframes });
+  const neutral = e.fighters[0].moves.specialNeutral();
+  assert.equal(neutral.sp[0].p.kind, version === 3 ? 'suelo' : 'orb');
+}
+console.log('Repeticiones v3 y v4 seleccionan los especiales de su versión.');
