@@ -115,15 +115,14 @@ export function renderMatchState(previous: MatchSnapshot, latest: MatchSnapshot,
     const old = oldProjectiles.get(p.id);
     return old ? { ...p, x: lerp(old.x, p.x, blend), y: lerp(old.y, p.y, blend) } : p;
   });
-  const camera = latest.world.camera;
-  const oldCamera = previous.world.camera;
+  const camTarget = fighters[localSlot] ?? fighters.find(f => f.slot === localSlot);
+  const camera = camTarget
+    ? { x: camTarget.cx, y: camTarget.y + camTarget.h * 0.45, zoom: 1.45 }
+    : latest.world.camera ?? { x: 720, y: 405, zoom: 1 };
   return {
     ...latest.world,
     T: Math.floor(lerp(previous.world.T, latest.world.T, blend)),
-    camera: camera && oldCamera ? {
-      x: lerp(oldCamera.x, camera.x, blend), y: lerp(oldCamera.y, camera.y, blend),
-      zoom: lerp(oldCamera.zoom, camera.zoom, blend),
-    } : camera,
+    camera,
     stage: STAGES_DATA[latest.stage], fighters,
     projectiles,
     ults: latest.zones.map(z => ({ ...z, f: fighters[z.f], o: fighters[z.o] })),
