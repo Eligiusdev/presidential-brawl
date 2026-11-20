@@ -21,11 +21,12 @@ for (const bindings of [DEFAULT_P1_KEYS, DEFAULT_P2_KEYS]) {
 type Seat = Extract<ServerRoomMessage, { type: 'seat' }>;
 type Samples = { previous: MatchSnapshot; latest: MatchSnapshot; at: number };
 
-export function NetworkPanel({ config, hideLaunch, onActive }: {
-  config: GameConfig; hideLaunch: boolean; onActive: (active: boolean) => void;
+export function NetworkPanel({ config, hideLaunch, onActive, openSignal = 0 }: {
+  config: GameConfig; hideLaunch: boolean; onActive: (active: boolean) => void; openSignal?: number;
 }) {
-  const invited = new URLSearchParams(location.search).get('room') ?? '';
+  const invited = (new URLSearchParams(location.search).get('room') ?? '').toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 5);
   const [open, setOpen] = useState(Boolean(invited));
+  useEffect(() => { if (openSignal) setOpen(true); }, [openSignal]);
   const [code, setCode] = useState(invited);
   const [capacity, setCapacity] = useState<RoomCapacity>(2);
   const [room, setRoom] = useState<RoomState | null>(null);
@@ -43,6 +44,7 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
   const pressed = useRef(new Map<string, PlayerAction>());
   const touch = useRef(new Set<PlayerAction>());
   const enter = useRef<(request: object) => void>(() => {});
+  const autoJoined = useRef(false);
   const onActiveRef = useRef(onActive);
   onActiveRef.current = onActive;
   const playing = Boolean(room?.playing && !room.standings);
@@ -131,6 +133,13 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
     ws?.close();
   }, []);
 
+  useEffect(() => {
+    if (invited && /^[A-F0-9]{5}$/.test(invited) && !autoJoined.current) {
+      autoJoined.current = true;
+      enter.current({ type: 'join', code: invited });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   function leave() {
     clearTimeout(reconnect.current);
     clearInput();
@@ -176,8 +185,9 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
       if (target.height !== height) target.height = height;
       const span = Math.max(33.33, (buffer.latest.tick - buffer.previous.tick) * 1000 / 60);
       const blend = Math.min(1, (now - buffer.at) / span);
+      const since = (now - buffer.at) / (1000 / 60);
       const ping = room?.players[slot]?.ping ?? 0;
-      const prediction = Math.min(3, 1 + ping / 34);
+      const prediction = Math.max(0, since) + Math.min(5, 1 + ping / 20);
       sound.tickMusic(buffer.latest.players.some(p => p.stocks === 1 || p.damage > 150));
       renderer.renderWorld(target, renderMatchState(buffer.previous, buffer.latest, blend, slot, actions(), prediction, jumpSequence.current), config);
     }
@@ -199,7 +209,7 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
     window.addEventListener('keyup', key);
     window.addEventListener('blur', clearInput);
     document.addEventListener('visibilitychange', visibility);
-    const timer = window.setInterval(sendInput, 100);
+    const timer = window.setInterval(sendInput, 1000 / 30);
     raf = requestAnimationFrame(frame);
     return () => {
       cancelAnimationFrame(raf);
@@ -213,7 +223,7 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
     };
   }, [playing, seat, config]);
 
-  if (!open) return hideLaunch ? null : <button className="network-launch" onClick={() => setOpen(true)}>Jugar en línea</button>;
+  if (!open) return null;
   if (room && seat && !room.playing) return <>
     <OnlineLobby room={room} slot={seat.slot} send={send} leave={leave} />
     {status && <p className="online-status" role="status">{status}</p>}
@@ -241,6 +251,47 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
     <footer><span role="status">{status || `J${seat.slot + 1} · WASD · J/K/L · C: definitiva`}</span><button data-gamepad-back onClick={leave}>Salir</button></footer>
   </section>;
 
+<<<<<<< HEAD
+  return <div className="console-modal-overlay" role="dialog" aria-modal="true" aria-label="Salas en línea" onMouseDown={(e) => { if (e.target === e.currentTarget) leave(); }}>
+    <section className="console-modal">
+      <header className="console-modal-head">
+        <div>
+          <p className="console-modal-kicker">Multijugador</p>
+          <h2>Salas en línea</h2>
+        </div>
+        <button type="button" className="console-modal-close" onClick={leave} aria-label="Cerrar">×</button>
+      </header>
+
+      <div className="console-modal-body">
+        <div className="console-field">
+          <label htmlFor="room-mode">Modo de sala</label>
+          <select id="room-mode" value={capacity} disabled={busy} onChange={e => setCapacity(Number(e.target.value) as RoomCapacity)}>
+            <option value={2}>Duelo · 2 jugadores</option>
+            <option value={4}>Campal · 4 jugadores</option>
+            <option value={6}>Campal · 6 jugadores</option>
+            <option value={8}>Gran Campal · 8 jugadores</option>
+          </select>
+        </div>
+        <button type="button" className="console-btn console-btn-primary" disabled={busy} onClick={() => enter.current({ type: 'create', maxPlayers: capacity })}>
+          Crear sala
+        </button>
+
+        <div className="console-divider"><span>o únete con código</span></div>
+
+        <div className="console-field">
+          <label htmlFor="room-code">Código de sala</label>
+          <input id="room-code" value={code} maxLength={5} placeholder="ABCDE" autoComplete="off" spellCheck={false}
+            onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 5))} />
+        </div>
+        <button type="button" className="console-btn" disabled={busy || !/^[A-F0-9]{5}$/.test(code)} onClick={() => enter.current({ type: 'join', code })}>
+          Entrar a la sala
+        </button>
+
+        {(busy || status) && <p className={`console-modal-status ${status && !busy ? 'is-error' : ''}`} role="status">{busy ? 'Conectando…' : status}</p>}
+      </div>
+    </section>
+  </div>;
+=======
   return <section data-gamepad-online className="network-panel" aria-label="Salas en línea">
     <div className="network-heading"><strong>Salas en línea</strong><button data-gamepad-back onClick={leave} aria-label="Cerrar">×</button></div>
     <label>Modo <select value={capacity} disabled={busy} onChange={e => setCapacity(Number(e.target.value) as RoomCapacity)}>
@@ -252,4 +303,5 @@ export function NetworkPanel({ config, hideLaunch, onActive }: {
     <button disabled={busy || !/^[A-F0-9]{10}$/.test(code)} onClick={() => enter.current({ type: 'join', code })}>Entrar a la sala</button>
     {(busy || status) && <p role="status">{busy ? 'Conectando…' : status}</p>}
   </section>;
+>>>>>>> upstream/main
 }

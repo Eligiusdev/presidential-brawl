@@ -1,7 +1,7 @@
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { ultimateText } from '../engine/presidentUltimates';
 import {movesFor} from '../combat/roster.js';
-import { ArrowLeft, Crown, Film, Pencil, Play, Settings, Shield, Trash2, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Crown, Film, Pencil, Play, Settings, Shield, Shuffle, Trash2, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { sound } from '../audio/soundEngine';
 import { stageArtUrl } from '../engine/stageAtmosphere';
@@ -316,6 +316,20 @@ export function CharacterSelect({
           {/* Roster Grid (Built-in + Custom Fighters) */}
           {!filteredRoster.length && <p role="status">No se encontraron luchadores.</p>}
           <SelectionRail label="Luchadores" variant="fighters" grid={view === 'grid'} resetKey={regionFilter + query}>
+            <button
+              type="button"
+              onClick={() => {
+                sound.uiClick();
+                if (!filteredRoster.length) return;
+                const choice = filteredRoster[Math.floor(Math.random() * filteredRoster.length)];
+                pickPresident(choice.idx);
+              }}
+              className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#ffcc33]/45 bg-[#1a1710] p-2.5 text-center text-[#ffdd73] transition-colors hover:border-[#ffcc33] hover:bg-[#262013] hover:text-white min-h-[116px]"
+            >
+              <Shuffle className="mb-1.5 h-6 w-6" />
+              <span className="font-display text-xs font-bold uppercase">Aleatorio</span>
+              <span className="mt-0.5 text-[10px] text-[#94a3b8]">Sorpresa</span>
+            </button>
             {filteredRoster.map(({ d, idx }) => {
               const isP1 = sel[0] === idx;
               const isP2 = !campaignSelection && sel[1] === idx;
@@ -518,20 +532,22 @@ export function CharacterSelect({
   );
 }
 
-function FighterPreviewCard({
+export function FighterPreviewCard({
   slot,
   label,
   president,
   isActive,
   onFocus,
   onCustomize,
+  readonly = false,
 }: {
-  slot: 0 | 1;
+  slot: 0 | 1 | 'online';
   label: string;
   president: PresidentData;
   isActive: boolean;
   onFocus: () => void;
   onCustomize: () => void;
+  readonly?: boolean;
 }) {
   const accentCol = slot === 0 ? '#ffcc33' : '#38bdf8';
   const moves = useMemo(() => movesFor(president), [president]);
@@ -545,8 +561,8 @@ function FighterPreviewCard({
 
   return (
     <div
-      onClick={onFocus}
-      className={`flex h-full cursor-pointer flex-col justify-between rounded-xl border p-4 transition-all ${
+      onClick={readonly ? undefined : onFocus}
+      className={`flex h-full flex-col justify-between rounded-xl border p-4 transition-all ${readonly ? '' : 'cursor-pointer'} ${
         isActive ? 'bg-[#131b31]' : 'bg-[#0e1528]'
       }`}
       style={{
@@ -606,7 +622,7 @@ function FighterPreviewCard({
           <div className="font-semibold text-[#38bdf8]">Ultimate: {ultimate.name}</div>
           <div className="text-[11px] text-[#94a3b8] leading-snug">{ultimate.ultDesc}</div>
         </div>
-        <button
+        {!readonly && <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
@@ -616,7 +632,7 @@ function FighterPreviewCard({
         >
           <Pencil className="h-3 w-3" />
           {president.isCustom ? 'Editar Luchador' : 'Clonar y Personalizar'}
-        </button>
+        </button>}
       </div>
     </div>
   );
