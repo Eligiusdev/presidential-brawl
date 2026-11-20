@@ -34,7 +34,7 @@ Con Node.js 24, descomprime el paquete y ejecuta `npm ci` y `npm start`. El serv
 2. Copia la estructura de `public/assets/fighters/bolivar/` en una carpeta con el nuevo ID. Dibuja todas las poses mirando a la derecha. Mantén el torso, la cara y la escala entre cuadros. El origen local es la proyección del luchador en el suelo. El arma y el manto pueden extenderse a ambos lados.
 3. Declara cada recorte en `poses`. `region` usa coordenadas x, y, ancho y alto. `anchor` se expresa dentro de ese recorte. La escala habitual es 0.5 para una guardia de unos 145 píxeles. El motor refleja el dibujo alrededor de este origen.
 4. Define en `animations` el bucle y los tiempos por pose, medidos en ticks de 1/60 s. Ajusta `jab`, `slash`, `up` y `down` a los ataques reales. Registra un clip específico cuando lo exija una habilidad. Los eventos de impacto pertenecen a la simulación.
-5. Crea `thumb.webp`, `portrait.png` y `selection.webp`. Añade el ID a `rosterArt`. El editor conserva la representación procedural para los luchadores personalizados.
+5. Crea `thumb.webp`, `portrait.png` y `selection.webp`. Añade el ID a `rosterArt`. El editor permite elegir el atlas ilustrado de un luchador o editar la apariencia en Diseño manual.
 6. Ejecuta `npm run lint`, `npm test`, `npm run test:sprites`, `npm run test:rooms` y `npm run build -- --base=/presidential-brawl/`.
 
 ## Verificación y alcance

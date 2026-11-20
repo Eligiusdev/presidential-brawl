@@ -180,6 +180,7 @@ export type PresidentRegion = 'na' | 'latam' | 'eu' | 'af_as' | 'custom';
 export interface PresidentData {
   id: string;
   isCustom?: boolean;
+  spriteSourceId?: string;
   rosterGroup?: 'mythic' | 'current' | 'former';
   termStart?: number;
   powerSourceId?: string;

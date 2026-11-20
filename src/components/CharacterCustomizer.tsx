@@ -2,6 +2,7 @@ import { ArrowLeft, Dices, FlipHorizontal, Save, Sparkles, Trash2 } from 'lucide
 import { useEffect, useRef, useState } from 'react';
 import { sound } from '../audio/soundEngine';
 import { BODY_BUILD_PRESETS, makeColorRamp, PRESIDENTS_DATA, SKIN_PRESETS } from '../data/presidents';
+import { fighterArtPath, paintSprite } from '../engine/fighterSprites';
 import { PreviewAnimState, renderCharacterPreview } from '../engine/pixelRenderer';
 import {
   BodyBuild,
@@ -37,6 +38,11 @@ const ANIM_OPTIONS: Array<{ id: PreviewAnimState; label: string }> = [
   { id: 'sig', label: 'Signature' },
   { id: 'victory', label: 'Victoria' },
 ];
+
+const ATLAS_PREVIEW_CLIPS = {
+  idle: 'guard', walk: 'walk', run: 'walk', jump: 'jump', sig: 'slash', victory: 'victory',
+  shoot: 'fire', reload: 'magazine',
+} as const;
 
 const FACE_SHAPES: Array<{ id: FaceShape; label: string }> = [
   { id: 'square', label: 'Cuadrada' },
@@ -142,6 +148,7 @@ function createInitialDraft(base?: PresidentData): PresidentData {
     ...tpl,
     id: `custom_${Date.now()}`,
     isCustom: true,
+    spriteSourceId: tpl.id,
     powerSourceId: tpl.powerSourceId || tpl.id,
     name: base ? `${base.name} Apex` : 'Agente Soberano',
     title: base ? `${base.title} Custom` : 'Operativo Élite',
@@ -153,26 +160,55 @@ function createInitialDraft(base?: PresidentData): PresidentData {
 
 export function CharacterCustomizer({ initialBase, onSave, onDelete, onClose }: CharacterCustomizerProps) {
   const [draft, setDraft] = useState<PresidentData>(() => createInitialDraft(initialBase));
-  const [tab, setTab] = useState<StudioTab>('body');
+  const [tab, setTab] = useState<StudioTab>(() => fighterArtPath(draft) ? 'combat' : 'body');
   const [animMode, setAnimMode] = useState<PreviewAnimState>('idle');
   const [faceDir, setFaceDir] = useState<1 | -1>(1);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  const artPath = fighterArtPath(draft);
+  const [previewKey, setPreviewKey] = useState('');
+  const currentPreview = [artPath, animMode, faceDir].join(':');
+
+  const changeAppearance = (spriteSourceId: string) => {
+    sound.uiClick();
+    setDraft(prev => ({ ...prev, spriteSourceId: spriteSourceId || undefined }));
+    setPreviewKey('');
+    setAnimMode('idle');
+    setTab(spriteSourceId ? 'combat' : 'body');
+  };
+
   const isEditingExisting = Boolean(initialBase?.isCustom);
 
   useEffect(() => {
+    const canvas = previewCanvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
     let raf = 0;
-    let tick = 0;
-    const renderLoop = () => {
-      tick += 1;
-      if (previewCanvasRef.current) {
-        renderCharacterPreview(previewCanvasRef.current, draft, animMode, tick, faceDir);
+    let hasDrawn = false;
+    const start = performance.now();
+    const renderLoop = (now: number) => {
+      const tick = Math.floor((now - start) * 0.06);
+      if (artPath) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height * 0.91);
+        const clip = ATLAS_PREVIEW_CLIPS[animMode];
+        const time = animMode === 'run' ? tick * 2 : tick % 72;
+        const drawn = paintSprite(ctx, draft, clip, time, faceDir, 2.5)
+          || paintSprite(ctx, draft, 'guard', time, faceDir, 2.5);
+        ctx.restore();
+        if (drawn && !hasDrawn) {
+          hasDrawn = true;
+          setPreviewKey(currentPreview);
+        }
+      } else {
+        renderCharacterPreview(canvas, draft, animMode, tick, faceDir);
       }
       raf = requestAnimationFrame(renderLoop);
     };
     raf = requestAnimationFrame(renderLoop);
     return () => cancelAnimationFrame(raf);
-  }, [draft, animMode, faceDir]);
+  }, [draft, animMode, faceDir, artPath, currentPreview]);
 
   const updateAnatomy = (patch: Partial<PresidentData['anatomy']>) => {
     setDraft((prev) => ({
@@ -232,6 +268,7 @@ export function CharacterCustomizer({ initialBase, onSave, onDelete, onClose }: 
 
     setDraft((prev) => ({
       ...prev,
+      spriteSourceId: fighterArtPath(prev) ? src.id : undefined,
       powerSourceId: src.id,
       signatureType: src.signatureType,
       sigName: src.sigName,
@@ -372,26 +409,42 @@ export function CharacterCustomizer({ initialBase, onSave, onDelete, onClose }: 
             </button>
           </div>
 
-          {/* 3x Integer Scaled 96->288 Pixel Preview */}
+          <label className="block text-xs font-semibold text-[#cbd5e1]">
+            Apariencia
+            <select value={artPath ? draft.spriteSourceId : ''} onChange={e => changeAppearance(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-[#2a344d] bg-[#131a2b] px-2.5 py-2 text-white">
+              <option value="">Diseño manual</option>
+              <optgroup label="Atlas ilustrados">
+                {PRESIDENTS_DATA.filter(fighterArtPath).map(p => <option value={p.id} key={p.id}>{p.name}</option>)}
+              </optgroup>
+            </select>
+          </label>
+          {artPath && <p className="text-xs text-[#94a3b8]">
+            El atlas define el aspecto del luchador. Elige Diseño manual para editar cuerpo, rostro y vestuario.
+          </p>}
           <div className="relative flex items-center justify-center rounded-lg border border-[#25304d] bg-[#0b101b] p-2">
+            {artPath && previewKey !== currentPreview && <img
+              src={artPath + 'thumb.webp'} alt="" className="pointer-events-none absolute h-[220px] w-[220px] object-contain sm:h-[256px] sm:w-[256px]"
+              style={{ transform: `scaleX(${faceDir})` }} />}
             <canvas
+              aria-label={`Vista previa de ${draft.name}`}
               ref={previewCanvasRef}
               width={288}
               height={288}
-              className="pixel-canvas block h-[220px] w-[220px] sm:h-[256px] sm:w-[256px]"
+              className={`pixel-canvas block h-[220px] w-[220px] sm:h-[256px] sm:w-[256px] ${artPath && previewKey !== currentPreview ? "invisible" : ""}`}
             />
             <span className="absolute bottom-2 left-2.5 font-mono-num text-[10px] font-semibold text-[#64748b]">
-              IK 2-Bone · {BODY_BUILD_PRESETS[draft.anatomy.bodyBuild].label}
+              {artPath ? 'Atlas ilustrado' : BODY_BUILD_PRESETS[draft.anatomy.bodyBuild].label}
             </span>
           </div>
 
           {/* Animation Test Selector */}
           <div>
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#94a3b8]">
-              Prueba de Motor Anatómico
+              Animaciones
             </div>
             <div className="grid grid-cols-4 gap-1.5">
-              {ANIM_OPTIONS.map((opt) => (
+              {ANIM_OPTIONS.filter(opt => !artPath || (opt.id !== 'shoot' && opt.id !== 'reload')).map((opt) => (
                 <button
                   key={opt.id}
                   onClick={() => {
@@ -448,7 +501,7 @@ export function CharacterCustomizer({ initialBase, onSave, onDelete, onClose }: 
         {/* Right: Tabbed Studio Editor */}
         <div className="flex flex-col rounded-xl border border-[#222c46] bg-[#0d121f] p-4 lg:col-span-7">
           {/* Tabs */}
-          <div className="grid grid-cols-4 gap-1.5 rounded-lg border border-[#1f2840] bg-[#090d17] p-1">
+          <div className={`grid ${artPath ? "grid-cols-1" : "grid-cols-4"} gap-1.5 rounded-lg border border-[#1f2840] bg-[#090d17] p-1`}>
             {(
               [
                 { id: 'body', label: '1. Cuerpo' },
@@ -456,7 +509,7 @@ export function CharacterCustomizer({ initialBase, onSave, onDelete, onClose }: 
                 { id: 'gear', label: '3. Ropa y Equipo' },
                 { id: 'combat', label: '4. Arsenal' },
               ] as const
-            ).map((t) => (
+            ).filter(t => !artPath || t.id === 'combat').map((t) => (
               <button
                 key={t.id}
                 onClick={() => {

@@ -26,8 +26,9 @@ let lastUse = 0;
 const cache = new Map<string, Entry>();
 
 export function fighterArtPath(d: PresidentData) {
-  if (d.isCustom || !rosterArt.has(d.id)) return;
-  const dir = d.id === 'aquiles' ? 'achilles' : d.id;
+  const id = d.isCustom ? d.spriteSourceId : d.id;
+  if (!id || !rosterArt.has(id)) return;
+  const dir = id === 'aquiles' ? 'achilles' : id;
   return (import.meta.env?.BASE_URL ?? '/') + 'assets/fighters/' + dir + '/';
 }
 

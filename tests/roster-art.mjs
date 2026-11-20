@@ -5,6 +5,12 @@ import { PRESIDENTS_DATA } from '../src/data/presidents.ts';
 import { movesFor } from '../src/combat/roster.js';
 import { fighterArtPath, spriteAction } from '../src/engine/fighterSprites.ts';
 
+const aquiles = PRESIDENTS_DATA.find(d => d.id === 'aquiles');
+const custom = { ...aquiles, id: 'custom_test', isCustom: true };
+assert.equal(fighterArtPath(custom), undefined);
+assert.equal(fighterArtPath({ ...custom, spriteSourceId: 'aquiles' }), fighterArtPath(aquiles));
+assert.equal(fighterArtPath({ ...custom, spriteSourceId: '../unknown' }), undefined);
+
 const actions = ['guard','walk','jump','fall','land','jab','slash','up','hurt','defeat','victory','ultimate'];
 let poseCount=0;
 let atlasCount=0;
