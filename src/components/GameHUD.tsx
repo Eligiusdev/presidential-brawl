@@ -1,3 +1,6 @@
+import { PRESIDENTS_DATA } from "../data/presidents";
+import { fighterArtPath } from "../engine/fighterSprites";
+import type { MatchSnapshot, RoomState } from "../network/matchState";
 import { ultimateText } from '../engine/presidentUltimates';
 import { TouchControls } from './TouchControls';
 import {movesFor} from '../combat/roster.js';
@@ -933,4 +936,21 @@ export function GameHUD({
       )}
     </>
   );
+}
+
+export function OnlineGameHUD({ fighters, room, localSlot }: {
+  fighters: MatchSnapshot['players']; room: RoomState; localSlot: number;
+}) {
+  return <div className={`online-hud ${room.maxPlayers === 2 ? 'online-duel-hud' : ''}`} aria-label="Estado del combate">
+    {fighters.map(f => {
+      const president = PRESIDENTS_DATA.find(p => p.id === f.fighterId);
+      const label = president?.name ?? f.fighterId;
+      return <article key={f.slot} style={{ borderColor: room.players[f.slot]?.color }} aria-label={label}>
+        {president && fighterArtPath(president) && <img src={`${fighterArtPath(president)}thumb.webp`} alt="" />}
+        <div><strong title={label}>J{f.slot + 1}{f.slot === localSlot ? ' · Tú' : ''} · {label}</strong>
+          <small>{Math.floor(f.damage)} % · {f.stocks} vidas</small>
+          <progress max={100} value={f.ultCharge} aria-label={`Definitiva de ${label}`} /></div>
+      </article>;
+    })}
+  </div>;
 }

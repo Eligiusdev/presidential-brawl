@@ -1,98 +1,124 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createRoomsApp} from '../server/rooms.mjs';
-test('salas: acceso, mando exclusivo, transmisión, liberación y cierre',async()=>{
-  const app=createRoomsApp({allowedOrigins:'https://eligiusdev.github.io'}); const server=app.listen(0,'127.0.0.1');
-  await new Promise(r=>server.once('listening',r));
-  const base=`http://127.0.0.1:${server.address().port}/api/rooms`;
-  const call=(path='',auth,body,method='POST')=>fetch(base+path,{method,headers:{'content-type':'application/json',...(auth?{authorization:`Bearer ${auth}`}:{})},body:body===undefined?undefined:JSON.stringify(body)});
-  let reader, remoteReader;
-  try{
-    const preflight=await fetch(base,{method:'OPTIONS',headers:{origin:'https://eligiusdev.github.io','access-control-request-method':'POST','access-control-request-headers':'authorization,content-type'}});
-    assert.equal(preflight.status,204);
-    assert.equal(preflight.headers.get('access-control-allow-origin'),'https://eligiusdev.github.io');
-    assert.match(preflight.headers.get('access-control-allow-headers'),/Authorization/i);
-    const host=await (await call()).json();
-    const guest=await (await call(`/${host.code}/join`)).json();
-    assert.equal((await call(`/${host.code}/join`)).status,409);
-    assert.equal((await call(`/${host.code}/input`,undefined,{actions:['light']})).status,401);
-    assert.equal((await call(`/${host.code}/input`,host.token,{actions:['light']})).status,204);
-    assert.equal((await call(`/${host.code}/input`,guest.token,{actions:['cheat']})).status,400);
-    const stream=await call(`/${host.code}/events`,host.token,undefined,'GET');
-    reader=stream.body.getReader(); const decoder=new TextDecoder();
-    await reader.read();
-    assert.equal((await call(`/${host.code}/input`,guest.token,{actions:['right','light']})).status,204);
-    let received='';
-    while(!received.includes('event: input'))received+=decoder.decode((await reader.read()).value);
-    assert.match(received,/\["right","light"\]/);
-    received='';
-    while(!received.includes('data: []'))received+=decoder.decode((await reader.read()).value);
-    assert.match(received,/data: \[\]/); // Se suelta automáticamente si el móvil desaparece.
-    assert.equal((await call(`/${host.code}/frame`,guest.token,{image:'data:image/jpeg;base64,AA=='})).status,403);
-    assert.equal((await call(`/${host.code}/frame`,host.token,{image:'https://example.com'})).status,400);
-    const otherHost=await (await call()).json();
-    const otherGuest=await (await call(`/${otherHost.code}/join`)).json();
-    assert.equal((await call(`/${host.code}/input`,otherGuest.token,{actions:['jump']})).status,401);
-    const remote=await call(`/${host.code}/events`,guest.token,undefined,'GET');
-    remoteReader=remote.body.getReader();
-    await remoteReader.read();
-    received='';
-    while(!received.includes('event: presence')) received+=decoder.decode((await reader.read()).value);
-    assert.match(received,/data: true/);
-    const videoPath=`/${host.code}/video`;
-    const offer={type:'offer',negotiation:'test-session',sdp:'v=0\r\ns=Local test\r\n'};
-    assert.equal((await call(videoPath,guest.token,offer)).status,400);
-    assert.equal((await call(videoPath,otherGuest.token,offer)).status,401);
-    assert.equal((await call(videoPath,host.token,offer)).status,204);
-    const readSignal=async from=>{
-      let result='';
-      while(!result.includes('event: video')) result+=decoder.decode((await from.read()).value);
-      return JSON.parse(/event: video\ndata: (.+)/.exec(result)[1]);
-    };
-    assert.deepEqual(await readSignal(remoteReader),offer);
-    const answer={type:'answer',negotiation:'test-session',sdp:'v=0\r\ns=Local response\r\n'};
-    assert.equal((await call(videoPath,guest.token,answer)).status,204);
-    assert.deepEqual(await readSignal(reader),answer);
-    const ice={type:'ice',negotiation:'test-session',candidate:{candidate:'candidate:test',sdpMid:'0',sdpMLineIndex:0}};
-    assert.equal((await call(videoPath,host.token,ice)).status,204);
-    assert.deepEqual(await readSignal(remoteReader),ice);
-    assert.equal((await call(videoPath,guest.token,{...ice,candidate:{}})).status,400);
-    const matchPath=`/${host.code}/match`, fighterPath=`/${host.code}/fighter`;
-    assert.equal((await call(matchPath,host.token,{playing:true})).status,409);
-    assert.equal((await call(fighterPath,host.token,{fighterId:'aquiles'})).status,200);
-    assert.equal((await call(matchPath,host.token,{playing:true})).status,409);
-    assert.equal((await call(matchPath,guest.token,{playing:true})).status,403);
-    assert.equal((await call(fighterPath,guest.token,{fighterId:'<invalid>'})).status,400);
-    {
-      const body = await (await call(fighterPath,guest.token,{fighterId:'musashi'})).json();
-      assert.equal(body.fighterId,'musashi');
-      assert.equal(body.hostFighterId,'aquiles');
-      assert.equal(body.playing,false);
+import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
+import { WebSocket } from 'ws';
+
+async function findPort() {
+  const server = createServer();
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  await new Promise(resolve => server.close(resolve));
+  return port;
+}
+
+test('salas WebSocket de 2/4/6/8, snapshots autoritativos y migración', { timeout: 25000 }, async () => {
+  const port = await findPort();
+  const host = spawn(process.execPath, ['--import', 'tsx', 'server.ts'], {
+    env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const peers = [];
+  let stderr = '';
+  host.stderr.on('data', chunk => { stderr += chunk; });
+  try {
+    await new Promise((resolve, reject) => {
+      host.stdout.once('data', resolve);
+      host.once('exit', () => reject(Error(stderr)));
+    });
+    const base = `http://127.0.0.1:${port}`;
+    assert.equal((await (await fetch(base + '/health')).json()).rooms, 'state-ws');
+
+    async function connect(body) {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/api/rooms/ws`);
+      const inbox = [];
+      let wake;
+      ws.on('message', data => { inbox.push(JSON.parse(data)); wake?.(); });
+      await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
+      const send = message => ws.send(JSON.stringify(message));
+      async function next(predicate) {
+        const end = Date.now() + 4500;
+        while (Date.now() < end) {
+          const index = inbox.findIndex(predicate);
+          if (index >= 0) return inbox.splice(index, 1)[0];
+          await new Promise(resolve => {
+            const timer = setTimeout(resolve, 60);
+            wake = () => { clearTimeout(timer); resolve(); };
+          });
+          wake = undefined;
+        }
+        throw Error('Mensaje esperado ausente: ' + stderr + ' ' + JSON.stringify(inbox.at(-1)).slice(0, 400));
+      }
+      const peer = { ws, next, send };
+      peers.push(peer);
+      send(body);
+      return peer;
     }
-    received='';
-    while(!received.includes('"fighterId":"musashi"')) received+=decoder.decode((await reader.read()).value);
-    assert.match(received,/event: lobby/);
-    {
-      const body = await (await call(matchPath,host.token,{playing:true})).json();
-      assert.equal(body.fighterId,'musashi');
-      assert.equal(body.hostFighterId,'aquiles');
-      assert.equal(body.playing,true);
-      assert.equal(typeof body.stageIdx,'number');
-      assert.equal(typeof body.seed,'number');
-      assert.equal(typeof body.stocks,'number');
+
+    for (const maxPlayers of [2, 4, 6, 8]) {
+      const players = [];
+      const creator = await connect({ type: 'create', maxPlayers });
+      const seat = await creator.next(m => m.type === 'seat');
+      assert.equal(seat.slot, 0);
+      players.push(creator);
+      for (let slot = 1; slot < maxPlayers; slot++) {
+        const peer = await connect({ type: 'join', code: seat.code });
+        assert.equal((await peer.next(m => m.type === 'seat')).slot, slot);
+        players.push(peer);
+      }
+      const overflow = await connect({ type: 'join', code: seat.code });
+      assert.equal((await overflow.next(m => m.type === 'error')).code, 'ROOM_FULL');
+      overflow.ws.close();
+
+      let leader = creator;
+      if (maxPlayers === 4) {
+        creator.ws.close();
+        leader = players[1];
+        const migrated = await leader.next(m => m.type === 'room' && m.hostSlot === 1);
+        assert.equal(migrated.players[0].connected, false);
+        players[0] = await connect({ type: 'resume', code: seat.code, token: seat.token });
+        assert.equal((await players[0].next(m => m.type === 'seat')).slot, 0);
+      }
+      leader.send({ type: 'stage', stage: 1 });
+      for (const p of players) {
+        p.send({ type: 'select', fighterId: 'bolivar' });
+        p.send({ type: 'ready', ready: true });
+      }
+      await leader.next(m => m.type === 'room' && m.stage === 1 && m.players.every(p => p?.ready));
+      leader.send({ type: 'start' });
+      const sample = await players.at(-1).next(m => m.type === 'snapshot');
+      assert.equal(sample.players.length, maxPlayers);
+      assert.equal(sample.stage, 1);
+      assert.ok(sample.world.camera.zoom > 0);
+      assert.ok(JSON.stringify(sample).length < 16000);
+      assert.ok(!JSON.stringify(sample).includes('base64'));
+      const visitor = players.at(-1);
+      visitor.send({ type: 'input', seq: 1, actions: ['right'] });
+      const moved = await players[0].next(m => m.type === 'snapshot' && m.ack.at(-1) === 1 && m.players.at(-1).vx > 0);
+      assert.ok(moved.players.at(-1).x > sample.players.at(-1).x);
+      assert.equal(moved.tick % 2, 0);
+      if (maxPlayers === 8) {
+        const startClock = performance.now();
+        const later = await visitor.next(m => m.type === 'snapshot' && m.tick >= moved.tick + 24);
+        const observed = performance.now() - startClock;
+        assert.ok(later.tick % 2 === 0);
+        assert.ok(observed >= 250 && observed < 1300, 'cadencia de snapshots');
+
+        players[0].send({ type: 'leave' });
+        const migrated = await visitor.next(m => m.type === 'room' && m.playing && m.hostSlot === 1);
+        assert.equal(migrated.players[0], null);
+        await visitor.next(m => m.type === 'snapshot' && m.players[0].stocks === 0);
+      }
+      for (let i = 0; i < players.length - 1; i++) {
+        if (players[i].ws.readyState === WebSocket.OPEN) players[i].send({ type: 'leave' });
+      }
+      const done = await visitor.next(m => m.type === 'room' && m.standings);
+      assert.equal(done.standings[0], maxPlayers - 1);
+      assert.equal(new Set(done.standings).size, maxPlayers);
+      visitor.send({ type: 'leave' });
     }
-    assert.equal((await call(fighterPath,guest.token,{fighterId:'bukele'})).status,409);
-    assert.equal((await call(matchPath,host.token,{playing:false})).status,200);
-    assert.equal((await call(fighterPath,guest.token,{fighterId:'bukele'})).status,200);
-    assert.equal((await call(`/${host.code}/frame`,host.token,{image:'data:image/jpeg;base64,AA=='})).status,204);
-    let frames='';
-    while(!frames.includes('event: frame')) frames+=decoder.decode((await remoteReader.read()).value);
-    assert.match(frames,/data:image\/jpeg;base64,AA==/);
-    assert.equal((await call(`/${host.code}`,guest.token,undefined,'DELETE')).status,204);
-    const second=await (await call(`/${host.code}/join`)).json(); assert.notEqual(second.token,guest.token);
-    assert.equal((await call(`/${host.code}/input`,guest.token,{actions:[]})).status,401);
-    assert.equal((await call(`/${host.code}`,host.token,undefined,'DELETE')).status,204);
-    assert.equal((await call(`/${host.code}/join`)).status,404);
-    assert.equal((await fetch(base,{method:'POST',headers:{origin:'https://other.example'}})).status,403);
-  }finally{await reader?.cancel();await remoteReader?.cancel();app.locals.dispose();server.closeAllConnections();await new Promise(r=>server.close(r));}
+  } finally {
+    for (const peer of peers) peer.ws.terminate();
+    host.kill();
+    await new Promise(resolve => host.exitCode === null && host.signalCode === null ? host.once('exit', resolve) : resolve());
+  }
 });

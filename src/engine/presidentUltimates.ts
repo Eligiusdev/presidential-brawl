@@ -8,6 +8,8 @@ type Flags = 'pull' | 'slow' | 'clear' | 'reflect' | 'heal' | 'gravity' | 'guard
 
 interface Profile {
   anchor: Anchor;
+  travel?: 'sweep' | 'cavalry' | 'lane';
+  tempo?: { distance: number; steps: readonly number[]; speed: number; startup: number; fixed: boolean };
   shape: Shape;
   route: readonly Point[];
   description: string;
@@ -89,11 +91,59 @@ define('mandela','center','ring',[[-.89,.03],[-.35,-.37],[.35,-.37],[.89,.03]],'
 define('allende','center','ground',[[0,0],[.62,.1],[-.62,.1],[1.16,.13],[-1.16,.13]],'Dos oleadas salen del centro hacia extremos opuestos.');
 define('pertini','target','block',[[-.82,-.85],[-.55,-.62],[-.36,-.24],[0,.17],[.46,.3]],'Humo en altura precede una avalancha diagonal.');
 
-export function ultimateFor(data: PresidentData) {
+const sweepingUltimates: Record<string, { travel: 'sweep' | 'cavalry'; durationMs: number; hits: number; description: string } | undefined> = {
+  lincoln: { travel: 'sweep', durationMs: 750, hits: 1, description: 'La locomotora cruza toda la plataforma a ras del suelo y lanza al rival al contacto.' },
+  robinson: { travel: 'sweep', durationMs: 900, hits: 3, description: 'Un tornado cruza la arena, arrastra al rival hacia el vórtice y lo expulsa.' },
+  bolivar: { travel: 'cavalry', durationMs: 430, hits: 1, description: 'Bolívar dirige una carga de caballería tricolor y embiste con un dash terrestre.' },
+};
+
+// Velocidades en unidades del mundo por tick para las rutas dibujadas por cada definitiva.
+const tempos = {
+  spawnProjectile: { speed: 24, startup: 24, min: 21, max: 64 },
+  dashStrike: { speed: 22, startup: 25, min: 20, max: 64 },
+  spawnZone: { speed: 17, startup: 27, min: 22, max: 63 },
+  spawnEntity: { speed: 22, startup: 27, min: 24, max: 67 },
+  counterStance: { speed: 16, startup: 25, min: 24, max: 60 },
+  arenaEffect: { speed: 18, startup: 26, min: 24, max: 64 },
+} as const;
+
+const laneHeights: Record<string, number | undefined> = {
+  noboa: 58, washington: 54, uribe: 75, espartaco: 55, biden: 132, kast: 70, alfaro: 75,
+};
+const fixedEffects = new Set(['simo', 'ricaurte', 'kennedy', 'macron']);
+
+export function ultimateLaneHeight(id: string) {
+  return laneHeights[id.replace(/^ult_/, '')];
+}
+
+function withTempo(spec: UltimateSpec, profile: Profile, fighterId: string): Profile {
+  const preset = tempos[spec.primitive];
+  const steps = [0];
+  for (let i = 1; i < profile.route.length; i++) {
+    const [x, y] = profile.route[i];
+    const [previousX, previousY] = profile.route[i - 1];
+    steps.push(steps[i - 1] + Math.hypot(x - previousX, y - previousY));
+  }
+  return {
+    ...profile,
+    travel: laneHeights[fighterId] !== undefined ? 'lane' : profile.travel,
+    tempo: { distance: steps[steps.length - 1], steps, speed: preset.speed,
+      startup: preset.startup, fixed: fixedEffects.has(fighterId) || spec.primitive === 'counterStance' },
+  };
+}
+
+export function ultimateFor(data: PresidentData, sweeping = true, paced = true) {
   const candidate = PRESIDENT_ULTIMATES[data.id];
   const spec = !data.isCustom && candidate && (!data.ultimateId || candidate.id === data.ultimateId) ? candidate : undefined;
   const profile = profiles[data.id];
-  return spec && profile ? { spec, profile } : undefined;
+  if (!spec || !profile) return undefined;
+  const redesign = sweeping ? sweepingUltimates[data.id] : undefined;
+  if (!redesign) return { spec, profile: paced ? withTempo(spec, profile, data.id) : profile };
+  const { travel, durationMs, hits, description } = redesign;
+  return {
+    spec: { ...spec, durationMs, hits },
+    profile: { ...profile, travel, description, route: [[0, 0], [1, 0]] as readonly Point[] },
+  };
 }
 
 export function ultimateText(data: PresidentData) {
@@ -108,6 +158,7 @@ export interface UltimateOrigin {
   x: number;
   y: number;
   face: number;
+  endX?: number;
 }
 
 const hitSizes: Record<Shape, Point> = {
@@ -116,13 +167,26 @@ const hitSizes: Record<Shape, Point> = {
 };
 
 export function ultimatePoint(ultimate: PresidentUltimate, origin: UltimateOrigin, progress: number) {
-  const route = ultimate.profile.route;
-  const segment = Math.max(0, Math.min(1, progress)) * (route.length - 1);
-  const index = Math.floor(segment);
+  const t = Math.max(0, Math.min(1, progress));
+  const { route, tempo, travel } = ultimate.profile;
+  if (origin.endX !== undefined && travel !== 'lane') {
+    return { x: origin.x + (origin.endX - origin.x) * t, y: origin.y };
+  }
+  const segment = t * (route.length - 1);
+  let index = Math.floor(segment);
+  let blend = segment - index;
+  if (tempo && tempo.distance > 0 && travel !== 'lane') {
+    const goal = tempo.distance * t;
+    const next = tempo.steps.findIndex(step => step > goal);
+    index = next < 0 ? route.length - 1 : next - 1;
+    blend = next < 0 ? 0 : (goal - tempo.steps[index]) / (tempo.steps[next] - tempo.steps[index]);
+  }
   const [x, y] = route[index];
   const [nextX, nextY] = route[Math.min(index + 1, route.length - 1)];
-  const blend = segment - index;
   const range = ultimate.spec.rangePx;
+  if (origin.endX !== undefined) {
+    return { x: origin.x + (origin.endX - origin.x) * t, y: origin.y + (y + (nextY - y) * blend) * range * .55 };
+  }
   return {
     x: origin.x + (x + (nextX - x) * blend) * range * origin.face,
     y: origin.y + (y + (nextY - y) * blend) * range,
@@ -130,6 +194,10 @@ export function ultimatePoint(ultimate: PresidentUltimate, origin: UltimateOrigi
 }
 
 export function ultimateBox(ultimate: PresidentUltimate, point: { x: number; y: number }) {
+  if (ultimate.profile.travel && ultimate.profile.travel !== 'lane') {
+    const [w, h] = ultimate.spec.id === 'ult_robinson' ? [104, 220] : ultimate.profile.travel === 'cavalry' ? [112, 104] : [170, 100];
+    return { x: point.x - w / 2, y: point.y - h / 2, w, h };
+  }
   const [width, height] = hitSizes[ultimate.profile.shape];
   const w = ultimate.spec.rangePx * width * 2;
   const h = ultimate.spec.rangePx * height * 2;
@@ -138,4 +206,15 @@ export function ultimateBox(ultimate: PresidentUltimate, point: { x: number; y: 
 
 export function ultimateDuration(spec: UltimateSpec) {
   return Math.round(spec.durationMs * 60 / 1000);
+}
+
+export function pacedUltimateDuration(ultimate: PresidentUltimate, origin: UltimateOrigin) {
+  const { spec, profile } = ultimate;
+  const base = ultimateDuration(spec);
+  const tempo = profile.tempo;
+  if (!tempo || tempo.fixed) return base;
+  const bounds = tempos[spec.primitive];
+  const distance = origin.endX === undefined ? tempo.distance * spec.rangePx : Math.abs(origin.endX - origin.x);
+  const budget = Math.ceil(distance / tempo.speed) + Math.min(14, 3 * spec.hits);
+  return Math.min(base, Math.max(bounds.min, Math.min(bounds.max, budget)));
 }

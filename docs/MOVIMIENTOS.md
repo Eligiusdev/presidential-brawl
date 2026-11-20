@@ -12,7 +12,7 @@ Los comandos corresponden a la configuración predeterminada. Puedes reasignarlo
 
 En pantalla táctil, combina el joystick con **Especial** para las variantes y pulsa **Supremo** con el medidor lleno.
 
-Las repeticiones guardadas en versiones 1 a 6 usan las definitivas de su versión.
+Las repeticiones guardadas en versiones 1 a 8 usan las definitivas de su versión.
 
 ## A. P. J. Abdul Kalam
 
@@ -38,7 +38,7 @@ Las repeticiones guardadas en versiones 1 a 6 usan las definitivas de su versió
 - **Especial neutral.** Golpe de Emancipación
 - **Especial arriba.** Alzada de la Unión
 - **Especial abajo.** Surco abierto
-- **Definitiva.** **Proclama del Hacha de Illinois**. Una fisura atrae antes de expulsar hacia arriba. Hasta 2 impactos.
+- **Definitiva.** **Proclama del Hacha de Illinois**. La locomotora cruza toda la plataforma a ras del suelo y lanza al rival al contacto. Un impacto.
 - **Cómo evitarla.** Sal de la zona marcada o esquiva al contacto.
 
 ## Alejandro Magno
@@ -407,7 +407,7 @@ Las repeticiones guardadas en versiones 1 a 6 usan las definitivas de su versió
 - **Especial neutral.** Orbe de Pulso
 - **Especial arriba.** Levitación Cuántica
 - **Especial abajo.** Campo Escudo
-- **Definitiva.** **Vórtice de los Acantilados de Moher**. Un tornado cruza en diagonal y arrastra al rival. Hasta 5 impactos.
+- **Definitiva.** **Vórtice de los Acantilados de Moher**. Un tornado cruza la arena, arrastra al rival hacia el vórtice y lo expulsa. Hasta 3 impactos.
 - **Cómo evitarla.** Sal de la zona marcada o esquiva al contacto.
 
 ## Miyamoto Musashi
@@ -497,7 +497,7 @@ Las repeticiones guardadas en versiones 1 a 6 usan las definitivas de su versió
 - **Especial neutral.** Onda Patriótica
 - **Especial arriba.** Salto de Campaña
 - **Especial abajo.** Decreto de Guerra
-- **Definitiva.** **Gloria de las Cinco Naciones**. Cinco tajos aéreos trazan una estrella tricolor y el último cae al centro. Hasta 6 impactos.
+- **Definitiva.** **Gloria de las Cinco Naciones**. Bolívar dirige una carga de caballería tricolor y embiste con un dash terrestre. Un impacto.
 - **Cómo evitarla.** Sal de la zona marcada o esquiva al contacto.
 
 ## Sun Yat-sen

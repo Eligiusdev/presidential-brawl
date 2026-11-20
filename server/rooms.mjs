@@ -1,247 +1,216 @@
-import express from 'express';
 import { randomBytes } from 'node:crypto';
+import { WebSocket, WebSocketServer } from 'ws';
 
-const actions = new Set(['left','right','jump','down','light','heavy','dash','ult','reload']);
-const token = () => randomBytes(24).toString('hex');
+const capacities = [2, 4, 6, 8];
+const actions = new Set(['left', 'right', 'jump', 'down', 'light', 'heavy', 'dash', 'ult', 'reload']);
+const colors = ['#fb5969','#60a5fa','#facc15','#4ade80','#fb923c','#c084fc','#22d3ee','#f3f4f6'];
+const tokens = () => randomBytes(24).toString('hex');
+const MAX_BUFFER = 64 * 1024;
+const STEP = 1000 / 60;
 
-export function createRoomsApp({allowedOrigins = process.env.ALLOWED_ORIGINS ?? ''} = {}) {
-  const app = express();
+export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGINS ?? '', fighterIds, stageCount, createMatch }) {
+  const origins = new Set(allowedOrigins.split(',').map(origin => origin.trim()).filter(Boolean));
+  const roster = new Set(fighterIds);
   const rooms = new Map();
-  const corsOrigins = new Set(allowedOrigins.split(',').map(origin => origin.trim()).filter(Boolean));
-  app.disable('x-powered-by');
-  app.use('/api', (req,res,next) => {
-    res.set('Cache-Control','no-store');
-    const origin = req.get('origin');
+  const sockets = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 4096 });
+  const send = (ws, message) => {
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
+  };
+  const failure = (ws, code, message) => send(ws, { type: 'error', code, message });
+  const publish = room => {
+    const state = {
+      type: 'room', code: room.code, hostSlot: room.hostSlot, stage: room.stage,
+      maxPlayers: room.players.length, playing: Boolean(room.match), standings: room.standings,
+      players: room.players.map((p, slot) => p && ({
+        slot, fighterId: p.fighterId, color: colors[slot], ping: p.ping, ready: p.ready, connected: Boolean(p.ws),
+      })),
+    };
+    for (const p of room.players) if (p?.ws) send(p.ws, state);
+  };
+
+  function remove(room, player, resume) {
+    const slot = room.players.indexOf(player);
+    if (slot < 0) return;
+    player.ws = null;
+    player.input = [];
+    player.pending = [];
+    player.ready = false;
+    player.leftAt = resume ? Date.now() : 1;
+    if (!resume) {
+      room.match?.leave(slot);
+      room.players[slot] = null;
+    }
+    if (room.hostSlot === slot) room.hostSlot = room.players.findIndex(p => p?.ws);
+    publish(room);
+  }
+
+  function upgrade(req, socket, head) {
+    if (req.url?.split('?')[0] !== '/api/rooms/ws') return;
+    const origin = req.headers.origin;
     if (origin) {
       let sameHost = false;
-      try {
-        sameHost = new URL(origin).host === req.get('host');
-      } catch {
-        return res.status(403).json({error:'Origen no permitido'});
-      }
-      if (!sameHost && !corsOrigins.has(origin)) return res.status(403).json({error:'Origen no permitido'});
-      res.set('Access-Control-Allow-Origin',origin);
-      res.vary('Origin');
-      res.set('Access-Control-Allow-Methods','GET, POST, DELETE, OPTIONS');
-      res.set('Access-Control-Allow-Headers','Content-Type, Authorization');
-    }
-    if (req.method === 'OPTIONS') return res.sendStatus(204);
-    next();
-  });
-  app.use(express.json({limit:'180kb'}));
-
-  const outbox = new WeakMap();
-  const flush = res => {
-    const box = outbox.get(res);
-    if (!box || res.destroyed) return;
-    while (box.queue.length) {
-      const item = box.queue[0];
-      const payload = `event: ${item.event}\ndata: ${JSON.stringify(item.data)}\n\n`;
-      const ok = res.write(payload);
-      box.queue.shift();
-      box.keys.delete(item.event);
-      if (!ok || res.writableNeedDrain) {
-        if (!box.waitingDrain) {
-          box.waitingDrain = true;
-          res.once('drain', () => {
-            box.waitingDrain = false;
-            flush(res);
-          });
-        }
+      try { sameHost = new URL(origin).host === req.headers.host; } catch {}
+      if (!sameHost && !origins.has(origin)) {
+        socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
         return;
       }
     }
-  };
-  const send = (res, event, data) => {
-    if (!res || res.destroyed) return;
-    let box = outbox.get(res);
-    if (!box) {
-      box = { queue: [], keys: new Map(), waitingDrain: false };
-      outbox.set(res, box);
-    }
-    if (box.keys.has(event)) {
-      box.queue[box.keys.get(event)].data = data;
-    } else {
-      box.keys.set(event, box.queue.length);
-      box.queue.push({ event, data });
-    }
-    if (!res.writableNeedDrain) flush(res);
-    else if (!box.waitingDrain) {
-      box.waitingDrain = true;
-      res.once('drain', () => {
-        box.waitingDrain = false;
-        flush(res);
-      });
-    }
-  };
-  const emit = (room, role, event, data) => send(room[role], event, data);
-  const notifyGuest = room => emit(room,'host','presence',Boolean(room.guest));
-  const lobby = room => ({ fighterId: room.fighterId, hostFighterId: room.hostFighterId, playing: room.playing, stageIdx: room.stageIdx ?? 0, seed: room.seed ?? 0, stocks: room.stocks ?? 3 });
-  const notifyLobby = room => {
-    for (const role of ['host', 'guest']) emit(room, role, 'lobby', lobby(room));
-  };
-  const releaseGuestInput = room => { room.input=[]; emit(room,'host','input',[]); };
-  const releaseHostInput = room => { room.hostInput=[]; emit(room,'guest','input',[]); };
+    sockets.handleUpgrade(req, socket, head, ws => sockets.emit('connection', ws));
+  }
+  server.on('upgrade', upgrade);
 
-  app.post('/api/rooms', (req,res) => {
-    if (rooms.size >= 100) return res.status(429).json({error:'No hay salas disponibles'});
-    let code;
-    do { code=randomBytes(5).toString('hex').toUpperCase(); } while(rooms.has(code));
-    const room={hostToken:token(),guestToken:null,fighterId:null,hostFighterId:null,playing:false,stageIdx:0,seed:0,stocks:3,updated:Date.now(),lastInput:0,lastHostInput:0,lastFrame:0,input:[],hostInput:[],frame:null,host:null,guest:null};
-    rooms.set(code,room);
-    res.status(201).json({code,token:room.hostToken,role:'host'});
-  });
-  app.post('/api/rooms/:code/join', (req,res) => {
-    const room=rooms.get(req.params.code);
-    if(!room) return res.status(404).json({error:'La sala no existe o caducó'});
-    if(room.guestToken) return res.status(409).json({error:'La sala ya tiene un mando conectado'});
-    room.guestToken=token(); room.updated=Date.now();
-    res.json({code:req.params.code,token:room.guestToken,role:'guest'});
-  });
-  app.use('/api/rooms/:code', (req,res,next) => {
-    const room=rooms.get(req.params.code);
-    if(!room) return res.status(404).json({error:'La sala ha caducado'});
-    const auth=req.get('authorization')?.replace(/^Bearer /,'');
-    const role=auth===room.hostToken?'host':auth && auth===room.guestToken?'guest':null;
-    if(!role) return res.status(401).json({error:'Acceso no autorizado'});
-    req.room=room; req.role=role; room.updated=Date.now(); next();
-  });
-  app.get('/api/rooms/:code/events',(req,res)=>{
-    const room=req.room, role=req.role;
-    if(room[role]) room[role].end();
-    res.set({'Content-Type':'text/event-stream','Connection':'keep-alive','X-Accel-Buffering':'no'});
-    res.flushHeaders(); room[role]=res;
-    res.write(': connected\n\n');
-    if (role==='guest') {
-      if (room.frame) emit(room,'guest','frame',{image:room.frame});
-      notifyGuest(room);
-      if (room.hostInput.length) emit(room,'guest','input',room.hostInput);
-    } else {
-      notifyGuest(room);
-      if (room.input.length) emit(room,'host','input',room.input);
-    }
-    emit(room,role,'lobby',lobby(room));
-    req.on('close',()=>{
-      if (room[role]!==res) return;
-      room[role]=null;
-      if (role==='guest') {
-        releaseGuestInput(room);
-        room.frame=null;
-        notifyGuest(room);
-      } else {
-        releaseHostInput(room);
+  sockets.on('connection', ws => {
+    let room, player, slot;
+    ws.alive = true;
+    ws.on('error', () => {});
+    ws.on('pong', data => {
+      ws.alive = true;
+      if (player) player.ping = Math.max(0, Math.min(9999, Date.now() - Number(data.toString()) || 0));
+    });
+    ws.on('close', () => {
+      if (player?.ws === ws) remove(room, player, true);
+    });
+    ws.on('message', raw => {
+      let msg;
+      try { msg = JSON.parse(raw.toString()); } catch { return; }
+      if (!msg || typeof msg !== 'object') return;
+      if (!player) {
+        if (msg.type === 'create') {
+          if (!capacities.includes(msg.maxPlayers)) return failure(ws, 'CAPACITY', 'Elige 2, 4, 6 u 8 jugadores.');
+          if (rooms.size >= 100) return failure(ws, 'LIMIT', 'El servidor ya tiene demasiadas salas.');
+          let code;
+          do { code = randomBytes(5).toString('hex').toUpperCase(); } while (rooms.has(code));
+          room = { code, players: Array(msg.maxPlayers).fill(null), hostSlot: 0, stage: 0,
+            match: null, standings: null, clock: 0, updated: Date.now() };
+          rooms.set(code, room);
+        } else if (msg.type === 'join' || msg.type === 'resume') {
+          room = rooms.get(msg.code);
+          if (!room) return failure(ws, 'ROOM_MISSING', 'La sala no existe o caducó.');
+        } else return;
+
+        if (msg.type === 'resume') {
+          slot = room.players.findIndex(p => p && p.token === msg.token && !p.ws);
+          if (slot < 0) return failure(ws, 'RESUME', 'Ya no se puede recuperar este puesto.');
+          player = room.players[slot];
+        } else {
+          slot = room.players.indexOf(null);
+          if (slot < 0) return failure(ws, 'ROOM_FULL', 'La sala está llena.');
+          if (room.match) return failure(ws, 'IN_MATCH', 'La partida ya comenzó.');
+          player = { token: tokens(), fighterId: null, input: [], pending: [], appliedSeq: -1, seq: -1, ping: 0, ready: false, inputAt: 0 };
+          room.players[slot] = player;
+        }
+        player.ws = ws;
+        player.leftAt = undefined;
+        room.updated = Date.now();
+        if (room.hostSlot < 0) room.hostSlot = slot;
+        send(ws, { type: 'seat', code: room.code, slot, token: player.token, seq: player.seq });
+        publish(room);
+        return;
+      }
+      if (player.ws !== ws) return;
+      room.updated = Date.now();
+      if (msg.type === 'input' && room.match && !room.standings) {
+        if (!Number.isSafeInteger(msg.seq) || msg.seq <= player.seq || !Array.isArray(msg.actions) ||
+          msg.actions.length > actions.size || msg.actions.some(action => !actions.has(action))) return;
+        player.seq = msg.seq;
+        const next = [...new Set(msg.actions)];
+        const lastInput = player.pending.at(-1)?.actions ?? player.input;
+        if (lastInput.length === next.length && next.every(a => lastInput.includes(a))) {
+          if (player.pending.length) player.pending.at(-1).seq = msg.seq;
+          else player.appliedSeq = msg.seq;
+        } else {
+          if (player.pending.length >= 6) player.pending.pop();
+          player.pending.push({ seq: msg.seq, actions: next });
+        }
+        player.inputAt = Date.now();
+      } else if (msg.type === 'select' && !room.match && roster.has(msg.fighterId)) {
+        player.fighterId = msg.fighterId;
+        player.ready = false;
+        publish(room);
+      } else if (msg.type === 'ready' && !room.match && player.fighterId && typeof msg.ready === 'boolean') {
+        player.ready = msg.ready;
+        publish(room);
+      } else if (msg.type === 'stage' && !room.match && slot === room.hostSlot &&
+        Number.isInteger(msg.stage) && msg.stage >= 0 && msg.stage < stageCount) {
+        room.stage = msg.stage;
+        publish(room);
+      } else if (msg.type === 'start' && slot === room.hostSlot) {
+        if (room.match || !room.players.every(p => p?.ws && p.ready)) {
+          return failure(ws, 'NOT_READY', 'Todos los puestos deben estar conectados y listos.');
+        }
+        room.standings = null;
+        room.match = createMatch(room.players.map(p => p.fighterId), room.stage, standings => {
+          room.standings = standings;
+        });
+        publish(room);
+      } else if (msg.type === 'lobby' && room.standings && slot === room.hostSlot) {
+        room.match = null;
+        room.standings = null;
+        room.players.forEach(p => { if (p) { p.ready = false; p.input = []; p.pending = []; } });
+        publish(room);
+      } else if (msg.type === 'leave') {
+        remove(room, player, false);
+        ws.close(1000);
       }
     });
-  });
-  app.post('/api/rooms/:code/video', (req,res) => {
-    const { type, sdp, negotiation, candidate } = req.body ?? {};
-    if (typeof negotiation !== 'string' || !/^[a-z0-9-]{1,64}$/.test(negotiation)) return res.sendStatus(400);
-    let signal;
-    if (type === 'ice') {
-      if (typeof candidate?.candidate !== 'string' || candidate.candidate.length > 4096 ||
-        !(candidate.sdpMid === null || typeof candidate.sdpMid === 'string') ||
-        !(candidate.sdpMLineIndex === null || Number.isInteger(candidate.sdpMLineIndex))) return res.sendStatus(400);
-      signal = { type, negotiation, candidate: {
-        candidate: candidate.candidate, sdpMid: candidate.sdpMid, sdpMLineIndex: candidate.sdpMLineIndex,
-      } };
-    } else {
-      if (type !== (req.role === 'host' ? 'offer' : 'answer') ||
-        typeof sdp !== 'string' || !sdp.startsWith('v=0') || sdp.length > 32000) return res.sendStatus(400);
-      signal = { type, negotiation, sdp };
-    }
-    const peer = req.room[req.role === 'host' ? 'guest' : 'host'];
-    if (!peer || peer.destroyed || peer.writableNeedDrain) return res.sendStatus(409);
-    peer.write(`event: video\ndata: ${JSON.stringify(signal)}\n\n`);
-    res.sendStatus(204);
-  });
-  app.post('/api/rooms/:code/fighter',(req,res)=>{
-    const id=req.body?.fighterId;
-    if(typeof id!=='string'||!/^[a-z0-9_-]{1,48}$/.test(id)) return res.sendStatus(400);
-    if(req.room.playing) return res.status(409).json({error:'El combate ya empezó'});
-    if (req.role === 'host') req.room.hostFighterId=id;
-    else req.room.fighterId=id;
-    notifyLobby(req.room);
-    res.json(lobby(req.room));
-  });
-  app.post('/api/rooms/:code/match',(req,res)=>{
-    if(req.role!=='host') return res.sendStatus(403);
-    const playing=req.body?.playing;
-    if(typeof playing!=='boolean') return res.sendStatus(400);
-    if(playing && (!req.room.guest || !req.room.fighterId || !req.room.hostFighterId)) {
-      return res.status(409).json({error:'Ambos jugadores deben confirmar su luchador'});
-    }
-    if(playing) {
-      req.room.stageIdx = Number.isInteger(req.body?.stageIdx) ? req.body.stageIdx : (req.room.stageIdx ?? 0);
-      req.room.seed = Number.isInteger(req.body?.seed) ? (req.body.seed >>> 0) : ((Math.random()*0x7fffffff)>>>0 || 1);
-      req.room.stocks = Math.min(5, Math.max(1, Number.isInteger(req.body?.stocks) ? req.body.stocks : (req.room.stocks ?? 3)));
-    }
-    if(!playing) {
-      req.room.frame=null;
-      req.room.fighterId=null;
-      req.room.hostFighterId=null;
-      req.room.seed=0;
-      releaseGuestInput(req.room);
-      releaseHostInput(req.room);
-    }
-    req.room.playing=playing;
-    notifyLobby(req.room);
-    res.json(lobby(req.room));
-  });
-  app.post('/api/rooms/:code/input',(req,res)=>{
-    const input=req.body?.actions;
-    if(!Array.isArray(input)||input.length>9||input.some(a=>!actions.has(a))) return res.sendStatus(400);
-    const cleaned=[...new Set(input)];
-    req.room.updated=Date.now();
-    if (req.role === 'guest') {
-      req.room.input=cleaned; req.room.lastInput=Date.now();
-      emit(req.room,'host','input',cleaned);
-    } else {
-      req.room.hostInput=cleaned; req.room.lastHostInput=Date.now();
-      emit(req.room,'guest','input',cleaned);
-    }
-    res.sendStatus(204);
-  });
-  app.post('/api/rooms/:code/frame',(req,res)=>{
-    if(req.role!=='host') return res.sendStatus(403);
-    const image=req.body?.image;
-    if(typeof image!=='string'||image.length>170000||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(image)) return res.sendStatus(400);
-    const room=req.room;
-    const now=Date.now();
-    if (room.guest && now-room.lastFrame>=40) {
-      room.lastFrame=now;
-      room.frame=image;
-      emit(room,'guest','frame',{image});
-    }
-    res.sendStatus(204);
-  });
-  app.delete('/api/rooms/:code',(req,res)=>{
-    const room=req.room;
-    releaseGuestInput(room);
-    releaseHostInput(room);
-    if(req.role==='host') { room.host?.end(); room.guest?.end(); rooms.delete(req.params.code); }
-    else {room.guest?.end(); room.guest=null; room.guestToken=null; room.fighterId=null; room.hostFighterId=null; room.playing=false; room.frame=null; room.seed=0; notifyGuest(room); notifyLobby(room);}
-    res.sendStatus(204);
+    send(ws, { type: 'hello' });
   });
 
-  let lastHeartbeat = 0;
-  const timer=setInterval(()=>{
-    const now=Date.now();
-    const heartbeat = now - lastHeartbeat >= 15000;
-    if (heartbeat) lastHeartbeat = now;
-    for(const [code,room] of rooms) {
-      if(room.input.length && now-room.lastInput>700) releaseGuestInput(room);
-      if(room.hostInput.length && now-room.lastHostInput>700) releaseHostInput(room);
-      if(now-room.updated>30*60*1000) {room.host?.end(); room.guest?.end(); rooms.delete(code);}
-      else if (heartbeat) {
-        for(const role of ['host','guest']) {
-          const res = room[role];
-          if(res && !res.destroyed && !res.writableNeedDrain) res.write(': heartbeat\n\n');
-        }
+  let last = performance.now();
+  const tick = setInterval(() => {
+    const now = Date.now();
+    const time = performance.now();
+    const elapsed = Math.min(100, time - last);
+    last = time;
+    for (const [code, room] of rooms) {
+      for (const p of room.players) {
+        if (p && !p.ws && now - p.leftAt > 20000) remove(room, p, false);
       }
+      if (!room.players.some(Boolean) || now - room.updated > 30 * 60 * 1000) {
+        for (const p of room.players) p?.ws?.close(1000);
+        rooms.delete(code);
+        continue;
+      }
+      if (!room.match || room.standings || !room.players.some(p => p?.ws)) continue;
+      room.clock += elapsed;
+      let snapshotDue = false;
+      while (room.clock >= STEP && !room.standings) {
+        room.clock -= STEP;
+        const step = room.match.step(room.players.map(p => {
+          if (!p?.ws || now - p.inputAt >= 500) {
+            if (p) { p.input = []; p.pending = []; }
+            return [];
+          }
+          const input = p.pending.shift();
+          if (input) { p.input = input.actions; p.appliedSeq = input.seq; }
+          return p.input;
+        }));
+        snapshotDue ||= step % 2 === 0 || Boolean(room.standings);
+      }
+      if (!snapshotDue) continue;
+      const data = JSON.stringify({ type: 'snapshot', ...room.match.snapshot(), ack: room.players.map(p => p?.appliedSeq ?? -1) });
+      for (const p of room.players) {
+        if (p?.ws?.readyState === WebSocket.OPEN && p.ws.bufferedAmount < MAX_BUFFER) p.ws.send(data);
+      }
+      if (room.standings) publish(room);
     }
-  },250);
-  timer.unref();
-  app.locals.dispose=()=>{clearInterval(timer); for(const room of rooms.values()){room.host?.end();room.guest?.end();} rooms.clear();};
-  app.use((err,req,res,next)=>res.status(err.status || 500).json({error:'Solicitud no válida'}));
-  return app;
+  }, 8);
+  const heartbeat = setInterval(() => {
+    for (const ws of sockets.clients) {
+      if (!ws.alive) ws.terminate();
+      else { ws.alive = false; ws.ping(String(Date.now())); }
+    }
+    for (const room of rooms.values()) publish(room);
+  }, 10000);
+  tick.unref();
+  heartbeat.unref();
+
+  return () => {
+    clearInterval(tick);
+    clearInterval(heartbeat);
+    server.off('upgrade', upgrade);
+    for (const ws of sockets.clients) ws.terminate();
+    sockets.close();
+    rooms.clear();
+  };
 }
