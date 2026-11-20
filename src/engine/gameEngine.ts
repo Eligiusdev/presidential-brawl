@@ -121,6 +121,7 @@ class FighterSim implements RenderFighterState {
   stun = 0;
   dashT = 0;
   dashCD = 0;
+  pickupT = 0;
   wpn = 0;
   wk: string | null = null;
   ammo = 0;
@@ -262,6 +263,7 @@ class FighterSim implements RenderFighterState {
     this.ammo = 0;
     this.maxAmmo = 0;
     this.reloadT = 0;
+    this.pickupT = 0;
     this.shootRecoil = 0;
     this.landT = 0;
     this.crouch = false;
@@ -1560,6 +1562,7 @@ export class GameEngine {
         f.reloadT = 0;
       }
     }
+    if (f.pickupT > 0) f.pickupT--;
     if (f.gunCD > 0) f.gunCD--;
     if (f.shootRecoil > 0) f.shootRecoil--;
     if (f.landT > 0) f.landT--;
@@ -1806,6 +1809,10 @@ export class GameEngine {
           if (itemIdx >= 0) {
             const it = this.items[itemIdx];
             this.items.splice(itemIdx, 1);
+            if (!this.replayData || this.replayData.version >= 3) {
+              f.pickupT = 14;
+              f.gunCD = 14;
+            }
             f.wpn = 950;
             f.wk = it.kind;
             f.maxAmmo = it.kind === 'mg' ? 30 : it.kind === 'rocket' ? 4 : 0;
@@ -1908,7 +1915,7 @@ export class GameEngine {
               sound.reloadStart();
             }
           }
-        } else if (!a || (a.spec.k === 'l' && a.t >= a.spec.dur * 0.55)) {
+        } else if (!f.pickupT && (!a || (a.spec.k === 'l' && a.t >= a.spec.dur * 0.55))) {
           const neutralJab = just.light && !i.dash && !i.down && !i.jump && dir === 0;
           if (f.moves && ((neutralJab && !a) || (just.heavy && !a))) {
             const up = just.heavy && i.jump && !i.down;
@@ -2735,7 +2742,7 @@ export class GameEngine {
         };
         if (this.currentMatchMeta) {
           const replay: MatchReplayData = {
-            version: 2,
+            version: 3,
             recordedAt: new Date().toISOString(),
             seed: this.currentMatchMeta.seed,
             mode: this.mode,

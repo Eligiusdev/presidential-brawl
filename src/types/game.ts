@@ -180,6 +180,8 @@ export type PresidentRegion = 'na' | 'latam' | 'eu' | 'af_as' | 'custom';
 export interface PresidentData {
   id: string;
   isCustom?: boolean;
+  rosterGroup?: 'mythic' | 'current' | 'former';
+  termStart?: number;
   powerSourceId?: string;
   region?: PresidentRegion;
   name: string;
@@ -315,7 +317,7 @@ export interface ReplayKeyframe {
 }
 
 export interface MatchReplayData {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   recordedAt: string;
   seed: number;
   mode: GameMode;

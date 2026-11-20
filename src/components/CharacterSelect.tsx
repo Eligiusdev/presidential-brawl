@@ -8,10 +8,21 @@ import { fighterArtPath } from '../engine/fighterSprites';
 import { FighterPreview } from './FighterPreview';
 import { PortraitCanvas } from './PortraitCanvas';
 
-type RegionFilter = 'all' | PresidentRegion;
+type RegionFilter = 'all' | PresidentRegion | 'current' | 'former' | 'mythic';
+
+function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
+  if (filter === 'all') return true;
+  if (filter === 'custom') return Boolean(fighter.isCustom);
+  if (fighter.isCustom) return false;
+  if (filter === 'current' || filter === 'former' || filter === 'mythic') return fighter.rosterGroup === filter;
+  return fighter.rosterGroup !== 'mythic' && fighter.region === filter;
+}
 
 const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
   { id: 'all', label: 'Todos' },
+  { id: 'current', label: 'Presidentes actuales' },
+  { id: 'former', label: 'Expresidentes recientes' },
+  { id: 'mythic', label: 'Míticos' },
   { id: 'latam', label: 'Latinoamérica' },
   { id: 'na', label: 'Norteamérica' },
   { id: 'eu', label: 'Europa' },
@@ -69,9 +80,11 @@ export function CharacterSelect({
 
   const filteredRoster = useMemo(() => {
     const mapped = roster.map((d, idx) => ({ d, idx }));
-    if (regionFilter === 'all') return mapped;
-    if (regionFilter === 'custom') return mapped.filter(({ d }) => Boolean(d.isCustom));
-    return mapped.filter(({ d }) => !d.isCustom && d.region === regionFilter);
+    const filtered = mapped.filter(({ d }) => matchesFilter(d, regionFilter));
+    if (regionFilter === 'current' || regionFilter === 'former') {
+      filtered.sort((a, b) => (b.d.termStart ?? 0) - (a.d.termStart ?? 0));
+    }
+    return filtered;
   }, [roster, regionFilter]);
 
   const pickPresident = (idx: number) => {
@@ -213,12 +226,7 @@ export function CharacterSelect({
           {/* Region Filter Bar */}
           <div className="flex flex-wrap items-center gap-1.5">
             {REGION_TABS.map((rt) => {
-              const count =
-                rt.id === 'all'
-                  ? roster.length
-                  : rt.id === 'custom'
-                    ? roster.filter((p) => p.isCustom).length
-                    : roster.filter((p) => !p.isCustom && p.region === rt.id).length;
+              const count = roster.filter((fighter) => matchesFilter(fighter, rt.id)).length;
               return (
                 <button
                   key={rt.id}

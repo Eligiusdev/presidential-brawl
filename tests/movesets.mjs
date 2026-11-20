@@ -169,3 +169,16 @@ check(e.fighters[1].x>x2,'mando remoto mueve J2');
 check(e.fighters[0].x===x1,'mando remoto no mueve J1');
 e.setRemoteActions([]);
 check(!e.remoteKeys.right,'soltar mando remoto');
+
+for (const kind of ['mg', 'rocket', 'case']) {
+  const [fighter] = setup('aquiles');
+  e.items.push({ kind, x: fighter.cx - 10, y: e.main.y - 20, w: 20, h: 20 });
+  press(['KeyJ', 'KeyD']);
+  check(fighter.wk === kind && fighter.pickupT === 14, kind + ' inicia la recogida');
+  check(!fighter.atk && e.projectiles.length === 0, kind + ' no ataca al recoger');
+  const startX = fighter.x;
+  e.handleKeyDown('KeyD', false);
+  step(14);
+  e.handleKeyUp('KeyD');
+  check(fighter.x > startX && fighter.pickupT === 0, kind + ' permite movimiento durante la recogida');
+}

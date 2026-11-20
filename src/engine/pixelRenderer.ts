@@ -57,6 +57,7 @@ export interface RenderFighterState {
   winning?: boolean;
   winT?: number;
   moveKind?: string;
+  pickupT?: number;
   wpn: number;
   wk: string | null;
   ammo: number;
@@ -2093,6 +2094,11 @@ export class PixelRenderer extends LegacyFighterGeometry {
     }
 
     ctx.translate(Math.round(rootX), Math.round(rootY));
+    if (f.pickupT) {
+      const reach = Math.sin((15 - f.pickupT) * Math.PI / 15);
+      ctx.rotate(f.face * 0.22 * reach);
+      ctx.scale(1 + 0.06 * reach, 1 - 0.24 * reach);
+    }
     ctx.scale(f.squashX, f.squashY);
     const [clip, tick] = spriteAction(f, T);
     if (!paintSprite(ctx, f.d, clip, tick, f.face, pxScale)) {

@@ -32,12 +32,13 @@ export function createRoomsApp({allowedOrigins = process.env.ALLOWED_ORIGINS ?? 
     const client = room[role];
     if (client && !client.destroyed && !client.writableNeedDrain) client.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
+  const notifyGuest = room => emit(room,'host','presence',Boolean(room.guest));
   const release = room => { room.input=[]; emit(room,'host','input',[]); };
   app.post('/api/rooms', (req,res) => {
     if (rooms.size >= 100) return res.status(429).json({error:'No hay salas disponibles'});
     let code;
     do { code=randomBytes(5).toString('hex').toUpperCase(); } while(rooms.has(code));
-    const room={hostToken:token(),guestToken:null,updated:Date.now(),lastInput:0,input:[],frame:null,host:null,guest:null};
+    const room={hostToken:token(),guestToken:null,updated:Date.now(),lastInput:0,lastFrame:0,input:[],frame:null,host:null,guest:null};
     rooms.set(code,room);
     res.status(201).json({code,token:room.hostToken,role:'host'});
   });
@@ -62,35 +63,58 @@ export function createRoomsApp({allowedOrigins = process.env.ALLOWED_ORIGINS ?? 
     res.set({'Content-Type':'text/event-stream','Connection':'keep-alive','X-Accel-Buffering':'no'});
     res.flushHeaders(); room[role]=res;
     res.write(': connected\n\n');
-    if(role==='guest' && room.frame) emit(room,'guest','frame',room.frame);
-    req.on('close',()=>{ if(room[role]===res){room[role]=null; release(room);} });
+    if (role==='guest') {
+      if (room.frame) emit(room,'guest','frame',{image:room.frame});
+      notifyGuest(room);
+    } else {
+      notifyGuest(room);
+    }
+    req.on('close',()=>{
+      if (room[role]!==res) return;
+      room[role]=null;
+      release(room);
+      if (role==='guest') {
+        room.frame=null;
+        notifyGuest(room);
+      }
+    });
   });
   app.post('/api/rooms/:code/input',(req,res)=>{
     if(req.role!=='guest') return res.sendStatus(403);
-    const input=req.body.actions;
+    const input=req.body?.actions;
     if(!Array.isArray(input)||input.length>9||input.some(a=>!actions.has(a))) return res.sendStatus(400);
     req.room.input=[...new Set(input)]; req.room.lastInput=Date.now();
     emit(req.room,'host','input',req.room.input); res.sendStatus(204);
   });
   app.post('/api/rooms/:code/frame',(req,res)=>{
     if(req.role!=='host') return res.sendStatus(403);
-    const image=req.body.image;
+    const image=req.body?.image;
     if(typeof image!=='string'||image.length>170000||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(image)) return res.sendStatus(400);
-    req.room.frame={image}; emit(req.room,'guest','frame',req.room.frame); res.sendStatus(204);
+    const room=req.room;
+    const now=Date.now();
+    if (room.guest && now-room.lastFrame>=40) {
+      room.lastFrame=now;
+      room.frame=image;
+      emit(room,'guest','frame',{image});
+    }
+    res.sendStatus(204);
   });
   app.delete('/api/rooms/:code',(req,res)=>{
     const room=req.room;
     release(room);
     if(req.role==='host') { room.host?.end(); room.guest?.end(); rooms.delete(req.params.code); }
-    else {room.guest?.end(); room.guest=null; room.guestToken=null;}
+    else {room.guest?.end(); room.guest=null; room.guestToken=null; room.frame=null; notifyGuest(room);}
     res.sendStatus(204);
   });
+  let lastHeartbeat = 0;
   const timer=setInterval(()=>{
     const now=Date.now();
+    const heartbeat = now - lastHeartbeat >= 15000;
+    if (heartbeat) lastHeartbeat = now;
     for(const [code,room] of rooms) {
       if(room.input.length && now-room.lastInput>700) release(room);
       if(now-room.updated>30*60*1000) {room.host?.end(); room.guest?.end(); rooms.delete(code);}
-      else { for(const role of ['host','guest']) if(room[role]&&!room[role].writableNeedDrain) room[role].write(': heartbeat\n\n'); }
+      else if (heartbeat) { for(const role of ['host','guest']) if(room[role]&&!room[role].writableNeedDrain) room[role].write(': heartbeat\n\n'); }
     }
   },250);
   timer.unref();

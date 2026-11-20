@@ -6,7 +6,7 @@ test('salas: acceso, mando exclusivo, transmisión, liberación y cierre',async(
   await new Promise(r=>server.once('listening',r));
   const base=`http://127.0.0.1:${server.address().port}/api/rooms`;
   const call=(path='',auth,body,method='POST')=>fetch(base+path,{method,headers:{'content-type':'application/json',...(auth?{authorization:`Bearer ${auth}`}:{})},body:body===undefined?undefined:JSON.stringify(body)});
-  let reader;
+  let reader, remoteReader;
   try{
     const preflight=await fetch(base,{method:'OPTIONS',headers:{origin:'https://eligiusdev.github.io','access-control-request-method':'POST','access-control-request-headers':'authorization,content-type'}});
     assert.equal(preflight.status,204);
@@ -30,12 +30,24 @@ test('salas: acceso, mando exclusivo, transmisión, liberación y cierre',async(
     assert.match(received,/data: \[\]/); // Se suelta automáticamente si el móvil desaparece.
     assert.equal((await call(`/${host.code}/frame`,guest.token,{image:'data:image/jpeg;base64,AA=='})).status,403);
     assert.equal((await call(`/${host.code}/frame`,host.token,{image:'https://example.com'})).status,400);
+    const otherHost=await (await call()).json();
+    const otherGuest=await (await call(`/${otherHost.code}/join`)).json();
+    assert.equal((await call(`/${host.code}/input`,otherGuest.token,{actions:['jump']})).status,401);
+    const remote=await call(`/${host.code}/events`,guest.token,undefined,'GET');
+    remoteReader=remote.body.getReader();
+    await remoteReader.read();
+    received='';
+    while(!received.includes('event: presence')) received+=decoder.decode((await reader.read()).value);
+    assert.match(received,/data: true/);
     assert.equal((await call(`/${host.code}/frame`,host.token,{image:'data:image/jpeg;base64,AA=='})).status,204);
+    let frames='';
+    while(!frames.includes('event: frame')) frames+=decoder.decode((await remoteReader.read()).value);
+    assert.match(frames,/data:image\/jpeg;base64,AA==/);
     assert.equal((await call(`/${host.code}`,guest.token,undefined,'DELETE')).status,204);
     const second=await (await call(`/${host.code}/join`)).json(); assert.notEqual(second.token,guest.token);
     assert.equal((await call(`/${host.code}/input`,guest.token,{actions:[]})).status,401);
     assert.equal((await call(`/${host.code}`,host.token,undefined,'DELETE')).status,204);
     assert.equal((await call(`/${host.code}/join`)).status,404);
     assert.equal((await fetch(base,{method:'POST',headers:{origin:'https://other.example'}})).status,403);
-  }finally{await reader?.cancel();app.locals.dispose();server.closeAllConnections();await new Promise(r=>server.close(r));}
+  }finally{await reader?.cancel();await remoteReader?.cancel();app.locals.dispose();server.closeAllConnections();await new Promise(r=>server.close(r));}
 });

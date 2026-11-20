@@ -85,9 +85,11 @@ export function frameAt(clip: Clip, tick: number) {
 export function spriteAction(f: RenderFighterState, tick: number): [ClipName, number] {
   if (f.winning) return ['victory', f.winT ?? 0];
   if (f.stun > 0) return ['hurt', Math.max(0, (f.maxStun ?? 14) - f.stun)];
-  if (f.wpn > 0 && f.wk === 'mg') return [f.reloadT > 0 ? 'magazine' : f.shootRecoil > 0 ? 'fire' : 'aim', tick];
-  if (f.wpn > 0 && f.wk === 'rocket') return [f.reloadT > 0 ? 'load' : 'launcher', tick];
-  if (f.wpn > 0 && f.wk === 'case') return ['case', tick];
+  if (f.pickupT) return f.pickupT > 6 ? ['crouch', 0] : ['land', 14 - f.pickupT];
+  if (f.wpn > 0 && f.reloadT > 0 && (f.wk === 'mg' || f.wk === 'rocket')) {
+    return [f.wk === 'mg' ? 'magazine' : 'load', f.reloadDur - f.reloadT];
+  }
+  if (f.wpn > 0 && f.wk === 'mg' && f.shootRecoil > 0) return ['fire', 5 - f.shootRecoil];
   if (f.atk) {
     const { spec, t } = f.atk;
     if (spec.effect === 'rage') return ['rage', t];
@@ -102,6 +104,9 @@ export function spriteAction(f: RenderFighterState, tick: number): [ClipName, nu
   if (f.landT > 0) return ['land', 7 - f.landT];
   if (f.crouch) return ['crouch', 0];
   if (Math.abs(f.vx) > 0.45 || f.dashT) return ['walk', tick * (f.dashT ? 2 : 1)];
+  if (f.wpn > 0 && f.wk === 'mg') return ['aim', tick];
+  if (f.wpn > 0 && f.wk === 'rocket') return ['launcher', tick];
+  if (f.wpn > 0 && f.wk === 'case') return ['case', tick];
   return ['guard', tick];
 }
 

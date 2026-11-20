@@ -1,10 +1,10 @@
 # Presidential Brawl · Apex Edition
 
-Versión de continuación del archivo Apex: conserva los 40 luchadores, 160 comandos, física, audio procedural, campaña, editor y repeticiones. Incorpora un backend Node/Express para conectar un móvil como mando de J2 y recibir una vista remota de la partida. La simulación se ejecuta en el equipo principal: esta versión no implementa rollback ni un servidor de combate autoritativo.
+Apex Edition tiene 61 luchadores con 244 comandos, campaña, entrenamiento, editor y repeticiones. El modo en línea permite partidas 1 contra 1 mediante salas privadas con enlace de invitación.
 
 ## Plantel arcade
 
-Los 40 luchadores oficiales tienen arte animado en selección y combate. Se incluyen los atlas, las ilustraciones y la compilación local en `dist`. [Guía del plantel y comprobaciones](docs/PLANTEL.md)
+Los 40 luchadores originales conservan sus atlas. Las 21 incorporaciones usan el renderizador procedural del juego. En selección, **Míticos** reúne figuras legendarias e históricas, y **Presidentes actuales** y **Expresidentes recientes** ordenan por inicio del mandato correspondiente. El plantel presidencial se verificó en noviembre de 2026. [Guía del plantel y comprobaciones](docs/PLANTEL.md)
 
 ## Piloto de Aquiles
 
@@ -24,15 +24,15 @@ En Windows usa `npm.cmd` si PowerShell bloquea `npm.ps1`.
 
 1. En el equipo principal abre `http://localhost:3000`.
 2. Para conectar el móvil, abre el juego usando la IP del equipo en la misma red, por ejemplo `http://192.168.1.20:3000`. Permite el puerto 3000 en el firewall de la red privada si hace falta.
-3. Pulsa **Conectar otra pantalla → Crear sala**. Copia el enlace que contiene el código y ábrelo en el móvil. Si creaste la sala desde localhost, sustituye localhost por la IP del equipo antes de compartirlo.
-4. En el móvil pulsa **Conectar como J2**.
-5. En el equipo principal entra a selección, desactiva la IA para jugar **J1 vs J2**, elige los personajes y comienza. J1 usa el teclado o un mando; J2 usa los botones del móvil.
+3. Pulsa **Jugar en línea → Crear sala**. Copia el enlace que contiene el código y ábrelo en el móvil. Si creaste la sala desde localhost, sustituye localhost por la IP del equipo antes de compartirlo.
+4. En el segundo dispositivo pulsa **Conectar como J2**. Puedes jugar con controles táctiles o teclado.
+5. En el equipo principal entra a selección, desactiva la IA para jugar **J1 vs J2**, elige los personajes y comienza. J1 usa el teclado o un mando; J2 usa las flechas, U, I, O, M y / o los botones en pantalla.
 6. Mantén la pestaña del equipo principal visible. Puedes ocultar su panel con × sin cerrar la sala. **Salir de la sala** sí la cierra o desconecta el mando.
 
-La vista del móvil es una secuencia JPEG de aproximadamente 6 fps; el equipo principal conserva su renderizado normal. No lleva audio ni HUD HTML al móvil. GitHub Pages sirve la interfaz, pero no ejecuta el backend. Para conectar móviles por Internet, el backend se puede desplegar como servicio Node en Render usando el `render.yaml` incluido:
+El anfitrión ejecuta el combate. El servidor enlaza los controles de J2 con el anfitrión y reenvía la vista del juego por sala, hasta aproximadamente 16 cuadros por segundo según la conexión. La vista remota contiene el canvas, sin audio ni HUD HTML. Distintas parejas pueden jugar simultáneamente en salas independientes. GitHub Pages sirve la interfaz, pero no ejecuta el backend. Para conectar móviles por Internet, el backend se puede desplegar como servicio Node en Render usando el `render.yaml` incluido:
 
 1. En Render crea un **Blueprint** y conecta este repositorio. Revisa y despliega el servicio `presidential-brawl-api`.
-2. Cuando Render muestre la URL del servicio (por ejemplo, `https://presidential-brawl-api.onrender.com`), abre **Settings → Secrets and variables → Actions → Variables** del repositorio en GitHub y crea `ROOM_API_BASE_URL` con esa URL, sin `/` al final.
+2. Abre la URL de Render en ambos dispositivos y verifica el duelo. El servicio sirve el juego y la API juntos. Para enlazar GitHub Pages, cuando Render muestre la URL del servicio (por ejemplo, `https://presidential-brawl-api.onrender.com`), abre **Settings → Secrets and variables → Actions → Variables** del repositorio en GitHub y crea `ROOM_API_BASE_URL` con esa URL, sin `/` al final.
 3. En GitHub Actions vuelve a ejecutar **Presidential Brawl Pages** desde `main`. El build usará esa URL para las salas y el móvil.
 4. Abre el juego desde `https://eligiusdev.github.io/presidential-brawl/`, crea una sala y comparte el enlace generado.
 
@@ -77,7 +77,7 @@ npm run lint
 npm run build
 ```
 
-Las pruebas de combate recorren los 160 comandos y sus interacciones especiales. Las pruebas de salas comprueban tokens, exclusividad del mando, transmisión SSE, liberación por desconexión, validación de entradas y cierre. La prueba automática del backend usa clientes HTTP; sigue pendiente probar físicamente PC y móvil juntos.
+Las pruebas de combate recorren los 244 comandos y sus interacciones especiales. Las pruebas de salas comprueban tokens, exclusividad del mando, transmisión SSE, liberación por desconexión, validación de entradas y cierre. La prueba automática del backend usa clientes HTTP; sigue pendiente probar físicamente PC y móvil juntos.
 
 ## Referencias consultadas
 

@@ -7,9 +7,14 @@ import { fighterArtPath, spriteAction } from '../src/engine/fighterSprites.ts';
 
 const actions = ['guard','walk','jump','fall','land','jab','slash','up','hurt','defeat','victory','ultimate'];
 let poseCount=0;
+let atlasCount=0;
 for (const d of PRESIDENTS_DATA) {
   const path = fighterArtPath(d);
-  assert.ok(path, d.id);
+  if (!path) {
+    assert.ok(d.rosterGroup, d.id + ' requiere un atlas');
+    continue;
+  }
+  atlasCount++;
   const directory = new URL('../public'+path, import.meta.url);
   const meta=JSON.parse(readFileSync(new URL('atlas.json', directory)));
   const atlas = await loadImage(readFileSync(new URL(meta.image,directory)));
@@ -59,4 +64,5 @@ for (const d of PRESIDENTS_DATA) {
   }
   poseCount+=Object.keys(meta.poses).length;
 }
-console.log(PRESIDENTS_DATA.length+' luchadores, '+poseCount+' poses y recursos de selección verificados.');
+assert.equal(atlasCount,40);
+console.log(atlasCount+' luchadores con atlas, '+poseCount+' poses y recursos de selección verificados.');
