@@ -457,20 +457,22 @@ export function CharacterSelect({
   );
 }
 
-function FighterPreviewCard({
+export function FighterPreviewCard({
   slot,
   label,
   president,
   isActive,
   onFocus,
   onCustomize,
+  readonly = false,
 }: {
-  slot: 0 | 1;
+  slot: 0 | 1 | 'online';
   label: string;
   president: PresidentData;
   isActive: boolean;
   onFocus: () => void;
   onCustomize: () => void;
+  readonly?: boolean;
 }) {
   const accentCol = slot === 0 ? '#ffcc33' : '#38bdf8';
   const moves = useMemo(() => movesFor(president), [president]);
@@ -484,8 +486,8 @@ function FighterPreviewCard({
 
   return (
     <div
-      onClick={onFocus}
-      className={`flex h-full cursor-pointer flex-col justify-between rounded-xl border p-4 transition-all ${
+      onClick={readonly ? undefined : onFocus}
+      className={`flex h-full flex-col justify-between rounded-xl border p-4 transition-all ${readonly ? '' : 'cursor-pointer'} ${
         isActive ? 'bg-[#131b31]' : 'bg-[#0e1528]'
       }`}
       style={{
@@ -545,7 +547,7 @@ function FighterPreviewCard({
           <div className="font-semibold text-[#38bdf8]">Ultimate: {ultimate.name}</div>
           <div className="text-[11px] text-[#94a3b8] leading-snug">{ultimate.ultDesc}</div>
         </div>
-        <button
+        {!readonly && <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
@@ -555,7 +557,7 @@ function FighterPreviewCard({
         >
           <Pencil className="h-3 w-3" />
           {president.isCustom ? 'Editar Luchador' : 'Clonar y Personalizar'}
-        </button>
+        </button>}
       </div>
     </div>
   );

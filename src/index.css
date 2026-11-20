@@ -450,3 +450,18 @@
   .online-hud article > div { font-size: .65rem; }
   .online-duel-hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Online selector: local-like layout with live opponent picks */
+.online-lobby.apex-selector { overflow-y: auto; }
+.online-invite-input { min-width: 180px; max-width: 320px; flex: 1 1 180px; font-size: 12px; }
+.online-player-card { border: 1px solid #425675; border-radius: 10px; background: #101d30; padding: 8px; display: grid; gap: 6px; }
+.online-player-card-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.online-player-pick { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.online-player-pick .sprite-canvas, .online-player-pick canvas { width: 48px; height: 48px; flex: none; }
+.online-player-empty { color: #8fa3c1; font-size: 12px; padding: 6px 0; }
+.online-opponents-list { max-height: 60vh; }
+@media (max-width: 900px) {
+  .online-opponents { display: flex !important; }
+  .online-opponents-list { max-height: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .online-lobby .selector-side:first-child { display: none; }
+}
