@@ -1,6 +1,7 @@
+import { TouchControls } from './TouchControls';
 import {movesFor} from '../combat/roster.js';
 import { ChevronLeft, ChevronRight, Code2, Download, Film, Landmark, Pause, Play, RotateCcw, Settings, Volume2, VolumeX, X } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { sound } from '../audio/soundEngine';
 import { STAGES_DATA } from '../data/stages';
 import {
@@ -533,7 +534,7 @@ export function GameHUD({
 
       {/* Mobile Touch Controls */}
       {showTouch && (
-        <TouchOverlay
+        <TouchControls
           ultReady={Boolean(hud?.fighters[0] && hud.fighters[0].vote >= 100)}
           hasGun={Boolean(hud?.fighters[0] && (hud.fighters[0].weaponKind === 'mg' || hud.fighters[0].weaponKind === 'rocket'))}
           onAction={onTouchAction}
@@ -542,7 +543,7 @@ export function GameHUD({
 
       {/* Campaign VS Ladder Screen */}
       {screen === 'VS' && campaign && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#090c14]/94 p-6 text-center">
+        <div className="apex-overlay absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#090c14]/94 p-6 text-center">
           <div className="font-display text-sm font-bold uppercase tracking-widest text-[#ffcc33]">
             {campaign.round === 6 ? '★ Gran Final Mundial ★' : `Ronda ${campaign.round + 1} de 7`}
           </div>
@@ -603,7 +604,7 @@ export function GameHUD({
 
       {/* Pause Modal */}
       {screen === 'PAUSED' && hud && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/88 p-4">
+        <div className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/88 p-4">
           <div className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-5 overflow-y-auto rounded-xl border border-[#2a344d] bg-[#111726] p-6">
             <div className="flex items-center justify-between border-b border-[#222b42] pb-3">
               <h2 className="font-display text-2xl font-bold uppercase text-[#ffcc33]">Combate en Pausa</h2>
@@ -673,7 +674,7 @@ export function GameHUD({
 
       {/* Replay Completed Overlay */}
       {isReplay && replayEnded && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/80 p-4">
+        <div className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/80 p-4">
           <div className="w-full max-w-md rounded-xl border border-[#a855f7]/60 bg-[#111726] p-6 text-center">
             <div className="text-xs font-bold uppercase tracking-widest text-[#c084fc]">Secuencia Completada</div>
             <h2 className="mt-1 font-display text-2xl font-bold uppercase text-white">Repetición Finalizada</h2>
@@ -719,7 +720,7 @@ export function GameHUD({
 
       {/* Versus Game Over */}
       {screen === 'GAME_OVER' && summary && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4 overflow-y-auto">
+        <div className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4 overflow-y-auto">
           <div className="w-full max-w-lg rounded-xl border border-[#2a344d] bg-[#111726] p-6 text-center">
             <div className="text-xs font-bold uppercase tracking-widest text-[#ffcc33]">Presidente Electo</div>
             <h2 className="mt-1 font-display text-3xl font-bold uppercase text-white">{summary.winnerName}</h2>
@@ -826,7 +827,7 @@ export function GameHUD({
 
       {/* Campaign Censure / Continue */}
       {screen === 'CENSURE' && campaign && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4">
+        <div className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4">
           <div className="w-full max-w-md rounded-xl border border-[#ef4444]/50 bg-[#111726] p-6 text-center">
             <div className="text-xs font-bold uppercase tracking-widest text-[#ef4444]">Moción de Censura</div>
             <h2 className="mt-1 font-display text-3xl font-bold text-white">¿Continuar Campaña?</h2>
@@ -866,7 +867,7 @@ export function GameHUD({
 
       {/* Campaign Champion */}
       {screen === 'CHAMPION' && campaign && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4">
+        <div className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4">
           <div className="w-full max-w-lg rounded-xl border-2 border-[#ffcc33] bg-[#111726] p-6 text-center">
             <div className="text-xs font-bold uppercase tracking-widest text-[#ffcc33]">★ Victoria Total ★</div>
             <h2 className="mt-1 font-display text-3xl font-bold uppercase text-white">
@@ -927,110 +928,5 @@ export function GameHUD({
         </div>
       )}
     </>
-  );
-}
-
-function TouchOverlay({
-  ultReady,
-  hasGun,
-  onAction,
-}: {
-  ultReady: boolean;
-  hasGun: boolean;
-  onAction: (action: PlayerAction, active: boolean) => void;
-}) {
-  const knobRef = useRef<HTMLDivElement | null>(null);
-  const stickRef = useRef<HTMLDivElement | null>(null);
-
-  const handleStickMove = (clientX: number, clientY: number) => {
-    const el = stickRef.current;
-    const knob = knobRef.current;
-    if (!el || !knob) return;
-    const r = el.getBoundingClientRect();
-    const rad = r.width / 2;
-    let dx = (clientX - r.left - rad) / rad;
-    let dy = (clientY - r.top - rad) / rad;
-    const mag = Math.hypot(dx, dy);
-    if (mag > 1) {
-      dx /= mag;
-      dy /= mag;
-    }
-    knob.style.transform = `translate(${dx * rad * 0.55}px, ${dy * rad * 0.55}px)`;
-    onAction('left', dx < -0.3);
-    onAction('right', dx > 0.3);
-    onAction('down', dy > 0.45);
-  };
-
-  const resetStick = () => {
-    if (knobRef.current) knobRef.current.style.transform = '';
-    onAction('left', false);
-    onAction('right', false);
-    onAction('down', false);
-  };
-
-  const btn = (act: PlayerAction, label: string, sub: string, posClass: string, colClass: string) => (
-    <button
-      type="button"
-      onTouchStart={(e) => {
-        e.preventDefault();
-        sound.init();
-        onAction(act, true);
-      }}
-      onTouchEnd={(e) => {
-        e.preventDefault();
-        onAction(act, false);
-      }}
-      onTouchCancel={() => onAction(act, false)}
-      className={`absolute flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 font-bold text-white select-none active:scale-90 ${posClass} ${colClass}`}
-    >
-      <span className="text-base leading-none">{label}</span>
-      <span className="text-[9px] uppercase tracking-tight">{sub}</span>
-    </button>
-  );
-
-  return (
-    <div className="pointer-events-none absolute inset-0 z-20">
-      {/* Left Virtual Stick */}
-      <div
-        ref={stickRef}
-        onTouchStart={(e) => {
-          e.preventDefault();
-          sound.init();
-          const t = e.changedTouches[0];
-          if (t) handleStickMove(t.clientX, t.clientY);
-        }}
-        onTouchMove={(e) => {
-          e.preventDefault();
-          const t = e.changedTouches[0];
-          if (t) handleStickMove(t.clientX, t.clientY);
-        }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
-          resetStick();
-        }}
-        onTouchCancel={resetStick}
-        className="pointer-events-auto absolute bottom-5 left-5 flex h-28 w-28 items-center justify-center rounded-full border-2 border-white/30 bg-white/10"
-      >
-        <div ref={knobRef} className="h-11 w-11 rounded-full bg-white/45" />
-      </div>
-
-      {/* Right Arcade Button Cluster */}
-      <div className="pointer-events-auto absolute bottom-4 right-4 h-44 w-52">
-        {btn('jump', '▲', 'Salto', 'bottom-0 left-14', 'border-[#22c55e] bg-[#16a34a]/45')}
-        {btn('light', '👊', 'Ligero', 'bottom-10 left-0', 'border-[#3b82f6] bg-[#2563eb]/45')}
-        {btn('heavy', '★', 'Sig.', 'bottom-10 right-2', 'border-[#ef4444] bg-[#dc2626]/45')}
-        {btn('dash', '⚡', 'Dash', 'bottom-20 left-14', 'border-[#eab308] bg-[#ca8a04]/45')}
-        {hasGun && btn('reload', '↻', 'Rec.', 'bottom-24 left-0', 'border-[#38bdf8] bg-[#0284c7]/55')}
-        {btn(
-          'ult',
-          '👑',
-          'Ult',
-          'bottom-28 right-2',
-          ultReady
-            ? 'border-white bg-[#ffcc33] !text-[#0b0e17] scale-110'
-            : 'border-[#a16207] bg-[#854d0e]/35 opacity-55'
-        )}
-      </div>
-    </div>
   );
 }

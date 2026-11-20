@@ -18,7 +18,6 @@
     color: #eef2ff;
     font-family: var(--font-body);
     overflow: hidden;
-    touch-action: none;
     -webkit-user-select: none;
     user-select: none;
   }
@@ -145,4 +144,159 @@
   .fighter-showcase-body { width: 100%; }
   .fighter-showcase-caption { grid-column: 1 / -1; background: #101828ed; padding: .65rem 1rem; }
   .fighter-showcase-caption h3 { font-size: 1.75rem; }
+}
+
+/* Arena presentation shared by the selector, studio and match menus. */
+.apex-app {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #070d19;
+}
+.apex-frame {
+  position: relative;
+  width: min(100%, calc(100dvh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #0c1528;
+}
+.apex-frame-menu { width: 100%; height: 100%; }
+.apex-menu {
+  background: radial-gradient(ellipse at 70% 0%, #243b56 0%, #111d30 44%, #090f1d 100%);
+  color: #eaf1fe;
+}
+.apex-title {
+  background-image: linear-gradient(90deg, #080d19f5 0%, #0a1424e8 33%, #0a142429 100%), var(--apex-cover);
+  background-size: cover;
+  background-position: 58% center;
+}
+.apex-title > * { flex-shrink: 0; }
+.apex-overlay {
+  background: radial-gradient(ellipse at center, #18283ce8, #080e19f5);
+  backdrop-filter: blur(7px);
+}
+.apex-menu button:focus-visible, .apex-overlay button:focus-visible, .selection-rail [role="button"]:focus-visible {
+  outline: 2px solid #fbd385;
+  outline-offset: 2px;
+}
+.apex-selector .fighter-showcase {
+  width: 100%;
+  max-width: 72rem;
+  margin: .8rem auto 0;
+  flex: none;
+  min-height: 0;
+  max-height: clamp(132px, 25dvh, 232px);
+}
+.apex-selector .fighter-showcase-body { width: min(28%, 218px); }
+.selector-layout { grid-template-columns: minmax(0, 1fr); }
+.selector-mobile-customize { display: none; }
+.selector-filters { overflow-x: auto; scrollbar-width: thin; }
+.selector-filters > button { white-space: nowrap; flex: none; }
+.selector-launch {
+  position: sticky;
+  z-index: 3;
+  bottom: 0;
+  border-top: 1px solid #546783;
+  background: #0b1524f2;
+  padding: .55rem .5rem max(.55rem, env(safe-area-inset-bottom));
+  backdrop-filter: blur(9px);
+}
+.selection-rail {
+  min-width: 0;
+  border: 1px solid #304362;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #17263b, #0d1728);
+  padding: .5rem;
+}
+.selection-rail-header { display: flex; justify-content: space-between; align-items: center; margin: 0 .15rem .4rem; }
+.selection-rail-header h3 { font: 700 .92rem var(--font-display); color: #f6e4be; }
+.selection-rail-arrows { display: flex; gap: .35rem; }
+.selection-rail-arrows button {
+  display: grid; place-items: center; width: 36px; height: 34px; border-radius: 8px;
+  background: #21334b; border: 1px solid #445a76; color: #fbe1a1;
+}
+.selection-rail-arrows button:hover { border-color: #f5c767; }
+.selection-rail-track {
+  display: grid; grid-auto-flow: column; gap: .5rem; overflow-x: auto; overflow-y: hidden;
+  padding: 3px 2px .44rem; scroll-snap-type: x proximity; scrollbar-width: thin;
+  scrollbar-color: #745c35 #111b2a; overscroll-behavior-x: contain; touch-action: pan-x pan-y;
+}
+.selection-rail-track > * { min-width: 0; scroll-snap-align: start; }
+.selection-rail-fighters { grid-auto-columns: clamp(118px, 17vw, 155px); }
+.selection-rail-stages { grid-auto-columns: clamp(144px, 22vw, 208px); }
+.selection-rail-stages img { filter: saturate(1.13); }
+.selection-rail-stages [aria-pressed="true"] img { outline: 1px solid #f7cd79; }
+
+.touch-deck {
+  position: absolute; z-index: 20; inset: 0;
+  pointer-events: none; user-select: none;
+}
+.touch-deck-inline { position: relative; inset: auto; height: 156px; max-width: 650px; margin: 0 auto; }
+.touch-stick-zone {
+  position: absolute; pointer-events: auto; touch-action: none;
+  width: min(41%, 190px); height: clamp(102px, 25dvh, 166px);
+  left: max(6px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom));
+}
+.touch-stick {
+  position: absolute; top: 54%; left: 39%; width: clamp(65px, 13vw, 94px); aspect-ratio: 1;
+  display: grid; place-items: center; transform: translate(-50%, -50%);
+  background: radial-gradient(circle, #a7c9f21e, #172842b0);
+  border: 1px solid #bbd2f77a; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 7px 20px #020713a6, inset 0 0 0 4px #15263c80;
+}
+.touch-stick-active { border-color: #f1d187; }
+.touch-knob {
+  width: 44%; aspect-ratio: 1; border-radius: 50%;
+  background: linear-gradient(145deg,#e8eef2dc,#7c98b7ce);
+  box-shadow: 0 3px 8px #070d1b9c; pointer-events: none;
+}
+.touch-action-grid {
+  position: absolute; right: max(10px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom)); display: grid;
+  grid-template-columns: repeat(3, var(--touch-size)); grid-template-rows: repeat(2, var(--touch-size));
+  --touch-size: clamp(43px, 10vw, 62px); gap: clamp(3px, 1.1vw, 8px);
+}
+.touch-action-grid button.touch-action {
+  pointer-events: auto; touch-action: none; padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  width: var(--touch-size); height: var(--touch-size); border-radius: 50%;
+  color: #f5f7ff; font-size: clamp(7px, 1vw, 10px); font-weight: 700;
+  background: linear-gradient(150deg, #203858da, #101b30ed);
+  border: 1px solid #92aac6b8; box-shadow: 0 4px 10px #070c18a0;
+}
+.touch-action-grid button.touch-action[aria-pressed="true"] { transform: scale(.9); background: #375980; }
+.touch-jump { grid-column: 3; grid-row: 2; }
+.touch-light { grid-column: 2; grid-row: 2; }
+.touch-heavy { grid-column: 3; grid-row: 1; }
+.touch-dash { grid-column: 1; grid-row: 2; }
+.touch-ult { grid-column: 2; grid-row: 1; }
+.touch-reload { grid-column: 1; grid-row: 1; }
+.touch-action-grid button.touch-ult[data-ready="true"] { color: #141923; background: #ffcf64; border-color: #fff2c4; }
+
+@media (min-width: 1024px) {
+  .selector-layout { grid-template-columns: minmax(185px, 1fr) minmax(0, 3fr) minmax(185px, 1fr); }
+}
+@media (max-width: 1023px) {
+  .selector-side { display: none; }
+  .selector-mobile-customize {
+    display: inline-flex; align-items: center; gap: .35rem; min-height: 34px;
+    color: #ffdfa0; font-size: .72rem;
+  }
+}
+@media (orientation: portrait), (max-height: 530px) {
+  .apex-frame { width: 100%; height: 100%; }
+}
+@media (orientation: portrait) and (max-width: 640px) {
+  .apex-selector .fighter-showcase { display: flex; align-items: center; max-height: 138px; }
+  .apex-selector .fighter-showcase-body { width: 36%; }
+  .apex-selector .fighter-showcase-caption { background: none; padding: .3rem; }
+  .apex-selector .fighter-showcase-caption h3 { font-size: clamp(1.22rem, 5.5vw, 1.8rem); }
+  .selector-launch button { padding-inline: .6rem; }
+}
+@media (orientation: landscape) and (max-height: 530px) {
+  .touch-action-grid { --touch-size: clamp(43px, 12dvh, 55px); }
+  .apex-title { padding-top: .75rem; padding-bottom: .75rem; }
 }

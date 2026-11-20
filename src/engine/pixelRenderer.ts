@@ -179,6 +179,7 @@ export interface WorldRenderContext {
   W: number;
   H: number;
   stage: StageDef;
+  stageNightStart?: boolean;
   main: { x: number; y: number; w: number; h: number };
   plats: PlatformDef[];
   hzPhase: number;
@@ -3088,7 +3089,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.translate(Math.round((Math.random() - 0.5) * amt * 2), Math.round((Math.random() - 0.5) * amt * 2));
     }
 
-    const night = stageNightMix(cfg.video.stageTime, world.T);
+    const night = stageNightMix(cfg.video.stageTime, world.T, world.stageNightStart);
     const illustrated = this.drawIllustratedStage(ctx, world, night);
     if (!illustrated) this.drawStageBackground(ctx, world);
     ctx.save();

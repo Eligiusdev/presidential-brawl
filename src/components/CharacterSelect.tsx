@@ -1,6 +1,6 @@
 import {movesFor} from '../combat/roster.js';
 import { ArrowLeft, Crown, Film, Pencil, Play, Settings, Shield, Trash2, UserPlus, Users } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { sound } from '../audio/soundEngine';
 import { stageArtUrl } from '../engine/stageAtmosphere';
 import { STAGES_DATA } from '../data/stages';
@@ -8,6 +8,7 @@ import { GameConfig, PresidentData, PresidentRegion } from '../types/game';
 import { fighterArtPath } from '../engine/fighterSprites';
 import { FighterPreview } from './FighterPreview';
 import { PortraitCanvas } from './PortraitCanvas';
+import { SelectionRail } from './SelectionRail';
 
 type RegionFilter = 'all' | PresidentRegion | 'current' | 'former' | 'mythic';
 
@@ -75,7 +76,6 @@ export function CharacterSelect({
   const p1 = roster[sel[0]] || roster[0];
   const p2 = roster[sel[1]] || roster[0];
 
-  const showcase = useRef<HTMLElement>(null);
   const activeFighter = activeSlot === 0 ? p1 : p2;
   const artPath = fighterArtPath(activeFighter);
 
@@ -93,13 +93,11 @@ export function CharacterSelect({
     const next: [number, number] = [...sel] as [number, number];
     next[activeSlot] = idx;
     onChangeSel(next);
-    if (fighterArtPath(roster[idx]) && window.matchMedia('(max-width: 600px)').matches) {
-      requestAnimationFrame(() => showcase.current?.scrollIntoView({ block: 'start' }));
-    }
+
   };
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col bg-[#0a1020]/94 p-4 sm:p-6 overflow-y-auto arcade-scroll">
+    <div className="apex-menu apex-selector absolute inset-0 z-20 flex flex-col p-3 sm:p-6 overflow-y-auto arcade-scroll">
       {/* Top Bar */}
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#222d4a]">
         <div className="flex items-center gap-3">
@@ -165,21 +163,25 @@ export function CharacterSelect({
       </div>
 
       {artPath && (
-        <section ref={showcase} aria-label={'Vista de ' + activeFighter.name} className="fighter-showcase"
+        <section aria-label={'Vista de ' + activeFighter.name} className="fighter-showcase"
           style={{backgroundImage: `url("${artPath}selection.webp")`}}>
           <FighterPreview president={activeFighter} selected large />
           <div className="fighter-showcase-caption">
             <span>{activeSlot === 0 ? 'Jugador 1' : vsAI ? 'Rival IA' : 'Jugador 2'}</span>
             <h3>{activeFighter.name}</h3>
             <p>{activeFighter.title}</p>
+            <button type="button" className="selector-mobile-customize"
+              onClick={() => onOpenCustomizer(activeFighter)}>
+              <Pencil size={14} /> Personalizar
+            </button>
           </div>
         </section>
       )}
 
       {/* Main 3-Column Selection Layout */}
-      <div className="mx-auto my-4 grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 lg:grid-cols-12">
+      <div className="selector-layout mx-auto my-3 grid w-full max-w-6xl flex-1 gap-3">
         {/* P1 Preview Card */}
-        <div className="lg:col-span-3">
+        <div className="selector-side">
           <FighterPreviewCard
             slot={0}
             label="Jugador 1"
@@ -197,7 +199,7 @@ export function CharacterSelect({
         </div>
 
         {/* Center Roster + Stage Picker */}
-        <div className="flex flex-col justify-between gap-4 lg:col-span-6">
+        <div className="selector-center flex min-w-0 flex-col gap-3">
           {/* Active Slot Switcher */}
           <div className="flex items-center justify-between rounded-lg border border-[#232c44] bg-[#101524] p-1.5">
             <button
@@ -225,7 +227,7 @@ export function CharacterSelect({
           </div>
 
           {/* Region Filter Bar */}
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="selector-filters flex items-center gap-1.5">
             {REGION_TABS.map((rt) => {
               const count = roster.filter((fighter) => matchesFilter(fighter, rt.id)).length;
               return (
@@ -248,7 +250,7 @@ export function CharacterSelect({
           </div>
 
           {/* Roster Grid (Built-in + Custom Fighters) */}
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 max-h-[270px] overflow-y-auto pr-1 arcade-scroll">
+          <SelectionRail label="Luchadores" variant="fighters" resetKey={regionFilter}>
             {filteredRoster.map(({ d, idx }) => {
               const isP1 = sel[0] === idx;
               const isP2 = sel[1] === idx;
@@ -257,8 +259,10 @@ export function CharacterSelect({
                   key={d.id}
                   onClick={() => pickPresident(idx)}
                   role="button"
+                  aria-pressed={activeSlot === 0 ? isP1 : isP2}
                   tabIndex={0}
                   onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       pickPresident(idx);
@@ -334,22 +338,15 @@ export function CharacterSelect({
               <span className="font-display text-xs font-bold uppercase">Nuevo</span>
               <span className="mt-0.5 text-[10px] text-[#94a3b8]">Personalizar</span>
             </button>
-          </div>
+          </SelectionRail>
 
           {/* Stage Selector (12 Presidential Palaces) */}
-          <div className="rounded-lg border border-[#263252] bg-[#0f1629] p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="font-display text-xs font-bold uppercase tracking-wider text-[#cbd5e1]">
-                Palacio Presidencial ({STAGES_DATA.length} Sedes)
-              </span>
-              <span className="text-[11px] font-semibold text-[#ffd23f] truncate">
-                {stageSel >= STAGES_DATA.length ? 'Aleatorio (Sorpresa)' : STAGES_DATA[stageSel].hazardName}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 max-h-[280px] overflow-y-auto pr-1 arcade-scroll">
+          <div>
+            <SelectionRail label="Escenarios" variant="stages">
               {STAGES_DATA.map((st, idx) => (
                 <button
                   key={st.id}
+                  aria-pressed={stageSel === idx}
                   onClick={() => {
                     sound.uiClick();
                     onChangeStage(idx);
@@ -386,13 +383,16 @@ export function CharacterSelect({
                 <div className="font-display text-[11px] font-bold">Aleatorio</div>
                 <div className="text-[10px] opacity-75">Cualquier Palacio</div>
               </button>
-            </div>
-            {STAGES_DATA[stageSel] && <p className="mt-2 text-xs text-[#b3bfd5]">{STAGES_DATA[stageSel].hazardMsg}</p>}
+            </SelectionRail>
+            <p className="mt-2 text-xs text-[#b3bfd5]">
+              {config.video.stageTime !== 'day' && config.video.stageTime !== 'night' && 'Día o noche al azar. '}
+              {STAGES_DATA[stageSel]?.hazardMsg ?? 'El escenario se sortea al iniciar.'}
+            </p>
           </div>
         </div>
 
         {/* P2 Preview Card */}
-        <div className="lg:col-span-3">
+        <div className="selector-side">
           <FighterPreviewCard
             slot={1}
             label={vsAI ? `IA (${['Novato', 'Comp.', 'Leyenda', 'Brutal'][config.match.aiDifficulty]})` : 'Jugador 2'}
@@ -411,7 +411,7 @@ export function CharacterSelect({
       </div>
 
       {/* Bottom Launch Bar */}
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#1f273d]">
+      <div className="selector-launch mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 pt-2">
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => {

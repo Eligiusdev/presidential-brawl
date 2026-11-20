@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { Crown, Crosshair, Film, Play, Settings, Swords, UserPlus } from 'lucide-react';
+import { stageArtUrl } from '../engine/stageAtmosphere';
 import { sound } from '../audio/soundEngine';
 
 interface TitleScreenProps {
@@ -23,6 +24,7 @@ export function TitleScreen({
 }: TitleScreenProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof Element && e.target.closest('button, input, select, textarea, a, [role=button]')) return;
       if (e.code === 'Enter' || e.code === 'Space') {
         e.preventDefault();
         sound.init();
@@ -35,15 +37,12 @@ export function TitleScreen({
   }, [onQuickSelect]);
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col justify-between bg-gradient-to-r from-[#090e1d]/94 via-[#0b1224]/74 to-[#0d152b]/22 p-6 sm:p-12">
+    <div className="apex-menu apex-title absolute inset-0 z-20 flex flex-col justify-between overflow-y-auto p-5 sm:p-12"
+      style={{ '--apex-cover': `url("${stageArtUrl('narino', 'night')}")` } as CSSProperties}>
       {/* Top quiet meta line */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs font-medium tracking-wide text-[#9db0d4]">
-          <span>38 Presidentes Históricos</span>
-          <span aria-hidden="true">·</span>
-          <span>12 Casas Presidenciales</span>
-          <span aria-hidden="true">·</span>
-          <span>Arte Indie 16-Bit</span>
+          <span>61 luchadores · 12 arenas</span>
         </div>
 
         <button
@@ -73,7 +72,7 @@ export function TitleScreen({
           Presidential <span className="text-[#ffcc33]">Brawl</span>
         </h1>
         <p className="mt-3 max-w-md text-sm leading-relaxed text-[#cbd5e1] sm:text-base">
-          Combate de plataformas en pixel art indie de 16 bits con esqueletos anatómicos, estilos asimétricos e iluminación dinámica.
+          Elige a tu luchador y disputa el combate en un palacio presidencial.
         </p>
 
         {/* Primary CTA Stack */}

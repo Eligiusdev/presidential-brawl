@@ -3,7 +3,7 @@ import { activate, tickEffects, heel, shotTouches, strikeBox } from '../combat/e
 import { sound } from '../audio/soundEngine';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
-import { stageArt, stageHazardColumns } from './stageAtmosphere';
+import { stageArt, stageHazardColumns, stageStartsAtNight } from './stageAtmosphere';
 import {
   CampaignState,
   GameConfig,
@@ -2878,6 +2878,7 @@ export class GameEngine {
       W,
       H,
       stage: this.stage,
+      stageNightStart: stageStartsAtNight(this.replayData?.seed ?? this.currentMatchMeta?.seed ?? 0),
       main: this.main,
       plats: this.plats,
       hzPhase: this.getHazardPhase(),

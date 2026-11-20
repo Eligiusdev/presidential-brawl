@@ -1,15 +1,20 @@
 import type { StageDef, StageTime } from '../types/game';
 
-const PERIOD = 30 * 60;
-const TRANSITION = 150;
-export function stageNightMix(time: StageTime | undefined, frame: number) {
+export const STAGE_LIGHT_PERIOD = 120 * 60;
+const TRANSITION = 360;
+
+export function stageStartsAtNight(seed: number) {
+  return (seed & 1) === 1;
+}
+export function stageNightMix(time: StageTime | undefined, frame: number, startsAtNight = false) {
   if (time === 'day') return 0;
   if (time === 'night') return 1;
-  const segment = Math.floor(frame / PERIOD);
-  if (!segment) return 0;
-  const t = Math.min(1, (frame % PERIOD) / TRANSITION);
+  const segment = Math.floor(frame / STAGE_LIGHT_PERIOD);
+  if (!segment) return Number(startsAtNight);
+  const t = Math.min(1, (frame % STAGE_LIGHT_PERIOD) / TRANSITION);
   const blend = t * t * (3 - 2 * t);
-  return segment % 2 ? blend : 1 - blend;
+  const dayStartMix = segment % 2 ? blend : 1 - blend;
+  return startsAtNight ? 1 - dayStartMix : dayStartMix;
 }
 
 export function stageArtUrl(id: string, time: 'day' | 'night') {

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { DEFAULT_CONFIG } from '../src/config/defaultConfig.ts';
 import { STAGES_DATA } from '../src/data/stages.ts';
-import { stageArtUrl, stageHazardColumns, stageNightMix } from '../src/engine/stageAtmosphere.ts';
+import { stageArtUrl, stageHazardColumns, stageNightMix, stageStartsAtNight, STAGE_LIGHT_PERIOD } from '../src/engine/stageAtmosphere.ts';
 
 globalThis.document = { createElement: () => createCanvas(640, 360) };
 globalThis.window = {};
@@ -20,9 +20,13 @@ assert.equal(new Set(STAGES_DATA.map(s => s.hazard)).size, STAGES_DATA.length);
 assert.equal(stageNightMix('night', 0), 1);
 assert.equal(stageNightMix('day', 2100), 0);
 assert.equal(stageNightMix('cycle', 0), 0);
-assert.equal(stageNightMix('cycle', 1875), 0.5);
-assert.equal(stageNightMix('cycle', 1950), 1);
-assert.equal(stageNightMix('cycle', 3750), 0);
+assert.equal(stageStartsAtNight(2), false);
+assert.equal(stageStartsAtNight(3), true);
+assert.equal(stageNightMix('cycle', STAGE_LIGHT_PERIOD - 1, true), 1);
+assert.equal(stageNightMix('cycle', STAGE_LIGHT_PERIOD + 180, true), 0.5);
+assert.equal(stageNightMix('cycle', STAGE_LIGHT_PERIOD + 360, true), 0);
+assert.equal(stageNightMix('cycle', STAGE_LIGHT_PERIOD + 360, false), 1);
+assert.equal(stageNightMix('cycle', STAGE_LIGHT_PERIOD * 2 + 360, false), 0);
 
 for (const [id, directions] of [['narino', [1, -1]], ['miraflores', [1]], ['pizarro', [1, 1]], ['mexico', [1, -1]]]) {
   start(id);

@@ -329,7 +329,7 @@ export function CharacterCustomizer({ initialBase, onSave, onDelete, onClose }: 
   };
 
   return (
-    <div className="absolute inset-0 z-30 flex flex-col bg-[#080b13] p-4 sm:p-6 overflow-y-auto arcade-scroll">
+    <div className="apex-menu absolute inset-0 z-30 flex flex-col p-4 sm:p-6 overflow-y-auto arcade-scroll">
       {/* Top Studio Header */}
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 border-b border-[#1f2840] pb-3.5">
         <div className="flex items-center gap-3">

@@ -88,7 +88,7 @@ export function ConfigModal({ config, onChange, onClose }: ConfigModalProps) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#070a12]/88 p-4">
+    <div className="apex-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-[#2a344d] bg-[#111726] shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#222b42] px-6 py-4">
@@ -146,7 +146,7 @@ export function ConfigModal({ config, onChange, onClose }: ConfigModalProps) {
                 <select value={config.video.stageTime ?? 'cycle'}
                   onChange={event => updateVideo('stageTime', event.target.value as GameConfig['video']['stageTime'])}
                   className="mt-2 block w-full rounded-lg border border-[#283652] bg-[#121a2b] px-3 py-2 text-white">
-                  <option value="cycle">Ciclo día y noche</option>
+                  <option value="cycle">Inicio al azar · cambio cada 2 minutos</option>
                   <option value="day">Siempre de día</option>
                   <option value="night">Siempre de noche</option>
                 </select>
