@@ -117,6 +117,41 @@ export function OnlineLobby({ room, slot, send, leave }: {
     else if (dx > 40) setStage(room.stage - 1);
   };
 
+  const playersPanel = (
+    <div className="ob-players-overlay" aria-label="Jugadores">
+      <h3 className="ob-panel-title"><Users className="h-4 w-4" />Jugadores <span>{room.players.filter(p => p?.connected).length}/{room.maxPlayers}</span></h3>
+      <div className="ob-slots">
+        {room.players.map((p, i) => {
+          const fighter = roster.find(f => f.id === p?.fighterId) || null;
+          const art = fighter ? fighterArtPath(fighter) : null;
+          const accent = p?.color || '#425675';
+          return <div key={i} className={`ob-slot ${i === slot ? 'me' : ''} ${p?.ready ? 'ready' : ''} ${art ? 'has-art' : ''}`}
+            style={{
+              ['--pc' as any]: accent,
+              ...(art ? { backgroundImage: `linear-gradient(90deg, rgba(10,16,28,.93) 0%, rgba(10,16,28,.78) 45%, rgba(10,16,28,.35) 100%), url("${art}selection.webp")` } : {}),
+            }}>
+            <div className="ob-slot-port">
+              {fighter ? <PortraitCanvas president={fighter} className="h-full w-full" /> : <span className="ob-slot-q">?</span>}
+            </div>
+            <div className="ob-slot-info">
+              <div className="ob-slot-head">
+                <b style={{ color: accent }}>J{i + 1}</b>
+                {room.hostSlot === i && <Crown className="h-3.5 w-3.5 text-[#ffcc33]" />}
+                {i === slot && <em>Tú</em>}
+                <span className="spacer" />
+                {p?.connected ? <small>{p.ping}ms</small> : !p ? null : <WifiOff className="h-3.5 w-3.5 text-[#f87171]" />}
+              </div>
+              <div className="ob-slot-name">{fighter ? fighter.name : p ? 'Eligiendo…' : 'Esperando jugador'}</div>
+              <div className={`ob-slot-state ${p?.ready ? 'on' : ''}`}>
+                {!p ? 'Libre' : !p.connected ? 'Reconectando' : p.ready ? <><Check className="h-3.5 w-3.5" />Listo</> : 'En selección'}
+              </div>
+            </div>
+          </div>;
+        })}
+      </div>
+    </div>
+  );
+
   return <section className="ob-lobby" aria-label="Selección en línea">
     <header className="ob-topbar">
       <div className="ob-brand">
@@ -134,40 +169,8 @@ export function OnlineLobby({ room, slot, send, leave }: {
     </header>
 
     <div className="ob-main">
-      <div className="ob-players-bar ob-panel" aria-label="Jugadores">
-        <h3 className="ob-panel-title"><Users className="h-4 w-4" />Jugadores <span>{room.players.filter(p => p?.connected).length}/{room.maxPlayers}</span></h3>
-        <div className="ob-slots">
-          {room.players.map((p, i) => {
-            const fighter = roster.find(f => f.id === p?.fighterId) || null;
-            const art = fighter ? fighterArtPath(fighter) : null;
-            const accent = p?.color || '#425675';
-            return <div key={i} className={`ob-slot ${i === slot ? 'me' : ''} ${p?.ready ? 'ready' : ''} ${art ? 'has-art' : ''}`}
-              style={{
-                ['--pc' as any]: accent,
-                ...(art ? { backgroundImage: `linear-gradient(90deg, rgba(10,16,28,.93) 0%, rgba(10,16,28,.78) 45%, rgba(10,16,28,.35) 100%), url("${art}selection.webp")` } : {}),
-              }}>
-              <div className="ob-slot-port">
-                {fighter ? <PortraitCanvas president={fighter} className="h-full w-full" /> : <span className="ob-slot-q">?</span>}
-              </div>
-              <div className="ob-slot-info">
-                <div className="ob-slot-head">
-                  <b style={{ color: accent }}>J{i + 1}</b>
-                  {room.hostSlot === i && <Crown className="h-3.5 w-3.5 text-[#ffcc33]" />}
-                  {i === slot && <em>Tú</em>}
-                  <span className="spacer" />
-                  {p?.connected ? <small>{p.ping}ms</small> : !p ? null : <WifiOff className="h-3.5 w-3.5 text-[#f87171]" />}
-                </div>
-                <div className="ob-slot-name">{fighter ? fighter.name : p ? 'Eligiendo…' : 'Esperando jugador'}</div>
-                <div className={`ob-slot-state ${p?.ready ? 'on' : ''}`}>
-                  {!p ? 'Libre' : !p.connected ? 'Reconectando' : p.ready ? <><Check className="h-3.5 w-3.5" />Listo</> : 'En selección'}
-                </div>
-              </div>
-            </div>;
-          })}
-        </div>
-      </div>
-
       <section className="ob-preview" aria-label="Vista previa del personaje">
+        {playersPanel}
         <div className="ob-stage-carousel" aria-label="Escenario">
           <button type="button" className="ob-stage-nav" disabled={!host}
             aria-label="Escenario anterior" onClick={() => setStage(room.stage - 1)}><ChevronLeft className="h-4 w-4" /></button>
