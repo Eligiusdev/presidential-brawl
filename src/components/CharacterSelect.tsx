@@ -557,3 +557,76 @@ function FighterPreviewCard({
     </div>
   );
 }
+
+export function GuestCharacterSelect({ roster, roomCode, pickedId, confirmedId, busy, error, onPick, onConfirm, onLeave }: {
+  roster: PresidentData[];
+  roomCode: string;
+  pickedId: string;
+  confirmedId: string | null;
+  busy: boolean;
+  error: string;
+  onPick: (id: string) => void;
+  onConfirm: () => void;
+  onLeave: () => void;
+}) {
+  const [filter, setFilter] = useState<RegionFilter>('all');
+  const selected = roster.find(person => person.id === (pickedId || confirmedId));
+  const artPath = selected && fighterArtPath(selected);
+  const ready = !!selected && confirmedId === selected.id;
+  const visible = roster.filter(fighter => matchesFilter(fighter, filter));
+
+  return <section className="apex-menu apex-selector fixed inset-0 z-[75] flex flex-col overflow-y-auto p-3 sm:p-6 arcade-scroll"
+    aria-labelledby="guest-fighter-heading">
+    <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3">
+      <div>
+        <p className="text-xs font-bold text-[#7dd3fc]">Jugador 2 · Sala {roomCode}</p>
+        <h2 id="guest-fighter-heading" className="font-display text-xl font-bold text-white sm:text-3xl">Elige tu luchador</h2>
+      </div>
+      <button type="button" disabled={busy} onClick={onLeave} className="rounded-lg border border-[#465778] bg-[#182740] px-3 py-2 text-sm">
+        Salir de la sala
+      </button>
+    </div>
+
+    {selected && <section className="fighter-showcase" aria-label={`Vista de ${selected.name}`}
+      style={artPath ? { backgroundImage: `url("${artPath}selection.webp")` } : undefined}>
+      <FighterPreview president={selected} selected large />
+      <div className="fighter-showcase-caption">
+        <h3>{selected.name}</h3>
+        <p>{selected.title}</p>
+      </div>
+    </section>}
+
+    <div className="mx-auto my-3 flex w-full max-w-6xl flex-1 flex-col gap-3">
+      <div className="selector-filters flex items-center gap-1.5" aria-label="Filtrar luchadores">
+        {REGION_TABS.filter(tab => tab.id !== 'custom').map(tab =>
+          <button key={tab.id} type="button" aria-pressed={filter === tab.id} onClick={() => setFilter(tab.id)}
+            className={`rounded-md border px-2.5 py-1.5 text-xs font-semibold ${filter === tab.id
+              ? 'border-[#ffcc33] bg-[#211f1b] text-[#ffcc33]' : 'border-[#303e5c] bg-[#131d30] text-[#cbd5e1]'}`}>
+            {tab.label}
+          </button>)}
+      </div>
+      <SelectionRail label="Luchadores" variant="fighters" resetKey={filter}>
+        {visible.map(fighter =>
+          <button key={fighter.id} type="button" disabled={busy} aria-pressed={selected?.id === fighter.id}
+            onClick={() => { sound.uiClick(); onPick(fighter.id); }}
+            className={`group flex cursor-pointer flex-col items-center rounded-lg border p-2 text-center ${selected?.id === fighter.id
+              ? 'border-[#38bdf8] bg-[#13243b]' : 'border-[#25304d] bg-[#11182c] hover:border-[#4b5f94]'}`}>
+            <FighterPreview president={fighter} selected={selected?.id === fighter.id} />
+            <span className="w-full truncate font-display text-xs font-bold text-white">{fighter.name}</span>
+            <span className="w-full truncate text-[10px] text-[#94a3b8]">{fighter.role}</span>
+          </button>)}
+      </SelectionRail>
+    </div>
+
+    <footer className="selector-launch mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
+      <p role={error ? 'alert' : 'status'} className={`text-sm ${error ? 'text-[#fda4af]' : 'text-[#cbd5e1]'}`}>
+        {error || (ready ? `${selected.name} confirmado. Esperando al anfitrión.`
+          : confirmedId ? 'Tu elección anterior sigue activa hasta confirmar el cambio.' : 'Selecciona una tarjeta y confirma tu elección.')}
+      </p>
+      <button type="button" disabled={busy || !selected || ready} onClick={onConfirm}
+        className="min-h-[46px] rounded-lg bg-[#ffcc33] px-6 py-2 font-display font-bold text-[#0b0e17] disabled:opacity-45">
+        {busy ? 'Procesando…' : ready ? 'Listo' : 'Confirmar luchador'}
+      </button>
+    </footer>
+  </section>;
+}

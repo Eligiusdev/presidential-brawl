@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { roomEvents, roomRequest, type RoomSession, type RoomLobby } from '../network/roomClient';
 import { PRESIDENTS_DATA } from '../data/presidents';
+import { GuestCharacterSelect } from './CharacterSelect';
 import { TouchControls } from './TouchControls';
 import type { PlayerAction } from '../types/game';
 
@@ -139,15 +140,16 @@ export function NetworkPanel({canvas,onInput,hideLaunch,matchActive,onHostRoom}:
   const press=(action:PlayerAction,active:boolean)=>{if(!session)return;if(active)touchHeld.current.add(action);else touchHeld.current.delete(action);send(session,activeActions());};
   if(!open)return hideLaunch ? null : <button className="network-launch" onClick={()=>setOpen(true)}>Jugar en línea</button>;
   const link=session?`${location.origin}${import.meta.env.BASE_URL}?room=${session.code}`:'';
+  if(session?.role==='guest'&&!lobby.playing) {
+    return <GuestCharacterSelect roster={PRESIDENTS_DATA} roomCode={session.code}
+      pickedId={pick} confirmedId={lobby.fighterId} busy={busy} error={error}
+      onPick={setPick} onConfirm={confirmFighter} onLeave={leave} />;
+  }
   return <section className={`network-panel ${session?.role==='guest'&&lobby.playing?'network-controller':''}`} aria-label="Sala en línea">
     <div className="network-heading"><strong>APEX · SALA EN LÍNEA</strong>{session?.role!=='guest'&&<button aria-label="Cerrar panel" onClick={()=>setOpen(false)}>×</button>}</div>
     {!session?<><p>Crea un duelo para dos jugadores y comparte el enlace con tu rival.</p><button disabled={busy} onClick={()=>connect(true)}>Crear sala</button><label>Código de sala<input value={code} maxLength={10} onChange={e=>setCode(e.target.value.toUpperCase())} autoCapitalize="characters" placeholder="Código de 10 caracteres"/></label><button disabled={busy||code.trim().length!==10} onClick={()=>connect(false)}>Conectar como J2</button></>:<>
       <p>Sala <strong>{session.code}</strong> · {session.role==='host'?'Equipo principal':'Mando J2'}</p>
-      {session.role==='host'?<><p>Comparte el enlace. Cuando J2 confirme, puedes iniciar el combate. {guestConnected ? (PRESIDENTS_DATA.find(f=>f.id===lobby.fighterId)?.name ?? 'J2 está eligiendo.') : 'Esperando a J2.'}</p><input readOnly aria-label="Enlace de invitación" value={link} onFocus={e=>e.target.select()}/><button onClick={()=>navigator.clipboard?.writeText(link).catch(()=>setError('Selecciona y copia el enlace.'))}>Copiar enlace</button></>:!lobby.playing?<><label>Tu luchador<select value={pick || lobby.fighterId || ''} onChange={e=>setPick(e.target.value)} className="mt-2 w-full rounded border border-[#465778] bg-[#10182a] p-2">
-        <option value="">Elige un luchador</option>
-        {PRESIDENTS_DATA.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}
-      </select></label><button disabled={busy||!pick||pick===lobby.fighterId} onClick={confirmFighter}>Confirmar luchador</button>
-      {lobby.fighterId && <p role="status">Luchador confirmado. Esperando al anfitrión.</p>}</>:<><p>El anfitrión inicia la partida. Usa los controles táctiles o las flechas y U, I, O, M y /.</p>{image?<img src={image} alt="Partida en el equipo principal" draggable={false}/>:<p className="network-wait">Esperando imagen del equipo principal…</p>}<TouchControls inline onAction={press} /></>}
+      {session.role==='host'?<><p>Comparte el enlace. Cuando J2 confirme, puedes iniciar el combate. {guestConnected ? (PRESIDENTS_DATA.find(f=>f.id===lobby.fighterId)?.name ?? 'J2 está eligiendo.') : 'Esperando a J2.'}</p><input readOnly aria-label="Enlace de invitación" value={link} onFocus={e=>e.target.select()}/><button onClick={()=>navigator.clipboard?.writeText(link).catch(()=>setError('Selecciona y copia el enlace.'))}>Copiar enlace</button></>:<><p>El anfitrión inicia la partida. Usa los controles táctiles o las flechas y U, I, O, M y /.</p>{image?<img src={image} alt="Partida en el equipo principal" draggable={false}/>:<p className="network-wait">Esperando imagen del equipo principal…</p>}<TouchControls inline onAction={press} /></>}
       <button disabled={busy} onClick={leave}>Salir de la sala</button>
     </>}
     {busy && !session && <p role="status">Conectando al servidor…</p>}
