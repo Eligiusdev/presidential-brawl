@@ -551,10 +551,15 @@
 .ob-top-actions button{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid #33486d;background:#152238;color:#eaf2ff;font-weight:700;font-size:12px;cursor:pointer}
 .ob-top-actions button:hover{border-color:#5b7bb0;background:#1b2c46}
 .ob-invite{min-width:140px;max-width:260px;flex:1 1 140px;background:#0c1524;border:1px solid #2f4466;color:#cfe2ff;border-radius:8px;padding:7px 10px;font-size:12px}
-.ob-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(340px,1.45fr) minmax(240px,.9fr) minmax(270px,.82fr);gap:10px;padding-top:10px}
+
+/* main: players bar full-width on top, then preview + roster */
+.ob-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(360px,1.5fr) minmax(270px,.85fr);grid-template-rows:auto 1fr;gap:10px;padding-top:10px}
+.ob-players-bar{grid-column:1 / -1;display:flex;flex-direction:column;gap:8px}
+.ob-players-bar .ob-panel-title{margin:0}
+.ob-players-bar .ob-slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
 
 /* Left: stage carousel (top-right, no bg/message) + character preview */
-.ob-preview{display:flex;flex-direction:column;min-height:0;position:relative}
+.ob-preview{display:flex;flex-direction:column;min-height:0;position:relative;grid-column:1;grid-row:2}
 .ob-stage-carousel{position:absolute;top:10px;right:10px;z-index:5;display:grid;grid-template-columns:28px 1fr 28px;align-items:center;gap:6px;width:min(340px,60%);padding:0;background:none;border:none;box-shadow:none;backdrop-filter:none}
 .ob-stage-nav{width:28px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(12,20,36,.55);color:#eaf2ff;display:grid;place-items:center;cursor:pointer}
 .ob-stage-nav:disabled{opacity:.35;cursor:default}
@@ -598,8 +603,7 @@
 .ob-move.ult .ob-move-key{color:#ffcc33}
 .ob-move.ult .ob-move-name{color:#ffe08a}
 
-/* Center: players */
-.ob-center{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto;padding-right:2px}
+/* Shared panel/slots */
 .ob-panel{border:1px solid #283a5c;border-radius:12px;background:linear-gradient(180deg,#101a2e,#0c1524);padding:10px}
 .ob-panel-title{display:flex;align-items:center;gap:6px;margin:0 0 8px;font:800 12px var(--font-display,system-ui);text-transform:uppercase;letter-spacing:.1em;color:#cfe2ff}
 .ob-panel-title span{margin-left:auto;color:#ffcc33}
@@ -622,7 +626,7 @@
 .ob-slot-state.on{color:#86efac;font-weight:700}
 
 /* Right: roster grid + actions below */
-.ob-roster{display:flex;flex-direction:column;min-height:0;border:1px solid #283a5c;border-radius:14px;background:linear-gradient(180deg,#0f192c,#0b1322);overflow:hidden}
+.ob-roster{display:flex;flex-direction:column;min-height:0;border:1px solid #283a5c;border-radius:14px;background:linear-gradient(180deg,#0f192c,#0b1322);overflow:hidden;grid-column:2;grid-row:2}
 .ob-roster-head{padding:8px 10px 6px;border-bottom:1px solid #223252;background:linear-gradient(180deg,rgba(30,48,78,.35),transparent)}
 .ob-roster-head h3{margin:0 0 6px;font:800 12px var(--font-display,system-ui);text-transform:uppercase;letter-spacing:.12em;color:#eaf2ff}
 .ob-filters{display:flex;flex-wrap:wrap;gap:4px}
@@ -647,23 +651,25 @@
 .ob-status{margin:0;text-align:center;font-size:12px;color:#9ab2d1}
 
 @media (max-width:1100px){
-  .ob-main{grid-template-columns:minmax(300px,1.3fr) minmax(220px,.85fr) minmax(250px,.8fr)}
+  .ob-main{grid-template-columns:minmax(300px,1.3fr) minmax(250px,.85fr)}
   .ob-info-grid{grid-template-columns:1fr}
   .ob-stage-carousel{width:min(300px,62%)}
 }
 @media (max-width:900px){
   .ob-lobby{overflow:auto}
-  .ob-main{grid-template-columns:1fr;overflow:visible}
-  .ob-preview{min-height:520px}
+  .ob-main{grid-template-columns:1fr;grid-template-rows:auto auto auto;overflow:visible}
+  .ob-players-bar{grid-column:1;grid-row:1}
+  .ob-preview{grid-column:1;grid-row:2;min-height:520px}
+  .ob-roster{grid-column:1;grid-row:3;min-height:420px}
+  .ob-players-bar .ob-slots{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
   .ob-hero-top{max-width:100%}
   .ob-hero-art{padding-top:110px}
   .ob-stage-carousel{width:min(360px,92%)}
   .ob-info-grid{grid-template-columns:1.1fr 1fr}
-  .ob-center{overflow:visible}
-  .ob-roster{min-height:420px}
   .ob-grid{max-height:none}
 }
 @media (max-width:520px){
+  .ob-players-bar .ob-slots{grid-template-columns:1fr}
   .ob-stage-carousel{position:relative;top:auto;right:auto;width:100%;margin:8px 8px 0}
   .ob-hero-top{max-width:100%}
   .ob-hero-art{padding-top:8px;min-height:180px}
