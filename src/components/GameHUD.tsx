@@ -372,50 +372,56 @@ export function GameHUD({
           <div className="match-fighter-cards flex items-end justify-between gap-3">
             {hud.fighters.map((f) => {
               const pres = roster.find((p) => p.id === f.id) || roster[0];
+              const art = fighterArtPath(pres);
               const ultReady = f.vote >= 100;
               const isGun = f.weaponKind === 'mg' || f.weaponKind === 'rocket';
               const highPct = f.pct >= 100;
               const hitActive = f.hitFlash > 0;
+              const label = f.isBoss ? 'JEFE' : f.pi === 0 ? 'J1' : f.isAI ? 'IA' : 'J2';
               const cardShadow = hitActive
                 ? `0 0 22px rgba(255, 77, 94, 0.55), inset 0 0 12px rgba(255, 77, 94, 0.18)`
                 : ultReady
                   ? `0 0 18px rgba(255, 204, 51, 0.32), 0 6px 18px rgba(8, 12, 26, 0.65)`
                   : highPct
                     ? `0 0 16px ${f.accent}44, 0 6px 18px rgba(8, 12, 26, 0.65)`
-                    : `0 6px 18px rgba(8, 12, 26, 0.6)`;
+                    : `0 8px 22px rgba(6, 10, 22, 0.7)`;
 
               return (
                 <div
                   key={f.pi}
-                  className={`match-fighter-card flex w-[210px] sm:w-[264px] flex-col gap-1.5 rounded-xl border bg-[#0c1224]/84 p-2 sm:p-2.5 transition-transform duration-100 ${
+                  className={`match-fighter-card relative flex w-[214px] sm:w-[268px] flex-col gap-1.5 overflow-hidden rounded-xl border p-2 sm:p-2.5 transition-transform duration-100 ${
                     hitActive ? 'scale-[1.02]' : ''
-                  }`}
+                  } ${art ? 'has-art' : ''}`}
                   style={{
+                    ['--pc' as any]: f.accent,
                     borderColor: hitActive ? '#ff5c6c' : ultReady ? '#ffcc33' : `${f.accent}bb`,
                     boxShadow: cardShadow,
+                    background: art
+                      ? `linear-gradient(135deg, rgba(8,14,26,.95) 0%, rgba(10,18,34,.84) 42%, rgba(10,18,34,.48) 100%), right center/cover no-repeat url("${art}selection.webp")`
+                      : 'linear-gradient(180deg,#10192c,#0b1222)',
                   }}
                 >
-                  <div className="flex items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="pointer-events-none absolute inset-y-2 left-0 w-[3px] rounded-r" style={{ background: f.accent }} />
+
+                  <div className="relative z-[1] flex items-start justify-between gap-2.5 pl-1.5">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <div
-                        className="overflow-hidden rounded-lg border shrink-0 bg-[#101830]"
+                        className="shrink-0 overflow-hidden rounded-lg border bg-[#0d1628]/90"
                         style={{
-                          borderColor: `${f.accent}99`,
-                          boxShadow: ultReady ? '0 0 10px rgba(255, 204, 51, 0.45)' : undefined,
+                          borderColor: ultReady ? '#ffcc33' : `${f.accent}88`,
+                          boxShadow: ultReady ? '0 0 12px rgba(255, 204, 51, 0.4)' : `0 0 10px ${f.accent}22`,
                         }}
                       >
                         <PortraitCanvas president={pres} className="match-portrait h-11 w-11 sm:h-12 sm:w-12" />
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate font-display text-xs font-bold text-white sm:text-sm leading-tight">
-                          <span style={{ color: f.accent }}>
-                            {f.isBoss ? 'JEFE' : f.pi === 0 ? 'J1' : f.isAI ? 'IA' : 'J2'}
-                          </span>
-                          <span className="mx-1 text-[#64748b]">·</span>
-                          <span>{f.name}</span>
+                        <div className="flex items-center gap-1.5 font-display text-[10px] font-extrabold uppercase tracking-[.14em] sm:text-[11px]">
+                          <span style={{ color: f.accent }}>{label}</span>
+                          {f.isAI && <span className="rounded bg-[#1a2740] px-1.5 py-px text-[9px] tracking-[.08em] text-[#9ecbff]">CPU</span>}
                         </div>
-
-                        {/* Crisp Stock Pips + Quiet Dash Indicator */}
+                        <div className="truncate font-display text-xs font-bold leading-tight text-white sm:text-sm">
+                          {f.name}
+                        </div>
                         <div className="mt-1.5 flex items-center gap-2">
                           <div className="flex items-center gap-1">
                             {mode === 'training' ? (
@@ -426,10 +432,10 @@ export function GameHUD({
                                 return (
                                   <span
                                     key={idx}
-                                    className="h-2.5 w-2.5 rotate-45 rounded-[2px] border border-[#141c36] transition-all"
+                                    className="h-2.5 w-2.5 rotate-45 rounded-[2px] border border-[#0b1222] transition-all"
                                     style={{
-                                      backgroundColor: alive ? f.accent : '#1d2744',
-                                      boxShadow: alive ? `0 0 7px ${f.accent}aa` : undefined,
+                                      backgroundColor: alive ? f.accent : '#1a2740',
+                                      boxShadow: alive ? `0 0 8px ${f.accent}cc` : undefined,
                                     }}
                                   />
                                 );
@@ -437,8 +443,8 @@ export function GameHUD({
                             )}
                           </div>
                           <span
-                            className={`text-[9px] font-bold uppercase tracking-wider ${
-                              f.dashReady ? 'text-[#7dd3fc]' : 'text-[#475569]'
+                            className={`text-[9px] font-extrabold uppercase tracking-wider ${
+                              f.dashReady ? 'text-[#7dd3fc]' : 'text-[#4b607f]'
                             }`}
                           >
                             {f.dashReady ? 'DASH' : 'CD'}
@@ -447,24 +453,24 @@ export function GameHUD({
                       </div>
                     </div>
 
-                    {/* Prominent Reactive Damage % */}
-                    <div
-                      className={`match-damage font-mono-num text-3xl font-bold leading-none sm:text-4xl transition-transform duration-75 ${
-                        hitActive ? '-translate-y-0.5 scale-105' : ''
-                      }`}
-                      style={{
-                        color: pctColor(f.pct),
-                        textShadow: pctGlow(f.pct, f.hitFlash),
-                      }}
-                    >
-                      {f.pct}%
+                    <div className="shrink-0 text-right">
+                      <div
+                        className={`match-damage font-mono-num text-3xl font-black leading-none sm:text-4xl transition-transform duration-75 ${
+                          hitActive ? '-translate-y-0.5 scale-105' : ''
+                        }`}
+                        style={{
+                          color: pctColor(f.pct),
+                          textShadow: pctGlow(f.pct, f.hitFlash),
+                        }}
+                      >
+                        {f.pct}<span className="ml-0.5 text-[0.45em] font-extrabold text-[#cbd5e1]/80 align-top">%</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Active-Only Contextual Badges (Combo / Hit-Stun / Floating / Weapon) */}
                   {(f.hitStun > 0 || f.floating || f.weaponKind || (f.combo >= 2 && f.comboTimer > 0)) && (
-                    <div className="match-fighter-badges flex flex-wrap items-center justify-between gap-1.5 text-[10px] font-semibold">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="match-fighter-badges relative z-[1] flex flex-wrap items-center justify-between gap-1.5 pl-1.5 text-[10px] font-semibold">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         {f.hitStun > 0 && (
                           <span className="rounded border border-[#ff5c6c]/70 bg-[#4c1220]/90 px-1.5 py-0.5 font-mono-num text-[9px] font-bold uppercase text-[#fecaca]">
                             STUN
@@ -483,32 +489,26 @@ export function GameHUD({
                       </div>
 
                       {f.weaponKind && (
-                        <span className="font-mono-num text-[10px] font-bold text-[#ffd23f] truncate">
-                          {f.weaponKind === 'mg'
-                            ? 'METRALLETA'
-                            : f.weaponKind === 'rocket'
-                              ? 'COHETE'
-                              : 'MALETÍN'}{' '}
+                        <span className="truncate font-mono-num text-[10px] font-bold text-[#ffd23f]">
+                          {f.weaponKind === 'mg' ? 'METRALLETA' : f.weaponKind === 'rocket' ? 'COHETE' : 'MALETÍN'}{' '}
                           {isGun ? `${f.ammo}/${f.maxAmmo}` : `${f.weaponTimer}s`}
                         </span>
                       )}
                     </div>
                   )}
 
-                  {/* Firearm Reload Progress */}
                   {isGun && f.reloading && (
-                    <div className="relative h-2 w-full overflow-hidden rounded-full border border-[#f59e0b]/60 bg-[#141b30]">
+                    <div className="relative z-[1] ml-1.5 h-2 overflow-hidden rounded-full border border-[#f59e0b]/60 bg-[#101a2f]">
                       <div
-                        className="h-full bg-[#f59e0b] transition-all duration-75"
+                        className="h-full bg-gradient-to-r from-[#f59e0b] to-[#fcd34d] transition-all duration-75"
                         style={{ width: `${Math.round(f.reloadProgress * 100)}%` }}
                       />
                     </div>
                   )}
 
-                  {/* Minimalist Sleek Ultimate Gauge */}
-                  <div className="flex items-center gap-2">
+                  <div className="relative z-[1] flex items-center gap-2 pl-1.5">
                     <div
-                      className={`relative h-2 flex-1 overflow-hidden rounded-full border bg-[#141c33] ${
+                      className={`relative h-2.5 flex-1 overflow-hidden rounded-full border bg-[#0f1a2f] ${
                         ultReady ? 'border-[#ffcc33] hud-ult-glow' : 'border-[#273456]'
                       }`}
                     >
@@ -516,17 +516,19 @@ export function GameHUD({
                         className="h-full transition-all duration-100"
                         style={{
                           width: `${Math.min(100, f.vote)}%`,
-                          backgroundColor: ultReady ? '#ffcc33' : '#3b82f6',
-                          boxShadow: ultReady ? '0 0 10px rgba(255, 204, 51, 0.85)' : undefined,
+                          background: ultReady
+                            ? 'linear-gradient(90deg,#ffe27a,#ffbf1a)'
+                            : `linear-gradient(90deg,${f.accent}aa,${f.accent})`,
+                          boxShadow: ultReady ? '0 0 10px rgba(255, 204, 51, 0.85)' : `0 0 8px ${f.accent}55`,
                         }}
                       />
                     </div>
                     <span
-                      className={`font-mono-num text-[10px] font-bold tracking-wider whitespace-nowrap ${
-                        ultReady ? 'text-[#ffcc33]' : 'text-[#94a3b8]'
+                      className={`whitespace-nowrap font-mono-num text-[10px] font-extrabold tracking-wider ${
+                        ultReady ? 'text-[#ffcc33]' : 'text-[#9bb3d4]'
                       }`}
                     >
-                      {ultReady ? 'ULT LISTO' : `${f.vote}%`}
+                      {ultReady ? 'ULT LISTO' : `ULT ${f.vote}%`}
                     </span>
                   </div>
                 </div>

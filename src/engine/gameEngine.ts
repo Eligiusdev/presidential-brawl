@@ -626,16 +626,29 @@ export class GameEngine {
     if (capacity !== 2 && capacity !== 4 && capacity !== 6 && capacity !== 8) throw Error('Capacidad de sala inválida');
     const indexes = fighterIds.map(id => this.roster.findIndex(d => d.id === id));
     if (indexes.some(index => index < 0)) throw Error('Luchador inválido');
-    this.startMatch(indexes[0], indexes[1], stage, false, 'versus', undefined, seed);
+
+    this.mode = 'versus';
+    this.isReplaying = false;
+    this.replayEnded = false;
+    this.replayData = null;
+    this.matchCfgOverride = null;
+    const s = seed >>> 0;
+    this.rngState = s;
+    this.visRngState = (s ^ 0x9e3779b9) >>> 0;
     this.onlineCapacity = capacity;
-    this.onlineSeed = seed;
+    this.onlineSeed = s;
     this.currentMatchMeta = null;
     this.onlineInputs = [];
     this.eliminated = [];
+    this.setStage(stage);
+    const hzMap = { off: 9999999, normal: 1200, frenetic: 620 };
+    this.hazardCycle = hzMap[this.activeMatchCfg.hazardFrequency];
+
     const geometry = arenaGeometry(this.stage, capacity);
     this.main = geometry.main;
     this.plats = geometry.plats.map(p => ({ ...p, by: p.y }));
     this.blast = geometry.blast;
+    this.strikes = [];
     this.fighters = indexes.map((index, slot) => {
       const fighter = new FighterSim(slot, this.roster[index], false, this.activeMatchCfg);
       const spawn = geometry.spawns[slot];
@@ -646,6 +659,26 @@ export class GameEngine {
       fighter.pl = this.plats.find(p => p.y === spawn.y && spawn.x >= p.x && spawn.x <= p.x + p.w) ?? null;
       return fighter;
     });
+    this.projectiles = [];
+    this.items = [];
+    this.particles = [];
+    this.crowdParticles = [];
+    this.crowd = { excitement: 0.12, cheerTimer: 0, mood: 'calm', accentColor: this.stage.palette.platformTrim, accentHighlight: '#fff3a0', seed: s };
+    this.ults = [];
+    this.cine = null;
+    this.telegraph = null;
+    this.winner = null;
+    this.endT = 0;
+    this.T = 0;
+    this.freeze = 0;
+    this.slowMo = 0;
+    this.shake = 0;
+    this.floatTexts = [];
+    this.bannerMsg = { t: '', l: 0, m: 1 };
+    this.recordedKeyframes = [];
+    this.lastRecP1Key = '';
+    this.lastRecP2Key = '';
+    sound.resetMusic();
   }
 
   stepOnline(inputs: PlayerAction[][]) {

@@ -56,6 +56,7 @@ export default function App() {
   const [replaySpeed, setReplaySpeed] = useState<0.5 | 1 | 2>(1);
   const [replayEnded, setReplayEnded] = useState<boolean>(false);
   const [replayFrame, setReplayFrame] = useState<number>(0);
+  const [netOpenSignal, setNetOpenSignal] = useState<number>(0);
 
   const roster = useMemo(() => [...PRESIDENTS_DATA, ...customPresidents], [customPresidents]);
 
@@ -434,6 +435,7 @@ export default function App() {
     <main className="apex-app">
       <LandscapePrompt />
       <NetworkPanel config={config} hideLaunch={screen !== 'TITLE' && screen !== 'SELECT'}
+        openSignal={netOpenSignal}
         onActive={active => { onlineActive.current = active; }} />
       {/* 16:9 Isolated Pixel-Art Game Stage */}
       <div className={`apex-frame ${['TITLE', 'SELECT', 'CUSTOMIZE'].includes(screen) ? 'apex-frame-menu' : ''} ${['PLAYING', 'PAUSED', 'REPLAY'].includes(screen) ? 'apex-frame-combat' : ''} ${crtClass}`}>
@@ -454,6 +456,7 @@ export default function App() {
             onWatchLastReplay={() => startReplay('TITLE')}
             onOpenCustomizer={() => openCustomizer('TITLE')}
             onOpenConfig={() => setConfigOpen(true)}
+            onOpenOnline={() => setNetOpenSignal((n) => n + 1)}
           />
         )}
 

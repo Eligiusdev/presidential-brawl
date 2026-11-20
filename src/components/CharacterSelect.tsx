@@ -1,7 +1,7 @@
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { ultimateText } from '../engine/presidentUltimates';
 import {movesFor} from '../combat/roster.js';
-import { ArrowLeft, Crown, Film, Pencil, Play, Settings, Shield, Trash2, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Crown, Film, Pencil, Play, Settings, Shield, Shuffle, Trash2, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { sound } from '../audio/soundEngine';
 import { stageArtUrl } from '../engine/stageAtmosphere';
@@ -257,6 +257,20 @@ export function CharacterSelect({
 
           {/* Roster Grid (Built-in + Custom Fighters) */}
           <SelectionRail label="Luchadores" variant="fighters" resetKey={regionFilter}>
+            <button
+              type="button"
+              onClick={() => {
+                sound.uiClick();
+                if (!filteredRoster.length) return;
+                const choice = filteredRoster[Math.floor(Math.random() * filteredRoster.length)];
+                pickPresident(choice.idx);
+              }}
+              className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#ffcc33]/45 bg-[#1a1710] p-2.5 text-center text-[#ffdd73] transition-colors hover:border-[#ffcc33] hover:bg-[#262013] hover:text-white min-h-[116px]"
+            >
+              <Shuffle className="mb-1.5 h-6 w-6" />
+              <span className="font-display text-xs font-bold uppercase">Aleatorio</span>
+              <span className="mt-0.5 text-[10px] text-[#94a3b8]">Sorpresa</span>
+            </button>
             {filteredRoster.map(({ d, idx }) => {
               const isP1 = sel[0] === idx;
               const isP2 = sel[1] === idx;

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Copy, Crown, LogOut, Swords, Users, WifiOff } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Crown, LogOut, Shuffle, Swords, Users, WifiOff } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
 import { sound } from '../audio/soundEngine';
@@ -73,6 +73,12 @@ export function OnlineLobby({ room, slot, send, leave }: {
   const pick = (fighterId: string) => {
     sound.uiClick();
     send({ type: 'select', fighterId });
+  };
+
+  const pickRandom = () => {
+    const pool = filteredRoster.length ? filteredRoster : roster;
+    const choice = pool[Math.floor(Math.random() * pool.length)];
+    if (choice) pick(choice.id);
   };
 
   const copy = async () => {
@@ -227,6 +233,10 @@ export function OnlineLobby({ room, slot, send, leave }: {
           </div>
         </div>
         <div className="ob-grid" role="listbox" aria-label="Personajes">
+          <button type="button" className="ob-tile ob-tile-random" aria-label="Personaje aleatorio" onClick={pickRandom}>
+            <span className="ob-tile-art ob-tile-art-random"><Shuffle className="h-7 w-7" /></span>
+            <span className="ob-tile-name">Aleatorio</span>
+          </button>
           {filteredRoster.map(d => {
             const pickers = room.players
               .map((p, i) => p?.fighterId === d.id ? { slot: i, color: p.color || '#94a3b8', ready: p.ready, me: i === slot } : null)
