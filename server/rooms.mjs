@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto';
-import { WebSocket, WebSocketServer } from 'ws';
 
 const capacities = [2, 4, 6, 8];
 const actions = new Set(['left', 'right', 'jump', 'down', 'light', 'heavy', 'dash', 'ult', 'reload']);
@@ -8,20 +7,19 @@ const tokens = () => randomBytes(24).toString('hex');
 const MAX_BUFFER = 64 * 1024;
 const STEP = 1000 / 60;
 
-export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGINS ?? '', fighterIds, stageCount, createMatch }) {
+const textDecoder = new TextDecoder();
+
+function wsSend(ws, message) {
+  try { return ws.send(JSON.stringify(message), false, false); } catch { return 0; }
+}
+
+export function attachRooms(app, { allowedOrigins = process.env.ALLOWED_ORIGINS ?? '', fighterIds, stageCount, createMatch }) {
   const origins = new Set(allowedOrigins.split(',').map(origin => origin.trim()).filter(Boolean));
   const roster = new Set(fighterIds);
   const rooms = new Map();
-  const sockets = new WebSocketServer({
-    noServer: true,
-    perMessageDeflate: false,
-    maxPayload: 4096,
-    skipUTF8Validation: true,
-  });
-  const send = (ws, message) => {
-    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
-  };
-  const failure = (ws, code, message) => send(ws, { type: 'error', code, message });
+  const clients = new Set();
+
+  const failure = (ws, code, message) => wsSend(ws, { type: 'error', code, message });
   const publish = room => {
     const state = {
       type: 'room', code: room.code, hostSlot: room.hostSlot, stage: room.stage,
@@ -30,7 +28,7 @@ export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGI
         slot, fighterId: p.fighterId, color: colors[slot], ping: p.ping, ready: p.ready, connected: Boolean(p.ws),
       })),
     };
-    for (const p of room.players) if (p?.ws) send(p.ws, state);
+    for (const p of room.players) if (p?.ws) wsSend(p.ws, state);
   };
 
   function remove(room, player, resume) {
@@ -49,39 +47,57 @@ export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGI
     publish(room);
   }
 
-  function upgrade(req, socket, head) {
-    if (req.url?.split('?')[0] !== '/api/rooms/ws') return;
-    const origin = req.headers.origin;
-    if (origin) {
-      let sameHost = false;
-      try { sameHost = new URL(origin).host === req.headers.host; } catch {}
-      if (!sameHost && !origins.has(origin)) {
-        socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
-        socket.destroy();
-        return;
+  app.ws('/api/rooms/ws', {
+    compression: 0,
+    maxPayloadLength: 4096,
+    idleTimeout: 60,
+    maxBackpressure: MAX_BUFFER * 4,
+    upgrade: (res, req, context) => {
+      const origin = req.getHeader('origin');
+      if (origin) {
+        const host = req.getHeader('host');
+        let sameHost = false;
+        try { sameHost = new URL(origin).host === host; } catch {}
+        if (!sameHost && !origins.has(origin)) {
+          res.writeStatus('403 Forbidden').end();
+          return;
+        }
       }
-    }
-    sockets.handleUpgrade(req, socket, head, ws => sockets.emit('connection', ws));
-  }
-  server.on('upgrade', upgrade);
-
-  sockets.on('connection', (ws, req) => {
-    const sock = req?.socket ?? ws._socket;
-    try { sock?.setNoDelay?.(true); sock?.setKeepAlive?.(true, 15000); } catch {}
-    let room, player, slot;
-    ws.alive = true;
-    ws.on('error', () => {});
-    ws.on('pong', data => {
-      ws.alive = true;
-      if (player) player.ping = Math.max(0, Math.min(9999, Date.now() - Number(data.toString()) || 0));
-    });
-    ws.on('close', () => {
-      if (player?.ws === ws) remove(room, player, true);
-    });
-    ws.on('message', raw => {
+      res.upgrade(
+        { room: null, player: null, slot: -1, alive: true },
+        req.getHeader('sec-websocket-key'),
+        req.getHeader('sec-websocket-protocol'),
+        req.getHeader('sec-websocket-extensions'),
+        context
+      );
+    },
+    open: (ws) => {
+      clients.add(ws);
+      wsSend(ws, { type: 'hello' });
+    },
+    pong: (ws, message) => {
+      const ud = ws.getUserData();
+      ud.alive = true;
+      if (ud.player) {
+        const ts = Number(Buffer.from(message).toString()) || 0;
+        ud.player.ping = Math.max(0, Math.min(9999, Date.now() - ts));
+      }
+    },
+    close: (ws) => {
+      clients.delete(ws);
+      const ud = ws.getUserData();
+      ud.alive = false;
+      if (ud.player?.ws === ws) remove(ud.room, ud.player, true);
+      ud.player = null;
+      ud.room = null;
+    },
+    message: (ws, raw) => {
       let msg;
-      try { msg = JSON.parse(typeof raw === 'string' ? raw : raw.toString()); } catch { return; }
+      try { msg = JSON.parse(textDecoder.decode(raw)); } catch { return; }
       if (!msg || typeof msg !== 'object') return;
+      const ud = ws.getUserData();
+      let { room, player, slot } = ud;
+
       if (!player) {
         if (msg.type === 'create') {
           if (!capacities.includes(msg.maxPlayers)) return failure(ws, 'CAPACITY', 'Elige 2, 4, 6 u 8 jugadores.');
@@ -111,10 +127,12 @@ export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGI
         player.leftAt = undefined;
         room.updated = Date.now();
         if (room.hostSlot < 0) room.hostSlot = slot;
-        send(ws, { type: 'seat', code: room.code, slot, token: player.token, seq: player.seq });
+        ud.room = room; ud.player = player; ud.slot = slot;
+        wsSend(ws, { type: 'seat', code: room.code, slot, token: player.token, seq: player.seq });
         publish(room);
         return;
       }
+
       if (player.ws !== ws) return;
       room.updated = Date.now();
       if (msg.type === 'input' && room.match && !room.standings) {
@@ -158,10 +176,9 @@ export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGI
         publish(room);
       } else if (msg.type === 'leave') {
         remove(room, player, false);
-        ws.close(1000);
+        try { ws.end(1000, 'leave'); } catch {}
       }
-    });
-    send(ws, { type: 'hello' });
+    },
   });
 
   let last = performance.now();
@@ -175,7 +192,7 @@ export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGI
         if (p && !p.ws && now - p.leftAt > 20000) remove(room, p, false);
       }
       if (!room.players.some(Boolean) || now - room.updated > 30 * 60 * 1000) {
-        for (const p of room.players) p?.ws?.close(1000);
+        for (const p of room.players) { try { p?.ws?.end(1000, 'expired'); } catch {} }
         rooms.delete(code);
         continue;
       }
@@ -198,27 +215,31 @@ export function attachRooms(server, { allowedOrigins = process.env.ALLOWED_ORIGI
       if (!snapshotDue) continue;
       const data = JSON.stringify({ type: 'snapshot', ...room.match.snapshot(), ack: room.players.map(p => p?.appliedSeq ?? -1) });
       for (const p of room.players) {
-        if (p?.ws?.readyState === WebSocket.OPEN && p.ws.bufferedAmount < MAX_BUFFER) p.ws.send(data);
+        if (p?.ws && p.ws.getBufferedAmount() < MAX_BUFFER) {
+          try { p.ws.send(data, false, false); } catch {}
+        }
       }
       if (room.standings) publish(room);
     }
   }, 8);
+
   const heartbeat = setInterval(() => {
-    for (const ws of sockets.clients) {
-      if (!ws.alive) ws.terminate();
-      else { ws.alive = false; ws.ping(String(Date.now())); }
+    for (const ws of clients) {
+      const ud = ws.getUserData();
+      if (!ud.alive) { try { ws.end(1001, 'timeout'); } catch {} continue; }
+      ud.alive = false;
+      try { ws.ping(String(Date.now())); } catch {}
     }
     for (const room of rooms.values()) publish(room);
   }, 10000);
-  tick.unref();
-  heartbeat.unref();
+  tick.unref?.();
+  heartbeat.unref?.();
 
   return () => {
     clearInterval(tick);
     clearInterval(heartbeat);
-    server.off('upgrade', upgrade);
-    for (const ws of sockets.clients) ws.terminate();
-    sockets.close();
+    for (const ws of clients) { try { ws.end(1001, 'shutdown'); } catch {} }
+    clients.clear();
     rooms.clear();
   };
 }
