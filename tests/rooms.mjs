@@ -39,6 +39,24 @@ test('salas: acceso, mando exclusivo, transmisión, liberación y cierre',async(
     received='';
     while(!received.includes('event: presence')) received+=decoder.decode((await reader.read()).value);
     assert.match(received,/data: true/);
+    const videoPath=`/${host.code}/video`;
+    const offer={type:'offer',negotiation:'test-session',sdp:'v=0\r\ns=Local test\r\n'};
+    assert.equal((await call(videoPath,guest.token,offer)).status,400);
+    assert.equal((await call(videoPath,otherGuest.token,offer)).status,401);
+    assert.equal((await call(videoPath,host.token,offer)).status,204);
+    const readSignal=async from=>{
+      let result='';
+      while(!result.includes('event: video')) result+=decoder.decode((await from.read()).value);
+      return JSON.parse(/event: video\ndata: (.+)/.exec(result)[1]);
+    };
+    assert.deepEqual(await readSignal(remoteReader),offer);
+    const answer={type:'answer',negotiation:'test-session',sdp:'v=0\r\ns=Local response\r\n'};
+    assert.equal((await call(videoPath,guest.token,answer)).status,204);
+    assert.deepEqual(await readSignal(reader),answer);
+    const ice={type:'ice',negotiation:'test-session',candidate:{candidate:'candidate:test',sdpMid:'0',sdpMLineIndex:0}};
+    assert.equal((await call(videoPath,host.token,ice)).status,204);
+    assert.deepEqual(await readSignal(remoteReader),ice);
+    assert.equal((await call(videoPath,guest.token,{...ice,candidate:{}})).status,400);
     const matchPath=`/${host.code}/match`, fighterPath=`/${host.code}/fighter`;
     assert.equal((await call(matchPath,host.token,{playing:true})).status,409);
     assert.equal((await call(fighterPath,host.token,{fighterId:'aquiles'})).status,200);

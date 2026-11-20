@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { roomEvents, roomRequest, type RoomSession, type RoomLobby } from '../network/roomClient';
+import { localRoomServer, roomEvents, roomRequest, type RoomLobby, type RoomSession } from '../network/roomClient';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { RoomCharacterSelect } from './CharacterSelect';
 import type { PlayerAction } from '../types/game';
@@ -24,6 +24,7 @@ export function NetworkPanel({onInput,getLocalActions,hideLaunch,matchActive,onH
   const localActions=useRef(getLocalActions); localActions.current=getLocalActions;
   const sendingInput=useRef(false);
   const inputQueue=useRef<Array<{ session: RoomSession; actions: PlayerAction[] }>>([]);
+  const lastSent=useRef('');
   const autoStarted = useRef('');
   useEffect(() => {
     if (session?.role !== 'host' || lobby.playing || !lobby.hostFighterId || !lobby.fighterId) {
@@ -39,9 +40,12 @@ export function NetworkPanel({onInput,getLocalActions,hideLaunch,matchActive,onH
   useEffect(()=>onHostRoom(session?.role==='host'?session:null,lobby),[session,lobby,onHostRoom]);
   useEffect(()=>onGuestLobby(session?.role==='guest'?session:null,lobby),[session,lobby,onGuestLobby]);
   const send=(s:RoomSession,actions:PlayerAction[])=>{
+    const key=actions.join(',');
+    if(key===lastSent.current) return;
+    lastSent.current=key;
     const pending=inputQueue.current;
-    if(pending.length>=3) pending.splice(0,pending.length,pending[pending.length-1] ?? {session:s,actions});
-    pending[pending.length-1]={session:s,actions};
+    pending[pending.length]={session:s,actions};
+    if(pending.length>2) pending.splice(0,pending.length-1);
     if(sendingInput.current) return;
     sendingInput.current=true;
     void (async()=>{
@@ -53,6 +57,7 @@ export function NetworkPanel({onInput,getLocalActions,hideLaunch,matchActive,onH
         }
       } catch(e) {
         pending.length=0;
+        lastSent.current='';
         setError((e as Error).message);
       } finally { sendingInput.current=false; }
     })();
@@ -62,35 +67,37 @@ export function NetworkPanel({onInput,getLocalActions,hideLaunch,matchActive,onH
     const abort=new AbortController();
     let connected=false;
     let retry: number | undefined;
+    const remotePi = session.role==='host' ? 1 : 0;
+    const localPi = session.role==='host' ? 0 : 1;
     const listen=()=>{
       roomEvents(session,abort.signal,a=>{
-        inputCallback.current(a, session.role==='host' ? 1 : 0);
+        inputCallback.current(a, remotePi);
       },()=>{},presence=>{
         connected=presence;
-        if(!presence) inputCallback.current([], session.role==='host' ? 1 : 0);
+        if(!presence) inputCallback.current([], remotePi);
         setError('');
       },next=>{
         setLobby(next);
-      }).catch(e=>{
+      },()=>{}).catch(e=>{
         if(abort.signal.aborted)return;
         connected=false;
-        inputCallback.current([], session.role==='host' ? 1 : 0);
+        inputCallback.current([], remotePi);
         setError(e.message);
-        retry=window.setTimeout(listen,1200);
+        retry=window.setTimeout(listen,1000);
       });
     };
     listen();
     const timer=window.setInterval(()=>{
       if(!runningLobby.current || !connected) return;
-      const pi = session.role==='host' ? 0 : 1;
-      send(session, localActions.current(pi));
-    }, session.role==='guest' ? 80 : 80);
+      send(session, localActions.current(localPi));
+    }, 50);
     return()=>{
       abort.abort();
       clearTimeout(retry);
       inputQueue.current.length=0;
       clearInterval(timer);
-      inputCallback.current([], session.role==='host' ? 1 : 0);
+      lastSent.current='';
+      inputCallback.current([], remotePi);
     };
   },[session]);
   const connect=async(host:boolean)=>{setBusy(true);setError('');try{setSession(await roomRequest(host?'':`/${code.trim().toUpperCase()}/join`));}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
@@ -104,6 +111,17 @@ export function NetworkPanel({onInput,getLocalActions,hideLaunch,matchActive,onH
     finally{setBusy(false);}
   };
   if(!open)return hideLaunch ? null : <button className="network-launch" onClick={()=>setOpen(true)}>Jugar en línea</button>;
+  const copyLink=async()=>{
+    try {
+      if(!navigator.clipboard?.writeText) throw Error();
+      await navigator.clipboard.writeText(link);
+    } catch {
+      const field=document.querySelector<HTMLInputElement>('input[aria-label="Enlace de invitación"]');
+      field?.focus();
+      field?.select();
+      setError('Copia el enlace seleccionado.');
+    }
+  };
   const link=session?`${location.origin}${import.meta.env.BASE_URL}?room=${session.code}`:'';
   if(session && !lobby.playing && (session.role==='guest' || showHostLobby)) {
     const isHost=session.role==='host';
@@ -111,14 +129,12 @@ export function NetworkPanel({onInput,getLocalActions,hideLaunch,matchActive,onH
       pickedId={pick} confirmedId={isHost?lobby.hostFighterId:lobby.fighterId}
       otherId={isHost?lobby.fighterId:lobby.hostFighterId} busy={busy} error={error||(isHost?hostError:'')}
       onPick={setPick} onConfirm={confirmFighter} onLeave={leave}
-      hostOptions={isHost?{link,stage,onStage,onStart,onCopy:()=>{
-        navigator.clipboard?.writeText(link).catch(()=>setError('Selecciona y copia el enlace.'));
-      }}:undefined} />;
+      hostOptions={isHost?{link,stage,onStage,onStart,onCopy:()=>void copyLink()}:undefined} />;
   }
   if(session?.role==='host' || (session?.role==='guest' && lobby.playing)) return null;
   return <section className="network-panel" aria-label="Sala en línea">
     <div className="network-heading"><strong>APEX · SALA EN LÍNEA</strong>{session?.role!=='guest'&&<button aria-label="Cerrar panel" onClick={()=>setOpen(false)}>×</button>}</div>
-    {!session?<><p>Crea un duelo para dos jugadores y comparte el enlace con tu rival.</p><button disabled={busy} onClick={()=>connect(true)}>Crear sala</button><label>Código de sala<input value={code} maxLength={10} onChange={e=>setCode(e.target.value.toUpperCase())} autoCapitalize="characters" placeholder="Código de 10 caracteres"/></label><button disabled={busy||code.trim().length!==10} onClick={()=>connect(false)}>Conectar como J2</button></>:<>
+    {!session?<><p>{localRoomServer?'Sala en red local. Abre el juego desde la IP del anfitrión en ambos equipos antes de crearla.':'Crea un duelo para dos jugadores y comparte el enlace con tu rival.'}</p><button disabled={busy} onClick={()=>connect(true)}>Crear sala</button><label>Código de sala<input value={code} maxLength={10} onChange={e=>setCode(e.target.value.toUpperCase())} autoCapitalize="characters" placeholder="Código de 10 caracteres"/></label><button disabled={busy||code.trim().length!==10} onClick={()=>connect(false)}>Conectar como J2</button></>:<>
       <p>Sala <strong>{session.code}</strong> · Mando J2</p>
       <p>Confirmaste tu luchador. Esperando a que el anfitrión inicie la partida…</p>
       <button disabled={busy} onClick={leave}>Salir de la sala</button>
