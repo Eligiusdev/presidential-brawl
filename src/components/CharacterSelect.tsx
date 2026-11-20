@@ -558,9 +558,12 @@ function FighterPreviewCard({
   );
 }
 
-export function GuestCharacterSelect({ roster, roomCode, pickedId, confirmedId, busy, error, onPick, onConfirm, onLeave }: {
+export function RoomCharacterSelect({ roster, roomCode, seat, otherId, pickedId, confirmedId, busy, error, onPick, onConfirm, onLeave, hostOptions }: {
   roster: PresidentData[];
   roomCode: string;
+  seat: 1 | 2;
+  otherId: string | null;
+  hostOptions?: { link: string; onCopy: () => void; onStart: () => void; stage: number; onStage: (index: number) => void };
   pickedId: string;
   confirmedId: string | null;
   busy: boolean;
@@ -571,30 +574,51 @@ export function GuestCharacterSelect({ roster, roomCode, pickedId, confirmedId, 
 }) {
   const [filter, setFilter] = useState<RegionFilter>('all');
   const selected = roster.find(person => person.id === (pickedId || confirmedId));
-  const artPath = selected && fighterArtPath(selected);
   const ready = !!selected && confirmedId === selected.id;
   const visible = roster.filter(fighter => matchesFilter(fighter, filter));
+  const rival = roster.find(person => person.id === otherId);
+  const seats = seat === 1
+    ? [{ fighter: selected, confirmed: ready }, { fighter: rival, confirmed: !!rival }]
+    : [{ fighter: rival, confirmed: !!rival }, { fighter: selected, confirmed: ready }];
 
   return <section className="apex-menu apex-selector fixed inset-0 z-[75] flex flex-col overflow-y-auto p-3 sm:p-6 arcade-scroll"
-    aria-labelledby="guest-fighter-heading">
+    aria-labelledby="room-fighter-heading">
     <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3">
       <div>
-        <p className="text-xs font-bold text-[#7dd3fc]">Jugador 2 · Sala {roomCode}</p>
-        <h2 id="guest-fighter-heading" className="font-display text-xl font-bold text-white sm:text-3xl">Elige tu luchador</h2>
+        <p className="text-xs font-bold text-[#7dd3fc]">Jugador {seat} · Sala {roomCode}</p>
+        <h2 id="room-fighter-heading" className="font-display text-xl font-bold text-white sm:text-3xl">Elige tu luchador</h2>
       </div>
       <button type="button" disabled={busy} onClick={onLeave} className="rounded-lg border border-[#465778] bg-[#182740] px-3 py-2 text-sm">
         Salir de la sala
       </button>
     </div>
 
-    {selected && <section className="fighter-showcase" aria-label={`Vista de ${selected.name}`}
-      style={artPath ? { backgroundImage: `url("${artPath}selection.webp")` } : undefined}>
-      <FighterPreview president={selected} selected large />
-      <div className="fighter-showcase-caption">
-        <h3>{selected.name}</h3>
-        <p>{selected.title}</p>
-      </div>
-    </section>}
+    <div className="mx-auto mt-3 grid w-full max-w-6xl grid-cols-2 gap-2">
+      {seats.map(({fighter,confirmed},index)=>{
+        const own = seat === index + 1;
+        return <article key={index} aria-label={`Jugador ${index + 1}`}
+          className={`min-w-0 rounded-xl border p-2 sm:p-3 ${own
+            ? 'border-[#ffcc33] bg-[#242118]' : 'border-[#304362] bg-[#0d1728]'}`}>
+          <p className="text-xs font-bold text-[#f6e4be]">J{index + 1}{own ? ' · Tu lado' : ''}</p>
+          {fighter && <div className="flex min-w-0 items-center gap-1 sm:gap-3">
+            <div className="shrink-0"><PortraitCanvas president={fighter} className="h-9 w-9 rounded sm:h-14 sm:w-14" /></div>
+            <h3 className="truncate text-sm font-bold text-white">{fighter.name}</h3>
+          </div>}
+          <p className="mt-1 text-xs text-[#b8c5dc]">{confirmed ? 'Confirmado' : 'Eligiendo luchador'}</p>
+        </article>;
+      })}
+    </div>
+    {hostOptions && <div className="mx-auto mt-3 flex w-full max-w-6xl flex-wrap items-center gap-2">
+      <button type="button" onClick={hostOptions.onCopy} className="rounded-md border border-[#465778] px-3 py-2 text-xs">Copiar invitación</button>
+      <input readOnly value={hostOptions.link} onFocus={event=>event.target.select()} aria-label="Enlace de invitación"
+        className="min-w-0 flex-1 rounded-md border border-[#465778] bg-[#10182a] px-2 py-2 text-xs" />
+      <label className="text-xs">Arena <select value={hostOptions.stage} disabled={ready}
+        onChange={event=>hostOptions.onStage(Number(event.target.value))}
+        className="rounded-md border border-[#465778] bg-[#10182a] p-2">
+        {STAGES_DATA.map((stage,index)=><option key={stage.id} value={index}>{stage.name}</option>)}
+        <option value={STAGES_DATA.length}>Aleatoria</option>
+      </select></label>
+    </div>}
 
     <div className="mx-auto my-3 flex w-full max-w-6xl flex-1 flex-col gap-3">
       <div className="selector-filters flex items-center gap-1.5" aria-label="Filtrar luchadores">
@@ -607,7 +631,7 @@ export function GuestCharacterSelect({ roster, roomCode, pickedId, confirmedId, 
       </div>
       <SelectionRail label="Luchadores" variant="fighters" resetKey={filter}>
         {visible.map(fighter =>
-          <button key={fighter.id} type="button" disabled={busy} aria-pressed={selected?.id === fighter.id}
+          <button key={fighter.id} type="button" disabled={busy || ready} aria-pressed={selected?.id === fighter.id}
             onClick={() => { sound.uiClick(); onPick(fighter.id); }}
             className={`group flex cursor-pointer flex-col items-center rounded-lg border p-2 text-center ${selected?.id === fighter.id
               ? 'border-[#38bdf8] bg-[#13243b]' : 'border-[#25304d] bg-[#11182c] hover:border-[#4b5f94]'}`}>
@@ -620,13 +644,17 @@ export function GuestCharacterSelect({ roster, roomCode, pickedId, confirmedId, 
 
     <footer className="selector-launch mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
       <p role={error ? 'alert' : 'status'} className={`text-sm ${error ? 'text-[#fda4af]' : 'text-[#cbd5e1]'}`}>
-        {error || (ready ? `${selected.name} confirmado. Esperando al anfitrión.`
-          : confirmedId ? 'Tu elección anterior sigue activa hasta confirmar el cambio.' : 'Selecciona una tarjeta y confirma tu elección.')}
+        {error || (ready ? (rival ? 'Los dos jugadores están listos.' : 'Confirmado. Esperando al otro jugador.')
+          : 'Selecciona una tarjeta y confirma tu elección.')}
       </p>
       <button type="button" disabled={busy || !selected || ready} onClick={onConfirm}
         className="min-h-[46px] rounded-lg bg-[#ffcc33] px-6 py-2 font-display font-bold text-[#0b0e17] disabled:opacity-45">
         {busy ? 'Procesando…' : ready ? 'Listo' : 'Confirmar luchador'}
       </button>
+      {hostOptions && <button type="button" disabled={busy || !ready || !rival} onClick={hostOptions.onStart}
+        className="min-h-[46px] rounded-lg bg-[#ffcc33] px-6 py-2 font-display font-bold text-[#0b0e17] disabled:opacity-45">
+        ¡Pelear!
+      </button>}
     </footer>
   </section>;
 }

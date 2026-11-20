@@ -186,15 +186,17 @@ export default function App() {
     if (!engine) return;
     if (startingMatch.current) return;
     let opponent = sel[1];
+    let player = sel[0];
     if (remoteRoom) {
       startingMatch.current = true;
       setRoomError('');
       try {
         const lobby: RoomLobby = await roomRequest(`/${remoteRoom.code}/match`, remoteRoom, { playing: true });
         opponent = PRESIDENTS_DATA.findIndex(f => f.id === lobby.fighterId);
-        if (opponent < 0) {
+        player = PRESIDENTS_DATA.findIndex(f => f.id === lobby.hostFighterId);
+        if (opponent < 0 || player < 0) {
           await roomRequest(`/${remoteRoom.code}/match`, remoteRoom, { playing: false });
-          throw new Error('J2 debe elegir un luchador del plantel oficial.');
+          throw new Error('Los dos jugadores deben elegir luchadores del plantel oficial.');
         }
         remoteMatch.current = remoteRoom;
       } catch (error) {
@@ -206,7 +208,7 @@ export default function App() {
     setCampaign(null);
     setSummary(null);
     setMode('versus');
-    engine.startMatch(sel[0], opponent, stageSel, remoteRoom ? false : vsAI, 'versus');
+    engine.startMatch(player, opponent, stageSel, remoteRoom ? false : vsAI, 'versus');
     setScreen('PLAYING');
   }, [sel, stageSel, vsAI, remoteRoom]);
 
@@ -455,8 +457,10 @@ export default function App() {
       <LandscapePrompt />
       {roomError && <div role="alert" className="network-panel"><p>{roomError}</p>
         <button type="button" onClick={() => setRoomError('')}>Cerrar</button></div>}
-      <NetworkPanel matchActive={!!remoteMatch.current && (screen === 'PLAYING' || screen === 'PAUSED')}
-        onHostRoom={onHostRoom} hideLaunch={['PLAYING', 'PAUSED', 'REPLAY'].includes(screen)} canvas={canvasRef} onInput={(actions) => engineRef.current?.setRemoteActions(actions)} />
+      <NetworkPanel stage={stageSel} onStage={setStageSel} onStart={startVersus}
+        hostError={roomError} showHostLobby={screen === 'TITLE' || screen === 'SELECT'}
+        matchActive={!!remoteMatch.current && (screen === 'PLAYING' || screen === 'PAUSED')}
+        onHostRoom={onHostRoom} hideLaunch={screen !== 'TITLE' && screen !== 'SELECT'} canvas={canvasRef} onInput={(actions) => engineRef.current?.setRemoteActions(actions)} />
       {/* 16:9 Isolated Pixel-Art Game Stage */}
       <div className={`apex-frame ${['TITLE', 'SELECT', 'CUSTOMIZE'].includes(screen) ? 'apex-frame-menu' : ''} ${['PLAYING', 'PAUSED', 'REPLAY'].includes(screen) ? 'apex-frame-combat' : ''} ${crtClass}`}>
         <canvas
@@ -550,7 +554,7 @@ export default function App() {
               startVersus();
             }
           }}
-          onRematch={startVersus}
+          onRematch={() => { if (remoteRoom) setScreen('SELECT'); else void startVersus(); }}
           onExitToSelect={() => {
             if (campaignTimerRef.current) window.clearTimeout(campaignTimerRef.current);
             engineRef.current?.startAttractScene();

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { roomEvents, roomRequest, type RoomSession, type RoomLobby } from '../network/roomClient';
 import { PRESIDENTS_DATA } from '../data/presidents';
-import { GuestCharacterSelect } from './CharacterSelect';
+import { RoomCharacterSelect } from './CharacterSelect';
 import { TouchControls } from './TouchControls';
 import type { PlayerAction } from '../types/game';
 
@@ -11,8 +11,8 @@ const keyboard: Record<string, PlayerAction> = {
 };
 const FRAME_INTERVAL = 62;
 
-export function NetworkPanel({canvas,onInput,hideLaunch,matchActive,onHostRoom}:{matchActive:boolean;onHostRoom:(room:RoomSession|null,lobby:RoomLobby)=>void;hideLaunch?:boolean;canvas:RefObject<HTMLCanvasElement|null>;onInput:(actions:PlayerAction[])=>void}) {
-  const [lobby,setLobby]=useState<RoomLobby>({fighterId:null, playing:false});
+export function NetworkPanel({canvas,onInput,hideLaunch,matchActive,onHostRoom,stage,onStage,onStart,showHostLobby,hostError}:{matchActive:boolean;stage:number;onStage:(index:number)=>void;onStart:()=>void;showHostLobby:boolean;hostError:string;onHostRoom:(room:RoomSession|null,lobby:RoomLobby)=>void;hideLaunch?:boolean;canvas:RefObject<HTMLCanvasElement|null>;onInput:(actions:PlayerAction[])=>void}) {
+  const [lobby,setLobby]=useState<RoomLobby>({fighterId:null,hostFighterId:null,playing:false});
   const [pick,setPick]=useState("");
   const runningLobby=useRef(lobby.playing); runningLobby.current=lobby.playing;
   const running=useRef(matchActive); running.current=matchActive;
@@ -20,13 +20,24 @@ export function NetworkPanel({canvas,onInput,hideLaunch,matchActive,onHostRoom}:
   const [code,setCode]=useState(()=>new URLSearchParams(location.search).get('room')||'');
   const [session,setSession]=useState<RoomSession|null>(null);
   const [error,setError]=useState(''); const [busy,setBusy]=useState(false);
-  const [guestConnected,setGuestConnected]=useState(false);
   const [image,setImage]=useState(''); const held=useRef(new Set<PlayerAction>());
   const touchHeld=useRef(new Set<PlayerAction>());
   const activeActions=()=>[...new Set([...held.current,...touchHeld.current])];
   const inputCallback=useRef(onInput); inputCallback.current=onInput;
   const sendingInput=useRef(false);
   const inputQueue=useRef<Array<{ session: RoomSession; actions: PlayerAction[] }>>([]);
+  const autoStarted = useRef('');
+  useEffect(() => {
+    if (session?.role !== 'host' || lobby.playing || !lobby.hostFighterId || !lobby.fighterId) {
+      autoStarted.current = '';
+      return;
+    }
+    if (!showHostLobby) return;
+    const key = [session.code, lobby.hostFighterId, lobby.fighterId].join(':');
+    if (autoStarted.current === key) return;
+    autoStarted.current = key;
+    onStart();
+  }, [session, lobby, showHostLobby, onStart]);
   useEffect(()=>onHostRoom(session?.role==='host'?session:null,lobby),[session,lobby,onHostRoom]);
   const send=(s:RoomSession,actions:PlayerAction[])=>{
     const pending=inputQueue.current;
@@ -61,7 +72,6 @@ export function NetworkPanel({canvas,onInput,hideLaunch,matchActive,onHostRoom}:
         setError('');
       },presence=>{
         connected=presence;
-        setGuestConnected(presence);
         setError('');
       },next=>{
         setLobby(next);
@@ -69,7 +79,6 @@ export function NetworkPanel({canvas,onInput,hideLaunch,matchActive,onHostRoom}:
       }).catch(e=>{
         if(abort.signal.aborted)return;
         connected=false;
-        setGuestConnected(false);
         held.current.clear(); touchHeld.current.clear();
         inputCallback.current([]);
         setError(e.message);
@@ -128,7 +137,7 @@ export function NetworkPanel({canvas,onInput,hideLaunch,matchActive,onHostRoom}:
     };
   },[session,canvas]);
   const connect=async(host:boolean)=>{setBusy(true);setError('');try{setSession(await roomRequest(host?'':`/${code.trim().toUpperCase()}/join`));}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
-  const leave=async()=>{if(!session)return;setBusy(true);try{await roomRequest(`/${session.code}`,session,undefined,'DELETE');setSession(null);setLobby({fighterId:null,playing:false});setPick('');setGuestConnected(false);held.current.clear(); touchHeld.current.clear();setImage('');inputCallback.current([]);}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+  const leave=async()=>{if(!session)return;setBusy(true);try{await roomRequest(`/${session.code}`,session,undefined,'DELETE');setSession(null);setLobby({fighterId:null,hostFighterId:null,playing:false});setPick('');held.current.clear(); touchHeld.current.clear();setImage('');inputCallback.current([]);}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
   const confirmFighter=async()=>{
     if(!session || !pick) return;
     setBusy(true);
@@ -140,16 +149,22 @@ export function NetworkPanel({canvas,onInput,hideLaunch,matchActive,onHostRoom}:
   const press=(action:PlayerAction,active:boolean)=>{if(!session)return;if(active)touchHeld.current.add(action);else touchHeld.current.delete(action);send(session,activeActions());};
   if(!open)return hideLaunch ? null : <button className="network-launch" onClick={()=>setOpen(true)}>Jugar en línea</button>;
   const link=session?`${location.origin}${import.meta.env.BASE_URL}?room=${session.code}`:'';
-  if(session?.role==='guest'&&!lobby.playing) {
-    return <GuestCharacterSelect roster={PRESIDENTS_DATA} roomCode={session.code}
-      pickedId={pick} confirmedId={lobby.fighterId} busy={busy} error={error}
-      onPick={setPick} onConfirm={confirmFighter} onLeave={leave} />;
+  if(session&&!lobby.playing&&(session.role==='guest'||showHostLobby)) {
+    const isHost=session.role==='host';
+    return <RoomCharacterSelect roster={PRESIDENTS_DATA} roomCode={session.code} seat={isHost?1:2}
+      pickedId={pick} confirmedId={isHost?lobby.hostFighterId:lobby.fighterId}
+      otherId={isHost?lobby.fighterId:lobby.hostFighterId} busy={busy} error={error||(isHost?hostError:'')}
+      onPick={setPick} onConfirm={confirmFighter} onLeave={leave}
+      hostOptions={isHost?{link,stage,onStage,onStart,onCopy:()=>{
+        navigator.clipboard?.writeText(link).catch(()=>setError('Selecciona y copia el enlace.'));
+      }}:undefined} />;
   }
+  if(session?.role==='host') return null;
   return <section className={`network-panel ${session?.role==='guest'&&lobby.playing?'network-controller':''}`} aria-label="Sala en línea">
     <div className="network-heading"><strong>APEX · SALA EN LÍNEA</strong>{session?.role!=='guest'&&<button aria-label="Cerrar panel" onClick={()=>setOpen(false)}>×</button>}</div>
     {!session?<><p>Crea un duelo para dos jugadores y comparte el enlace con tu rival.</p><button disabled={busy} onClick={()=>connect(true)}>Crear sala</button><label>Código de sala<input value={code} maxLength={10} onChange={e=>setCode(e.target.value.toUpperCase())} autoCapitalize="characters" placeholder="Código de 10 caracteres"/></label><button disabled={busy||code.trim().length!==10} onClick={()=>connect(false)}>Conectar como J2</button></>:<>
       <p>Sala <strong>{session.code}</strong> · {session.role==='host'?'Equipo principal':'Mando J2'}</p>
-      {session.role==='host'?<><p>Comparte el enlace. Cuando J2 confirme, puedes iniciar el combate. {guestConnected ? (PRESIDENTS_DATA.find(f=>f.id===lobby.fighterId)?.name ?? 'J2 está eligiendo.') : 'Esperando a J2.'}</p><input readOnly aria-label="Enlace de invitación" value={link} onFocus={e=>e.target.select()}/><button onClick={()=>navigator.clipboard?.writeText(link).catch(()=>setError('Selecciona y copia el enlace.'))}>Copiar enlace</button></>:<><p>El anfitrión inicia la partida. Usa los controles táctiles o las flechas y U, I, O, M y /.</p>{image?<img src={image} alt="Partida en el equipo principal" draggable={false}/>:<p className="network-wait">Esperando imagen del equipo principal…</p>}<TouchControls inline onAction={press} /></>}
+<><p>El anfitrión inicia la partida. Usa los controles táctiles o las flechas y U, I, O, M y /.</p>{image?<img src={image} alt="Partida en el equipo principal" draggable={false}/>:<p className="network-wait">Esperando imagen del equipo principal…</p>}<TouchControls inline onAction={press} /></>
       <button disabled={busy} onClick={leave}>Salir de la sala</button>
     </>}
     {busy && !session && <p role="status">Conectando al servidor…</p>}
