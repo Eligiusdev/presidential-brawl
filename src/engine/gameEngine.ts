@@ -321,8 +321,8 @@ export class GameEngine {
   private collision = new LegacyFighterGeometry();
   private renderer = new PixelRenderer();
   private keys: Record<string, boolean> = {};
-  private remoteKeys: Partial<Record<PlayerAction, boolean>> = {};
-  private touchKeys: Partial<Record<PlayerAction, boolean>> = {};
+  private remoteKeys: [Partial<Record<PlayerAction, boolean>>, Partial<Record<PlayerAction, boolean>>] = [{}, {}];
+  private touchKeys: [Partial<Record<PlayerAction, boolean>>, Partial<Record<PlayerAction, boolean>>] = [{}, {}];
   private gpState = [false, false];
 
   config: GameConfig;
@@ -452,16 +452,22 @@ export class GameEngine {
 
   clearAllInputs() {
     this.keys = {};
-    this.touchKeys = {};
-    this.remoteKeys = {};
+    this.touchKeys = [{}, {}];
+    this.remoteKeys = [{}, {}];
   }
 
-  setRemoteActions(actions: PlayerAction[]) {
-    for (const action of ACTIONS_ORDER) this.remoteKeys[action] = actions.includes(action);
+  setRemoteActions(actions: PlayerAction[], pi: 0 | 1 = 1) {
+    const slot: Partial<Record<PlayerAction, boolean>> = {};
+    for (const action of ACTIONS_ORDER) slot[action] = actions.includes(action);
+    this.remoteKeys[pi] = slot;
   }
 
-  setTouchAction(action: PlayerAction, active: boolean) {
-    this.touchKeys[action] = active;
+  getCurrentActions(pi: 0 | 1): PlayerAction[] {
+    return inputToActions(this.readHumanInput(pi));
+  }
+
+  setTouchAction(action: PlayerAction, active: boolean, pi: 0 | 1 = 0) {
+    this.touchKeys[pi][action] = active;
   }
 
   setStage(idx: number) {
@@ -530,15 +536,15 @@ export class GameEngine {
     this.T = 0;
   }
 
-  startMatch(p1Idx: number, p2Idx: number, stageIdx: number, vsAI: boolean, mode: GameMode, campaignRound?: number) {
+  startMatch(p1Idx: number, p2Idx: number, stageIdx: number, vsAI: boolean, mode: GameMode, campaignRound?: number, network?: { seed: number; matchConfig?: GameConfig['match'] }) {
     this.strikes = [];
     this.isReplaying = false;
     this.replayEnded = false;
     this.replayData = null;
-    this.matchCfgOverride = null;
+    this.matchCfgOverride = network?.matchConfig ? { ...network.matchConfig } : null;
     this.mode = mode;
 
-    const seed = (Math.floor(Math.random() * 0x7fffffff) || 1) >>> 0;
+    const seed = (network?.seed ?? ((Math.floor(Math.random() * 0x7fffffff) || 1) >>> 0)) >>> 0;
     this.rngState = seed;
     this.visRngState = (seed ^ 0x9e3779b9) >>> 0;
 
@@ -606,7 +612,7 @@ export class GameEngine {
       p1Id: f1Data.id,
       p2Id: f2Data.id,
       campaignRound,
-      matchConfig: { ...this.config.match },
+      matchConfig: { ...(network?.matchConfig ?? this.config.match) },
     };
     sound.resetMusic();
   }
@@ -728,8 +734,8 @@ export class GameEngine {
     const check = (action: PlayerAction) =>
       map[action].some((c) => Boolean(this.keys[c])) ||
       Boolean(this.keys[prefix + action]) ||
-      (pi === 0 && Boolean(this.touchKeys[action])) ||
-      (pi === 1 && Boolean(this.remoteKeys[action]));
+      Boolean(this.touchKeys[pi]?.[action]) ||
+      Boolean(this.remoteKeys[pi]?.[action]);
 
     return {
       left: check('left'),

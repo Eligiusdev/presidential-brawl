@@ -1,5 +1,5 @@
 import type { PlayerAction } from '../types/game';
-export type RoomLobby = { fighterId: string | null; hostFighterId: string | null; playing: boolean };
+export type RoomLobby = { fighterId: string | null; hostFighterId: string | null; playing: boolean; stageIdx?: number; seed?: number; stocks?: number };
 export type RoomSession = {code:string;token:string;role:'host'|'guest'};
 const apiBase=(import.meta.env.VITE_ROOM_API_BASE_URL||'').replace(/\/+$/,'');
 const roomsUrl=(path:string)=>`${apiBase}/api/rooms${path}`;

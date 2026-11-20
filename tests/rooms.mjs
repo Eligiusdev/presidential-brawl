@@ -16,7 +16,7 @@ test('salas: acceso, mando exclusivo, transmisión, liberación y cierre',async(
     const guest=await (await call(`/${host.code}/join`)).json();
     assert.equal((await call(`/${host.code}/join`)).status,409);
     assert.equal((await call(`/${host.code}/input`,undefined,{actions:['light']})).status,401);
-    assert.equal((await call(`/${host.code}/input`,host.token,{actions:['light']})).status,403);
+    assert.equal((await call(`/${host.code}/input`,host.token,{actions:['light']})).status,204);
     assert.equal((await call(`/${host.code}/input`,guest.token,{actions:['cheat']})).status,400);
     const stream=await call(`/${host.code}/events`,host.token,undefined,'GET');
     reader=stream.body.getReader(); const decoder=new TextDecoder();
@@ -45,13 +45,24 @@ test('salas: acceso, mando exclusivo, transmisión, liberación y cierre',async(
     assert.equal((await call(matchPath,host.token,{playing:true})).status,409);
     assert.equal((await call(matchPath,guest.token,{playing:true})).status,403);
     assert.equal((await call(fighterPath,guest.token,{fighterId:'<invalid>'})).status,400);
-    assert.deepEqual(await (await call(fighterPath,guest.token,{fighterId:'musashi'})).json(),
-      {fighterId:'musashi',hostFighterId:'aquiles',playing:false});
+    {
+      const body = await (await call(fighterPath,guest.token,{fighterId:'musashi'})).json();
+      assert.equal(body.fighterId,'musashi');
+      assert.equal(body.hostFighterId,'aquiles');
+      assert.equal(body.playing,false);
+    }
     received='';
     while(!received.includes('"fighterId":"musashi"')) received+=decoder.decode((await reader.read()).value);
     assert.match(received,/event: lobby/);
-    assert.deepEqual(await (await call(matchPath,host.token,{playing:true})).json(),
-      {fighterId:'musashi',hostFighterId:'aquiles',playing:true});
+    {
+      const body = await (await call(matchPath,host.token,{playing:true})).json();
+      assert.equal(body.fighterId,'musashi');
+      assert.equal(body.hostFighterId,'aquiles');
+      assert.equal(body.playing,true);
+      assert.equal(typeof body.stageIdx,'number');
+      assert.equal(typeof body.seed,'number');
+      assert.equal(typeof body.stocks,'number');
+    }
     assert.equal((await call(fighterPath,guest.token,{fighterId:'bukele'})).status,409);
     assert.equal((await call(matchPath,host.token,{playing:false})).status,200);
     assert.equal((await call(fighterPath,guest.token,{fighterId:'bukele'})).status,200);

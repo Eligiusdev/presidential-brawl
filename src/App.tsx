@@ -46,13 +46,15 @@ export default function App() {
     const i2 = PRESIDENTS_DATA.findIndex((p) => p.id === 'robinson');
     return [i1 >= 0 ? i1 : 0, i2 >= 0 ? i2 : 3];
   });
-  const [remoteRoom, setRemoteRoom] = useState<RoomSession | null>(null);
+  const [hostRoom, setHostRoom] = useState<RoomSession | null>(null);
+  const [guestRoom, setGuestRoom] = useState<RoomSession | null>(null);
   const [remoteFighter, setRemoteFighter] = useState<string | null>(null);
   const [roomError, setRoomError] = useState('');
-  const remoteMatch = useRef<RoomSession | null>(null);
+  const remoteMatch = useRef<{ session: RoomSession; role: 'host' | 'guest' } | null>(null);
   const startingMatch = useRef(false);
+  const guestStarted = useRef('');
   const onHostRoom = useCallback((room: RoomSession | null, lobby: RoomLobby) => {
-    setRemoteRoom(room);
+    setHostRoom(room);
     setRemoteFighter(room ? lobby.fighterId : null);
     const index = PRESIDENTS_DATA.findIndex(f => f.id === lobby.fighterId);
     if (room && index >= 0) {
@@ -61,12 +63,46 @@ export default function App() {
       setRoomError('');
     }
   }, []);
+  const onGuestLobby = useCallback((room: RoomSession | null, lobby: RoomLobby) => {
+    setGuestRoom(room);
+    if (!room || !lobby.playing || !lobby.hostFighterId || !lobby.fighterId) {
+      if (!lobby.playing) guestStarted.current = '';
+      return;
+    }
+    const engine = engineRef.current;
+    if (!engine) return;
+    const key = `${room.code}:${lobby.seed}:${lobby.hostFighterId}:${lobby.fighterId}:${lobby.stageIdx}`;
+    if (guestStarted.current === key) return;
+    if (screenRef.current === 'PLAYING' || screenRef.current === 'PAUSED') return;
+    const player = PRESIDENTS_DATA.findIndex(f => f.id === lobby.hostFighterId);
+    const opponent = PRESIDENTS_DATA.findIndex(f => f.id === lobby.fighterId);
+    const stageIdx = typeof lobby.stageIdx === 'number' ? lobby.stageIdx : 0;
+    if (player < 0 || opponent < 0) {
+      setRoomError('Los dos jugadores deben elegir luchadores del plantel oficial.');
+      return;
+    }
+    guestStarted.current = key;
+    engine.campaign = null;
+    setCampaign(null);
+    setSummary(null);
+    setMode('versus');
+    remoteMatch.current = { session: room, role: 'guest' };
+    engine.startMatch(player, opponent, stageIdx, false, 'versus', undefined, {
+      seed: lobby.seed || 1,
+      matchConfig: { ...config.match, stocks: Math.max(1, Math.min(5, lobby.stocks || config.match.stocks)) },
+    });
+    engine.setRemoteControlled(0, true);
+    engine.setRemoteControlled(1, false);
+    setScreen('PLAYING');
+  }, [config.match]);
   useEffect(() => {
     if (screen === 'PLAYING' || screen === 'PAUSED' || !remoteMatch.current) return;
-    const room = remoteMatch.current;
+    const active = remoteMatch.current;
     remoteMatch.current = null;
-    void roomRequest(`/${room.code}/match`, room, { playing: false })
-      .catch(error => setRoomError(error.message));
+    if (active.role === 'host') {
+      void roomRequest(`/${active.session.code}/match`, active.session, { playing: false })
+        .catch(error => setRoomError(error.message));
+    }
   }, [screen]);
   const [stageSel, setStageSel] = useState<number>(0);
   const [vsAI, setVsAI] = useState<boolean>(true);
@@ -189,18 +225,22 @@ export default function App() {
     if (startingMatch.current) return;
     let opponent = sel[1];
     let player = sel[0];
-    if (remoteRoom) {
+    let network: { seed: number; matchConfig: typeof config.match } | undefined;
+    if (hostRoom) {
       startingMatch.current = true;
       setRoomError('');
       try {
-        const lobby: RoomLobby = await roomRequest(`/${remoteRoom.code}/match`, remoteRoom, { playing: true });
+        const seed = ((Math.floor(Math.random() * 0x7fffffff) || 1) >>> 0);
+        const matchConfig = { ...config.match };
+        const lobby: RoomLobby = await roomRequest(`/${hostRoom.code}/match`, hostRoom, { playing: true, stageIdx: stageSel, seed, stocks: matchConfig.stocks });
         opponent = PRESIDENTS_DATA.findIndex(f => f.id === lobby.fighterId);
         player = PRESIDENTS_DATA.findIndex(f => f.id === lobby.hostFighterId);
         if (opponent < 0 || player < 0) {
-          await roomRequest(`/${remoteRoom.code}/match`, remoteRoom, { playing: false });
+          await roomRequest(`/${hostRoom.code}/match`, hostRoom, { playing: false });
           throw new Error('Los dos jugadores deben elegir luchadores del plantel oficial.');
         }
-        remoteMatch.current = remoteRoom;
+        network = { seed: lobby.seed || seed, matchConfig: { ...matchConfig, stocks: Math.max(1, Math.min(5, lobby.stocks || matchConfig.stocks)) } };
+        remoteMatch.current = { session: hostRoom, role: 'host' };
       } catch (error) {
         setRoomError((error as Error).message);
         return;
@@ -210,9 +250,13 @@ export default function App() {
     setCampaign(null);
     setSummary(null);
     setMode('versus');
-    engine.startMatch(player, opponent, stageSel, remoteRoom ? false : vsAI, 'versus');
+    engine.startMatch(player, opponent, stageSel, hostRoom ? false : vsAI, 'versus', undefined, network);
+    if (hostRoom) {
+      engine.setRemoteControlled(0, false);
+      engine.setRemoteControlled(1, true);
+    }
     setScreen('PLAYING');
-  }, [sel, stageSel, vsAI, remoteRoom]);
+  }, [sel, stageSel, vsAI, hostRoom, config.match]);
 
   const startTraining = useCallback(() => {
     const engine = engineRef.current;
@@ -461,7 +505,8 @@ export default function App() {
   };
 
   const handleTouchAction = (action: PlayerAction, active: boolean) => {
-    engineRef.current?.setTouchAction(action, active);
+    const pi = remoteMatch.current?.role === 'guest' ? 1 : 0;
+    engineRef.current?.setTouchAction(action, active, pi);
   };
 
   const crtClass =
@@ -479,7 +524,10 @@ export default function App() {
       <NetworkPanel stage={stageSel} onStage={setStageSel} onStart={startVersus}
         hostError={roomError} showHostLobby={screen === 'TITLE' || screen === 'SELECT'}
         matchActive={!!remoteMatch.current && (screen === 'PLAYING' || screen === 'PAUSED')}
-        onHostRoom={onHostRoom} hideLaunch={screen !== 'TITLE' && screen !== 'SELECT'} canvas={canvasRef} onInput={(actions) => engineRef.current?.setRemoteActions(actions)} />
+        onHostRoom={onHostRoom} onGuestLobby={onGuestLobby}
+        hideLaunch={screen !== 'TITLE' && screen !== 'SELECT'}
+        getLocalActions={(pi) => engineRef.current?.getCurrentActions(pi) ?? []}
+        onInput={(actions, pi) => engineRef.current?.setRemoteActions(actions, pi)} />
       {/* 16:9 Isolated Pixel-Art Game Stage */}
       <div className={`apex-frame ${['TITLE', 'SELECT', 'CUSTOMIZE'].includes(screen) ? 'apex-frame-menu' : ''} ${['PLAYING', 'PAUSED', 'REPLAY'].includes(screen) ? 'apex-frame-combat' : ''} ${crtClass}`}>
         <div ref={arenaBackdropRef} className="apex-arena-backdrop" aria-hidden="true" />
@@ -510,9 +558,9 @@ export default function App() {
             vsAI={vsAI}
             config={config}
             hasReplay={Boolean(lastReplay)}
-            remoteOpponent={!!remoteRoom}
+            remoteOpponent={!!hostRoom}
             remoteReady={!!remoteFighter}
-            onChangeSel={next => setSel(current => remoteRoom ? [next[0], current[1]] : next)}
+            onChangeSel={next => setSel(current => hostRoom ? [next[0], current[1]] : next)}
             onChangeStage={(idx) => {
               setStageSel(idx);
               if (idx < STAGES_DATA.length) engineRef.current?.setStage(idx);
@@ -574,7 +622,7 @@ export default function App() {
               startVersus();
             }
           }}
-          onRematch={() => { if (remoteRoom) setScreen('SELECT'); else void startVersus(); }}
+          onRematch={() => { if (hostRoom) setScreen('SELECT'); else if (guestRoom) setScreen('SELECT'); else void startVersus(); }}
           onExitToSelect={() => {
             if (campaignTimerRef.current) window.clearTimeout(campaignTimerRef.current);
             engineRef.current?.startAttractScene();
