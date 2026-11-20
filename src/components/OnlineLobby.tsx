@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Check, Copy, Crown, LogOut, Map as MapIcon, Swords, Users, WifiOff } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
@@ -38,7 +38,6 @@ export function OnlineLobby({ room, slot, send, leave }: {
   const linkField = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<RegionFilter>('all');
   const [copied, setCopied] = useState(false);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const self = room.players[slot];
   const host = room.hostSlot === slot;
   const allReady = room.players.every(p => p?.ready && p.connected);
@@ -52,8 +51,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
     return list;
   }, [filter]);
 
-  const myPick = roster.find(f => f.id === self?.fighterId) || null;
-  const preview = roster.find(f => f.id === (hoveredId ?? self?.fighterId)) || filteredRoster[0] || roster[0];
+  const preview = roster.find(f => f.id === self?.fighterId) || filteredRoster[0] || roster[0];
   const artPath = fighterArtPath(preview);
   const moves = useMemo(() => movesFor(preview), [preview]);
   const ultimate = ultimateText(preview);
@@ -67,8 +65,8 @@ export function OnlineLobby({ room, slot, send, leave }: {
     ? [
         ['Ligero', moves.neutralAttack().name],
         ['Especial', moves.specialNeutral().name],
-        ['↑ Especial', moves.specialUp().name],
-        ['↓ Especial', moves.specialDown().name],
+        ['↑ Esp.', moves.specialUp().name],
+        ['↓ Esp.', moves.specialDown().name],
       ] as const
     : [['Signature', preview.sigName]] as const, [moves, preview]);
 
@@ -105,37 +103,38 @@ export function OnlineLobby({ room, slot, send, leave }: {
     </header>
 
     <div className="ob-main">
-      <section className="ob-preview" aria-label="Vista previa">
-        <div className="ob-hero"
+      <section className="ob-preview" aria-label="Vista previa del personaje">
+        <div className="ob-character-card"
           style={{
-            backgroundImage: artPath ? `linear-gradient(180deg,rgba(6,10,18,.15),rgba(6,10,18,.55) 45%,rgba(6,10,18,.96) 100%), url("${artPath}selection.webp")` : undefined,
+            backgroundImage: artPath ? `linear-gradient(180deg,rgba(5,9,16,.08) 0%,rgba(5,9,16,.18) 30%,rgba(6,11,20,.78) 60%,rgba(7,12,22,.98) 100%), url("${artPath}selection.webp")` : undefined,
             ['--accent' as any]: preview.palette.accent.base,
           }}>
           <div className="ob-hero-top">
-            <span className="ob-tag">{preview.id === self?.fighterId ? 'Tu selección' : hoveredId ? 'Vista previa' : 'Tu selección'}</span>
-            {preview.id === self?.fighterId && self?.ready && <span className="ob-tag ready"><Check className="h-3 w-3" />Listo</span>}
+            <span className="ob-tag">{self?.fighterId ? 'Tu selección' : 'Elige tu luchador'}</span>
+            {self?.ready && <span className="ob-tag ready"><Check className="h-3 w-3" />Listo</span>}
           </div>
           <div className="ob-hero-art">
             <FighterPreview president={preview} selected large />
           </div>
-          <div className="ob-hero-name">
-            <h3>{preview.name}</h3>
-            <p>{preview.title} · {preview.role}</p>
-          </div>
-        </div>
-
-        <div className="ob-stats-panel">
-          <div className="ob-quote">«{preview.taunt}»</div>
-          <div className="ob-bars">
-            {statBars.map(s => <div key={s.name} className="ob-bar-row">
-              <span className="ob-bar-label">{s.name}</span>
-              <div className="ob-bar-track"><div className="ob-bar-fill" style={{ width: `${Math.min(100, Math.round(s.val))}%`, background: s.color }} /></div>
-              <span className="ob-bar-val">{Math.round(s.val)}</span>
-            </div>)}
-          </div>
-          <div className="ob-moves">
-            {moveRows.map(([k, v]) => <div key={k} className="ob-move"><span className="ob-move-key">{k}</span><span className="ob-move-name">{v}</span></div>)}
-            <div className="ob-move ult"><span className="ob-move-key">Ultimate</span><span className="ob-move-name">{ultimate.name}</span></div>
+          <div className="ob-char-info">
+            <div className="ob-hero-name">
+              <h3>{preview.name}</h3>
+              <p>{preview.title} · {preview.role}</p>
+            </div>
+            <div className="ob-quote">«{preview.taunt}»</div>
+            <div className="ob-info-grid">
+              <div className="ob-bars">
+                {statBars.map(s => <div key={s.name} className="ob-bar-row">
+                  <span className="ob-bar-label">{s.name}</span>
+                  <div className="ob-bar-track"><div className="ob-bar-fill" style={{ width: `${Math.min(100, Math.round(s.val))}%`, background: s.color }} /></div>
+                  <span className="ob-bar-val">{Math.round(s.val)}</span>
+                </div>)}
+              </div>
+              <div className="ob-moves">
+                {moveRows.map(([k, v]) => <div key={k} className="ob-move"><span className="ob-move-key">{k}</span><span className="ob-move-name">{v}</span></div>)}
+                <div className="ob-move ult"><span className="ob-move-key">Ultimate</span><span className="ob-move-name">{ultimate.name}</span></div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -188,26 +187,11 @@ export function OnlineLobby({ room, slot, send, leave }: {
           </div>
           <p className="ob-stage-hazard">{stage.hazardMsg}</p>
         </div>
-
-        <div className="ob-actions">
-          <button type="button" disabled={!self?.fighterId}
-            onClick={() => { sound.uiClick(); send({ type: 'ready', ready: !self?.ready }); }}
-            className={`ob-ready ${self?.ready ? 'on' : ''}`}>
-            {self?.ready ? '✓ LISTO (cambiar)' : 'ESTOY LISTO'}
-          </button>
-          {host && <button type="button" disabled={!allReady}
-            onClick={() => { sound.uiConfirm(); send({ type: 'start' }); }}
-            className="ob-fight">¡PELEAR!</button>}
-          <p className="ob-status" role="status">
-            {allReady ? 'Todos listos. ¡A combatir!' : host ? 'Espera a que todos estén listos.' : 'Elige luchador y confirma.'}
-          </p>
-          {myPick && <div className="ob-my-mini"><PortraitCanvas president={myPick} className="h-8 w-8 rounded" /><span>Tu pick: <b>{myPick.name}</b></span></div>}
-        </div>
       </section>
 
-      <aside className="ob-roster" aria-label="Selector de personajes" onMouseLeave={() => setHoveredId(null)}>
+      <aside className="ob-roster" aria-label="Selector de personajes">
         <div className="ob-roster-head">
-          <h3>Selecciona tu luchador</h3>
+          <h3>Personajes</h3>
           <div className="ob-filters">
             {REGION_TABS.map(rt => <button key={rt.id} type="button" aria-pressed={filter === rt.id}
               onClick={() => { sound.uiClick(); setFilter(rt.id); }}>{rt.label}</button>)}
@@ -219,26 +203,35 @@ export function OnlineLobby({ room, slot, send, leave }: {
               .map((p, i) => p?.fighterId === d.id ? { slot: i, color: p.color || '#94a3b8', ready: p.ready, me: i === slot } : null)
               .filter((x): x is { slot: number; color: string; ready: boolean; me: boolean } => Boolean(x));
             const mine = pickers.some(p => p.me);
-            const shown = hoveredId === d.id || (!hoveredId && preview.id === d.id);
             const ring = mine ? '#ffcc33' : pickers[0]?.color;
             return <button key={d.id} type="button" role="option" aria-selected={mine}
-              className={`ob-tile ${mine ? 'mine' : ''} ${pickers.length ? 'taken' : ''} ${shown ? 'shown' : ''}`}
+              className={`ob-tile ${mine ? 'mine' : ''} ${pickers.length ? 'taken' : ''}`}
               style={ring ? { ['--ring' as any]: ring } : undefined}
-              onClick={() => pick(d.id)}
-              onMouseEnter={() => setHoveredId(d.id)}
-              onFocus={() => setHoveredId(d.id)}>
+              onClick={() => pick(d.id)}>
               <span className="ob-tile-art">
                 <FighterPreview president={d} selected={mine || pickers.length > 0} />
               </span>
               <span className="ob-tile-name">{d.name}</span>
               {mine && <span className="ob-tile-lock"><Check className="h-3 w-3" /></span>}
               {pickers.length > 0 && <span className="ob-tile-badges">
-                {pickers.map(p => <span key={p.slot} className="ob-badge" style={{ background: p.color }}>J{p.slot + 1}{p.me ? '' : ''}{p.ready ? '✓' : ''}</span>)}
+                {pickers.map(p => <span key={p.slot} className="ob-badge" style={{ background: p.color }}>J{p.slot + 1}{p.ready ? '✓' : ''}</span>)}
               </span>}
             </button>;
           })}
         </div>
-        <div className="ob-roster-foot">Verás las selecciones de los demás en tiempo real</div>
+        <div className="ob-roster-actions">
+          <button type="button" disabled={!self?.fighterId}
+            onClick={() => { sound.uiClick(); send({ type: 'ready', ready: !self?.ready }); }}
+            className={`ob-ready ${self?.ready ? 'on' : ''}`}>
+            {self?.ready ? '✓ LISTO (cambiar)' : 'ESTOY LISTO'}
+          </button>
+          {host && <button type="button" disabled={!allReady}
+            onClick={() => { sound.uiConfirm(); send({ type: 'start' }); }}
+            className="ob-fight">¡PELEAR!</button>}
+          <p className="ob-status" role="status">
+            {allReady ? 'Todos listos. ¡A combatir!' : host ? 'Espera a que todos estén listos.' : 'Elige luchador y confirma.'}
+          </p>
+        </div>
       </aside>
     </div>
   </section>;
