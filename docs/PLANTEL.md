@@ -1,6 +1,6 @@
 # Presidential Brawl · Plantel arcade
 
-Los 61 luchadores oficiales usan sprites en combate, en el selector y en la vista previa del editor. La base de esta entrega es la versión de Apex con el piloto de Aquiles y servidor de salas. En Combate Versus se puede seleccionar cualquier pareja, incluidos enfrentamientos entre dos copias del mismo personaje.
+Los 70 luchadores oficiales usan sprites en combate, en el selector y en la vista previa del editor. La base de esta entrega es la versión de Apex con el piloto de Aquiles y servidor de salas. En Combate Versus se puede seleccionar cualquier pareja, incluidos enfrentamientos entre dos copias del mismo personaje.
 
 ## Ejecutar
 

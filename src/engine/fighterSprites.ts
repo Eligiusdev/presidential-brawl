@@ -19,6 +19,7 @@ const rosterArt = new Set([
   'aquiles',
   'juana', 'espartaco', 'musashi', 'policarpa', 'wallace', 'elcid', 'ricaurte', 'simo',
   'abelardo', 'petro', 'uribe', 'santos', 'duque', 'bukele', 'sheinbaum',
+  'maduro', 'putin', 'obama', 'napoleon', 'antoinette', 'bathory', 'xiomara', 'diazcanel', 'ortega',
   'milei', 'trump', 'macron', 'noboa', 'kast', 'biden',
 ]);
 const CACHE_LIMIT = 6;

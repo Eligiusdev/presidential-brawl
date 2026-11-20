@@ -5,6 +5,15 @@ import { MOVE_NAMES } from './moveNames';
 // Las frases se leen de izquierda a derecha. La pausa crea una trampa de tiempo,
 // reverso cubre la espalda, suelo recorre el piso y arco describe una parábola.
 const repertoire = {
+  maduro: ["toque pausa bajo","arco reverso arco","gancho arco alto","suelo bajo pausa"],
+  putin: ["reverso gancho","punta pausa martillo","alto pausa gancho","bajo reverso barrido"],
+  obama: ["toque alto pausa","rayo arco suelo","gancho alto arco","rayo suelo bajo"],
+  napoleon: ["punta carga toque","carga pausa alto","carga alto gancho","reverso carga bajo"],
+  antoinette: ["alto toque bajo","arco alto arco","alto reverso arco","reverso bajo toque"],
+  bathory: ["reverso toque alto","reverso arco punta","gancho reverso alto","bajo pausa punta"],
+  xiomara: ["toque reverso carga","suelo arco alto","gancho suelo pausa","suelo reverso bajo"],
+  diazcanel: ["bajo toque reverso","suelo rayo arco","arco gancho pausa","suelo barrido reverso"],
+  ortega: ["martillo toque bajo","martillo arco suelo","gancho martillo alto","barrido martillo reverso"],
   washington: ['punta alto', 'carga pausa punta', 'alto punta', 'bajo reverso'],
   lincoln: ['martillo toque', 'alto martillo', 'gancho martillo', 'pausa barrido'],
   teddy: ['toque carga', 'carga carga martillo', 'gancho carga', 'bajo martillo'],
@@ -64,6 +73,15 @@ const repertoire = {
 };
 
 const labels = {
+  maduro: ["Pulso caribeño","Quiebre del Ávila","Compás de costa"],
+  putin: ["Paso de hielo","Ventisca alta","Guardia de nieve"],
+  obama: ["Apertura de Chicago","Nota ascendente","Réplica en tierra"],
+  napoleon: ["Finta de gala","Salto de vanguardia","Cruce del estandarte"],
+  antoinette: ["Toque de abanico","Pirouette de porcelana","Velo del jardín"],
+  bathory: ["Rosa de amatista","Ascenso de niebla","Sombra de terciopelo"],
+  xiomara: ["Brote de ceiba","Raíz ascendente","Trenza del valle"],
+  diazcanel: ["Paso del malecón","Crestería azul","Contracorriente cubana"],
+  ortega: ["Pisada de ceniza","Cresta de Momotombo","Vuelta volcánica"],
   washington: ['Toque de orden', 'Cruce del río', 'Retaguardia continental'],
   lincoln: ['Golpe de mazo', 'Alzada de la Unión', 'Surco abierto'],
   teddy: ['Hombro de bisonte', 'Carga de la colina', 'Pisada del parque'],

@@ -72,8 +72,8 @@ for (const fighter of PRESIDENTS_DATA) {
   assert.notEqual(frame(32), first, id + ' animación');
 }
 assert.deepEqual(new Set(Object.keys(atlas)), ids);
-assert.equal(sprites.size, 61);
-console.log('61 sprites de definitivas distintos, transparentes y animados.');
+assert.equal(sprites.size, ids.size);
+console.log(`${ids.size} sprites de definitivas distintos, transparentes y animados.`);
 
 const animatedRoot = new URL('../src/art/ultimates/', import.meta.url);
 const animatedFiles = readdirSync(animatedRoot).filter(file => /^ult_.*\.webp$/.test(file));

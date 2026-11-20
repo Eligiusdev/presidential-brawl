@@ -12,9 +12,20 @@ import { FighterPreview } from './FighterPreview';
 import { PortraitCanvas } from './PortraitCanvas';
 import { SelectionRail } from './SelectionRail';
 
-type RegionFilter = 'all' | PresidentRegion | 'current' | 'former' | 'mythic';
+type RegionFilter = 'new' | 'all' | PresidentRegion | 'current' | 'former' | 'mythic';
+
+const NEW_FIGHTERS = new Set(['maduro', 'putin', 'obama', 'napoleon', 'antoinette', 'bathory', 'xiomara', 'diazcanel', 'ortega']);
+
+function normalizeSearch(value: string) {
+  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+}
+
+function matchesSearch(fighter: PresidentData, query: string) {
+  return normalizeSearch(`${fighter.name} ${fighter.title}`).includes(normalizeSearch(query));
+}
 
 function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
+  if (filter === 'new') return NEW_FIGHTERS.has(fighter.id);
   if (filter === 'all') return true;
   if (filter === 'custom') return Boolean(fighter.isCustom);
   if (fighter.isCustom) return false;
@@ -24,8 +35,9 @@ function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
 
 const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
   { id: 'all', label: 'Todos' },
+  { id: 'new', label: 'Nuevos' },
   { id: 'current', label: 'Presidentes actuales' },
-  { id: 'former', label: 'Expresidentes recientes' },
+  { id: 'former', label: 'Expresidentes' },
   { id: 'mythic', label: 'Míticos' },
   { id: 'latam', label: 'Latinoamérica' },
   { id: 'na', label: 'Norteamérica' },
@@ -33,6 +45,44 @@ const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
   { id: 'af_as', label: 'África y Asia' },
   { id: 'custom', label: 'Propios' },
 ];
+
+function useRosterDisplay() {
+  const [query, setQuery] = useState('');
+  const [view, setView] = useState<'rail' | 'grid'>(() => {
+    try {
+      return localStorage.getItem('presidential-brawl.roster-view') === 'grid' ? 'grid' : 'rail';
+    } catch {
+      return 'rail';
+    }
+  });
+
+  return {
+    query, setQuery, view,
+    changeView(next: 'rail' | 'grid') {
+      setView(next);
+      try { localStorage.setItem('presidential-brawl.roster-view', next); } catch { /* vista temporal */ }
+    },
+  };
+}
+
+function RosterDisplay({ display }: { display: ReturnType<typeof useRosterDisplay> }) {
+  return (
+    <div className="roster-display">
+      <label>
+        Buscar luchador
+        <input type="search" value={display.query} onChange={e => display.setQuery(e.target.value)}
+          placeholder="Nombre o país" />
+      </label>
+      <label>
+        Vista del plantel
+        <select value={display.view} onChange={e => display.changeView(e.target.value === 'grid' ? 'grid' : 'rail')}>
+          <option value="rail">Carrusel</option>
+          <option value="grid">Cuadrícula</option>
+        </select>
+      </label>
+    </div>
+  );
+}
 
 interface CharacterSelectProps {
   roster: PresidentData[];
@@ -80,6 +130,8 @@ export function CharacterSelect({
   onBack,
 }: CharacterSelectProps) {
   const [activeSlot, setActiveSlot] = useState<0 | 1>(0);
+  const display = useRosterDisplay();
+  const { query, view } = display;
   const [regionFilter, setRegionFilter] = useState<RegionFilter>('all');
   const p1 = roster[sel[0]] || roster[0];
   const p2 = roster[sel[1]] || roster[0];
@@ -89,12 +141,12 @@ export function CharacterSelect({
 
   const filteredRoster = useMemo(() => {
     const mapped = roster.map((d, idx) => ({ d, idx }));
-    const filtered = mapped.filter(({ d }) => matchesFilter(d, regionFilter));
+    const filtered = mapped.filter(({ d }) => matchesFilter(d, regionFilter) && matchesSearch(d, query));
     if (regionFilter === 'current' || regionFilter === 'former') {
       filtered.sort((a, b) => (b.d.termStart ?? 0) - (a.d.termStart ?? 0));
     }
     return filtered;
-  }, [roster, regionFilter]);
+  }, [roster, regionFilter, query]);
 
   const pickPresident = (idx: number) => {
     sound.uiClick();
@@ -235,6 +287,8 @@ export function CharacterSelect({
             </button>}
           </div>
 
+          <RosterDisplay display={display} />
+
           {/* Region Filter Bar */}
           <div className="selector-filters flex items-center gap-1.5">
             {REGION_TABS.map((rt) => {
@@ -242,6 +296,7 @@ export function CharacterSelect({
               return (
                 <button
                   key={rt.id}
+                  aria-pressed={regionFilter === rt.id}
                   onClick={() => {
                     sound.uiClick();
                     setRegionFilter(rt.id);
@@ -259,7 +314,8 @@ export function CharacterSelect({
           </div>
 
           {/* Roster Grid (Built-in + Custom Fighters) */}
-          <SelectionRail label="Luchadores" variant="fighters" resetKey={regionFilter}>
+          {!filteredRoster.length && <p role="status">No se encontraron luchadores.</p>}
+          <SelectionRail label="Luchadores" variant="fighters" grid={view === 'grid'} resetKey={regionFilter + query}>
             {filteredRoster.map(({ d, idx }) => {
               const isP1 = sel[0] === idx;
               const isP2 = !campaignSelection && sel[1] === idx;
@@ -568,14 +624,19 @@ function FighterPreviewCard({
 
 export function OnlineRoster({ pickedId, onPick }: { pickedId: string | null; onPick: (id: string) => void }) {
   const [filter, setFilter] = useState<RegionFilter>('all');
+  const display = useRosterDisplay();
+  const fighters = PRESIDENTS_DATA.filter(fighter => matchesFilter(fighter, filter) && matchesSearch(fighter, display.query));
+  if (filter === 'current' || filter === 'former') fighters.sort((a, b) => (b.termStart ?? 0) - (a.termStart ?? 0));
   return <>
+    <RosterDisplay display={display} />
     <div className="selector-filters flex flex-wrap gap-1.5" aria-label="Filtrar luchadores">
       {REGION_TABS.filter(tab => tab.id !== 'custom').map(tab =>
         <button key={tab.id} type="button" aria-pressed={filter === tab.id}
           onClick={() => setFilter(tab.id)}>{tab.label}</button>)}
     </div>
-    <SelectionRail label="Luchadores" variant="fighters" resetKey={filter}>
-      {PRESIDENTS_DATA.filter(fighter => matchesFilter(fighter, filter)).map(fighter =>
+    {!fighters.length && <p role="status">No se encontraron luchadores.</p>}
+    <SelectionRail label="Luchadores" variant="fighters" grid={display.view === 'grid'} resetKey={filter + display.query}>
+      {fighters.map(fighter =>
         <button key={fighter.id} type="button" aria-pressed={pickedId === fighter.id} onClick={() => onPick(fighter.id)}>
           <FighterPreview president={fighter} selected={pickedId === fighter.id} />
           <span className="block truncate">{fighter.name}</span>

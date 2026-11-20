@@ -1,5 +1,14 @@
 // Golpe ligero, especial neutral, especial arriba y especial abajo.
 export const MOVE_NAMES: Readonly<Record<string, readonly [string, string, string, string] | undefined>> = {
+  maduro: ["Pulso caribeño","Acorde de Caracas","Quiebre del Ávila","Compás de costa"],
+  putin: ["Paso de hielo","Palma boreal","Ventisca alta","Guardia de nieve"],
+  obama: ["Apertura de Chicago","Onda de la tribuna","Nota ascendente","Réplica en tierra"],
+  napoleon: ["Finta de gala","Marcha del águila","Salto de vanguardia","Cruce del estandarte"],
+  antoinette: ["Toque de abanico","Salón de rosas","Pirouette de porcelana","Velo del jardín"],
+  bathory: ["Rosa de amatista","Reflejo velado","Ascenso de niebla","Sombra de terciopelo"],
+  xiomara: ["Brote de ceiba","Eco de las cinco estrellas","Raíz ascendente","Trenza del valle"],
+  diazcanel: ["Paso del malecón","Marea de La Habana","Crestería azul","Contracorriente cubana"],
+  ortega: ["Pisada de ceniza","Cúpula de obsidiana","Cresta de Momotombo","Vuelta volcánica"],
   kalam: ["Chispa de Propulsor","Vector Agni","Ignición PSLV","Escudo Atmosférico"],
   abelardo: ["Revés de Maletín","Objeción Fulminante","Ascenso de Estrado","Contrainterrogatorio"],
   lincoln: ["Golpe de mazo","Golpe de Emancipación","Alzada de la Unión","Surco abierto"],
