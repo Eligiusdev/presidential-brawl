@@ -1,10 +1,10 @@
 import { combatBalance, COMBAT_LIMITS, ultimateCategory, ULTIMATE_BUDGETS } from '../data/combatBalance';
-import { ultimateBox, ultimateDuration, ultimateFor, ultimatePoint, type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
+import { ultimateBox, ultimateFor, ultimateLaneHeight, ultimatePoint, pacedUltimateDuration, type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { movesFor } from '../combat/roster.js';
 import { activate, tickEffects, heel, shotTouches, strikeBox } from '../combat/effects.js';
 import { sound } from '../audio/soundEngine';
 import { PRESIDENTS_DATA } from '../data/presidents';
-import { STAGES_DATA } from '../data/stages';
+import { arenaGeometry, arenaCamera, STAGES_DATA, type RoomCapacity } from '../data/stages';
 import { stageArt, stageHazardColumns, stageStartsAtNight } from './stageAtmosphere';
 import {
   CampaignState,
@@ -321,6 +321,14 @@ export class GameEngine {
   private collision = new LegacyFighterGeometry();
   private renderer = new PixelRenderer();
   private keys: Record<string, boolean> = {};
+  private onlineCapacity: RoomCapacity | null = null;
+  private onlineSeed = 0;
+  private onlineInputs: readonly PlayerAction[][] = [];
+  private eliminated: number[] = [];
+  onOnlineEnd?: (standings: number[]) => void;
+  private onlineUltContacts = new WeakMap<RenderUltEffect, Map<number, { phase: number; dodged: boolean; stock: number }>>();
+  private blast = BZ;
+
   private remoteKeys: Partial<Record<PlayerAction, boolean>> = {};
   private touchKeys: Partial<Record<PlayerAction, boolean>> = {};
   private gpState = [false, false];
@@ -470,6 +478,7 @@ export class GameEngine {
     this.stage = STAGES_DATA[safeIdx];
     stageArt(this.stage.id, 'day');
     stageArt(this.stage.id, 'night');
+    this.blast = BZ;
     this.main = { ...this.stage.main };
     this.plats = this.stage.plats.map((p) => ({ ...p, by: p.y }));
   }
@@ -530,7 +539,8 @@ export class GameEngine {
     this.T = 0;
   }
 
-  startMatch(p1Idx: number, p2Idx: number, stageIdx: number, vsAI: boolean, mode: GameMode, campaignRound?: number) {
+  startMatch(p1Idx: number, p2Idx: number, stageIdx: number, vsAI: boolean, mode: GameMode, campaignRound?: number, matchSeed?: number) {
+    this.onlineCapacity = null;
     this.strikes = [];
     this.isReplaying = false;
     this.replayEnded = false;
@@ -538,7 +548,7 @@ export class GameEngine {
     this.matchCfgOverride = null;
     this.mode = mode;
 
-    const seed = (Math.floor(Math.random() * 0x7fffffff) || 1) >>> 0;
+    const seed = matchSeed ?? ((Math.floor(Math.random() * 0x7fffffff) || 1) >>> 0);
     this.rngState = seed;
     this.visRngState = (seed ^ 0x9e3779b9) >>> 0;
 
@@ -611,7 +621,51 @@ export class GameEngine {
     sound.resetMusic();
   }
 
+  startOnline(fighterIds: string[], stage: number, seed: number) {
+    const capacity = fighterIds.length;
+    if (capacity !== 2 && capacity !== 4 && capacity !== 6 && capacity !== 8) throw Error('Capacidad de sala inválida');
+    const indexes = fighterIds.map(id => this.roster.findIndex(d => d.id === id));
+    if (indexes.some(index => index < 0)) throw Error('Luchador inválido');
+    this.startMatch(indexes[0], indexes[1], stage, false, 'versus', undefined, seed);
+    this.onlineCapacity = capacity;
+    this.onlineSeed = seed;
+    this.currentMatchMeta = null;
+    this.onlineInputs = [];
+    this.eliminated = [];
+    const geometry = arenaGeometry(this.stage, capacity);
+    this.main = geometry.main;
+    this.plats = geometry.plats.map(p => ({ ...p, by: p.y }));
+    this.blast = geometry.blast;
+    this.fighters = indexes.map((index, slot) => {
+      const fighter = new FighterSim(slot, this.roster[index], false, this.activeMatchCfg);
+      const spawn = geometry.spawns[slot];
+      fighter.x = spawn.x - fighter.w / 2;
+      fighter.y = spawn.y - fighter.h;
+      fighter.face = spawn.x < this.main.x + this.main.w / 2 ? 1 : -1;
+      fighter.on = true;
+      fighter.pl = this.plats.find(p => p.y === spawn.y && spawn.x >= p.x && spawn.x <= p.x + p.w) ?? null;
+      return fighter;
+    });
+  }
+
+  stepOnline(inputs: PlayerAction[][]) {
+    this.onlineInputs = inputs;
+    this.step();
+    return this.T;
+  }
+
+  leaveOnline(slot: number) {
+    const fighter = this.fighters[slot];
+    if (this.onlineCapacity && fighter && fighter.stocks > 0) {
+      fighter.stocks = 0;
+      fighter.dead = 9999;
+      fighter.atk = null;
+      this.eliminated.push(slot);
+    }
+  }
+
   startReplay(replay: MatchReplayData) {
+    this.onlineCapacity = null;
     this.isReplaying = true;
     this.replayEnded = false;
     this.replayData = replay;
@@ -1167,7 +1221,7 @@ export class GameEngine {
     dir: number, source = 'other', contact?: {x:number;y:number;w:number;h:number}, pierce = false
   ): boolean {
     if (f.inv > 0 || f.dead > 0) return false;
-    const counter = this.ults.find(u => (!f.balance || !d.ult) && u.f === f && u.o === o &&
+    const counter = this.ults.find(u => (!f.balance || !d.ult) && u.f === f && (this.onlineCapacity || u.o === o) &&
       u.specialized?.ultimate.spec.primitive === 'counterStance' && !u.specialized.triggered);
     if (counter?.specialized && !(f.balance && counter.kind === 'ult_macron')) {
       counter.specialized.triggered = true;
@@ -1281,7 +1335,7 @@ export class GameEngine {
 
   private specializedUltimate(f: FighterSim) {
     if (this.replayData && this.replayData.version <= 5) return undefined;
-    const ultimate = ultimateFor(f.d);
+    const ultimate = ultimateFor(f.d, !this.replayData || this.replayData.version >= 8, !this.replayData || this.replayData.version >= 9);
     if (!ultimate || !f.balance) return ultimate;
     const category = ultimateCategory(f.d.id);
     const budget = ULTIMATE_BUDGETS[category];
@@ -1295,6 +1349,20 @@ export class GameEngine {
   }
 
   private ultimateOrigin(ultimate: PresidentUltimate, f: FighterSim, o: FighterSim) {
+    const travel = ultimate.profile.travel;
+    if (travel === 'sweep' || travel === 'lane') {
+      const left = this.main.x - 70;
+      const right = this.main.x + this.main.w + 70;
+      const face = f.face < 0 ? -1 : 1;
+      return { x: face > 0 ? left : right, endX: face > 0 ? right : left,
+        y: this.main.y - (ultimateLaneHeight(ultimate.spec.id) ?? (ultimate.spec.id === 'ult_robinson' ? 108 : 50)), face };
+    }
+    if (travel === 'cavalry') {
+      const edge = f.w / 2;
+      const start = clamp(f.cx, this.main.x + edge, this.main.x + this.main.w - edge);
+      const endX = clamp(start + f.face * 435, this.main.x + edge, this.main.x + this.main.w - edge);
+      return { x: start, endX, y: this.main.y - f.h / 2, face: f.face };
+    }
     const anchor = ultimate.profile.anchor;
     if (f.balance && f.d.id === 'simo') {
       return { x: o.cx, y: o.y + o.h * .5, face: f.face };
@@ -1319,7 +1387,12 @@ export class GameEngine {
     const ultimate = this.specializedUltimate(f);
     if (ultimate) {
       const origin = markedOrigin ?? this.ultimateOrigin(ultimate, f, o);
-      const samples = ultimate.profile.route.length;
+      if (origin.endX !== undefined && ultimate.profile.travel !== 'lane') {
+        const a = ultimateBox(ultimate, ultimatePoint(ultimate, origin, 0));
+        const b = ultimateBox(ultimate, ultimatePoint(ultimate, origin, 1));
+        return [{ ...a, x: Math.min(a.x, b.x), w: a.w + Math.abs(a.x - b.x) }];
+      }
+      const samples = ultimate.profile.tempo ? Math.max(6, ultimate.profile.route.length) : ultimate.profile.route.length;
       return Array.from({ length: samples }, (_, i) => ultimateBox(
         ultimate, ultimatePoint(ultimate, origin, i / Math.max(1, samples - 1))
       ));
@@ -1392,11 +1465,11 @@ export class GameEngine {
   private fireUlt(f: FighterSim, o: FighterSim, markedOrigin?: UltimateOrigin) {
     const ultimate = this.specializedUltimate(f);
     if (ultimate) {
-      if (f.dead > 0 || o.dead > 0) return;
+      if (f.dead > 0 || (!this.onlineCapacity && o.dead > 0)) return;
       const origin = markedOrigin ?? this.ultimateOrigin(ultimate, f, o);
       const point = ultimatePoint(ultimate, origin, 0);
       this.ults.push({
-        kind: ultimate.spec.id, f, o, t: 0, dur: ultimateDuration(ultimate.spec),
+        kind: ultimate.spec.id, f, o, t: 0, dur: pacedUltimateDuration(ultimate, origin),
         specialized: { ultimate, origin, point, box: ultimateBox(ultimate, point),
           originStock: f.stocks, targetStock: o.stocks,
           contact: -1, triggered: ultimate.spec.primitive !== 'counterStance' || Boolean(f.balance && f.d.id === 'macron'),
@@ -1454,7 +1527,7 @@ export class GameEngine {
     const state = u.specialized!;
     const { ultimate, origin } = state;
     const { spec, profile } = ultimate;
-    if (f.dead > 0 || f.stocks !== state.originStock || o.stocks !== state.targetStock) {
+    if (f.dead > 0 || f.stocks !== state.originStock || (!this.onlineCapacity && o.stocks !== state.targetStock)) {
       u.t = u.dur;
       return;
     }
@@ -1476,6 +1549,10 @@ export class GameEngine {
 
     const previous = state.point;
     const progress = u.t / u.dur;
+    if (profile.travel === 'cavalry' && f.stun > 0) {
+      u.t = u.dur;
+      return;
+    }
     const dash = spec.primitive === 'dashStrike';
     if (!macron) {
       state.point = ultimatePoint(ultimate, origin, progress);
@@ -1483,7 +1560,7 @@ export class GameEngine {
     }
 
     if (dash && f.stun <= 0) {
-      const travel = profile.flags.includes('speed') ? 23 : 17;
+      const travel = profile.travel === 'cavalry' ? 24 : profile.flags.includes('speed') ? 23 : 17;
       const x = clamp(state.point.x, this.main.x + f.w / 2, this.main.x + this.main.w - f.w / 2);
       const y = Math.min(state.point.y, this.main.y - f.h / 2);
       f.x += clamp(x - f.cx, -travel, travel);
@@ -1498,31 +1575,66 @@ export class GameEngine {
 
     const phase = Math.min(spec.hits - 1, Math.floor(progress * spec.hits));
     const instant = f.balance && (f.d.id === 'simo' || f.d.id === 'ricaurte');
-    const damageActive = instant || (spec.hits === 1 ? progress >= .65 : progress * spec.hits - phase >= .25);
+    const followsBody = profile.tempo && ['dashStrike', 'spawnEntity', 'spawnProjectile'].includes(spec.primitive);
+    const damageActive = instant || Boolean(profile.travel || followsBody) ||
+      (spec.hits === 1 ? progress >= (profile.tempo ? .38 : .65) : progress * spec.hits - phase >= (profile.tempo ? .12 : .25));
     state.active = Boolean(macron || damageActive);
     const projectile = spec.primitive === 'spawnProjectile' && f.balance && !instant;
-    const hitBox = projectile ? {
+    const hitBox = projectile || profile.travel || followsBody ? {
       x: Math.min(state.box.x, previous.x - state.box.w / 2),
       y: Math.min(state.box.y, previous.y - state.box.h / 2),
       w: state.box.w + Math.abs(state.point.x - previous.x),
       h: state.box.h + Math.abs(state.point.y - previous.y),
     } : state.box;
-    if (!damageActive || phase === state.contact || o.dead > 0 || !ov(hitBox, o)) return;
+    if (!damageActive) return;
+    const rivals = this.onlineCapacity ? this.fighters.filter(target => target !== f) : [o];
+    for (const target of rivals) {
+      if (target.dead > 0 || target.stocks <= 0 || !ov(hitBox, target)) continue;
+      this.contactUltimate(u, f, target, phase, Math.sign(state.point.x - previous.x));
+    }
+  }
 
-    const toward = Math.sign(state.point.x - previous.x);
+  private contactUltimate(u: RenderUltEffect, f: FighterSim, o: FighterSim, phase: number, toward: number) {
+    const state = u.specialized!;
+    const { ultimate: { spec, profile }, origin } = state;
+    let contacts = this.onlineUltContacts.get(u);
+    if (this.onlineCapacity && !contacts) {
+      contacts = new Map();
+      this.onlineUltContacts.set(u, contacts);
+    }
+    let contact = contacts?.get(o.pi);
+    if (contacts && (!contact || contact.stock !== o.stocks)) {
+      contact = { phase: -1, dodged: false, stock: o.stocks };
+      contacts.set(o.pi, contact);
+    }
+    if ((contact?.phase ?? state.contact) === phase || contact?.dodged) return;
+    if (contact && o.dashT > 0) {
+      contact.dodged = true;
+      this.perfectDodge(o);
+      return;
+    }
+
     const dir = toward || (o.cx >= origin.x ? 1 : -1);
     const finished = phase === spec.hits - 1;
     const category = f.balance ? ultimateCategory(f.d.id) : undefined;
-    const angle = category === 'zone' ? (finished ? -45 : -20)
+    const angle = profile.travel === 'cavalry' ? -27 : profile.travel === 'sweep' && spec.id === 'ult_lincoln' ? -38
+      : category === 'zone' ? (finished ? -45 : -20)
       : category === 'sweep' ? -23 : profile.shape === 'beam' ? -75 : profile.shape === 'ground' ? -32 : -46;
     // The design's knockback is in pixels per second. The engine uses pixels per tick.
     let damage = spec.damage / spec.hits;
     if (f.balance && f.d.id === 'simo' && Math.hypot(o.cx - f.cx, o.y - f.y) > 240) damage = 22;
     if (f.balance && f.d.id === 'nyerere' && finished) damage += 3 * Math.min(3, phase + 1);
     const scale = phase === spec.hits - 1 ? 1 : .45;
-    if (!this.ultHit(u, angle, dir, { dmg: damage, bk: spec.knockback * scale / 60 })) return;
-    state.contact = phase;
-    if (u.dg) return;
+    const bk = spec.knockback * scale / 60;
+    const applied = contact
+      ? this.hurt(o, f, { dmg: damage, bk, ks: .5, ang: angle, heavy: true, ult: true }, dir)
+      : this.ultHit(u, angle, dir, { dmg: damage, bk });
+    if (!applied) return;
+    if (contact) contact.phase = phase;
+    else {
+      state.contact = phase;
+      if (u.dg) return;
+    }
     state.landed = true;
     if (f.balance && f.d.id === 'mandela' && !f.healedThisStock) {
       f.pct = Math.max(0, f.pct - 8);
@@ -1533,7 +1645,12 @@ export class GameEngine {
       o.stun = Math.max(o.stun, 28);
       o.maxStun = Math.max(o.maxStun, o.stun);
     }
-    if (profile.flags.includes('pull') && !(category === 'zone' && finished)) o.vx = clamp((origin.x - o.cx) * .13, -12, 12);
+    if (profile.flags.includes('pull') && !profile.travel && !(category === 'zone' && finished)) {
+      o.vx = clamp((origin.x - o.cx) * .13, -12, 12);
+    }
+    if (profile.travel === 'sweep' && spec.id === 'ult_robinson' && !finished) {
+      o.vx = clamp(dir * 7 + (state.point.x - o.cx) * .06, -10, 10);
+    }
     this.burst(state.point.x, state.point.y, spec.colors[1], 8, 4);
   }
 
@@ -1727,7 +1844,9 @@ export class GameEngine {
           ? this.readAIInput(f, o)
           : f.trainingDummy
             ? { ...EMPTY_INPUT }
-            : this.readHumanInput(f.pi);
+            : this.onlineCapacity
+              ? actionsToInput(this.onlineInputs[f.pi] ?? [])
+              : this.readHumanInput(f.pi);
     }
     const just: InputFrame = {
       left: i.left && !f.prevIn.left,
@@ -2343,19 +2462,18 @@ export class GameEngine {
         const r = f.rect(p.hb, f.wpn > 0 && f.wk === 'case' && sp.k === 'l');
         this.debugHitboxes.push({ ...r, kind: sp.k });
         const key = `${idx}:${p.every ? Math.floor((t - p.a[0]) / p.every) : 0}`;
-        if (a.hits[key]) return;
-        if (ov(r, o)) {
+        const targets = this.onlineCapacity ? this.fighters.filter(target => target !== f && target.dead <= 0) : [o];
+        for (const target of targets) {
+          const entry = this.onlineCapacity ? `${key}:${target.pi}` : key;
+          if (a.hits[entry] || !ov(r, target)) continue;
           const dmgBoost = f.wpn > 0 && f.wk === 'case' && sp.k === 'l' ? 1.35 : 1;
           const hitSpec = {
             dmg: (p.dmg || 4) * dmgBoost,
-            bk: p.bk || 3,
-            ks: p.ks || 0.1,
-            ang: p.ang ?? -25,
-            heavy: Boolean(sp.heavy && !p.every),
-            every: p.every,
+            bk: p.bk || 3, ks: p.ks || 0.1, ang: p.ang ?? -25,
+            heavy: Boolean(sp.heavy && !p.every), every: p.every,
           };
           const hitDir = sp.moveKind === 'bair' ? -f.face : f.face;
-          if (this.hurt(o, f, hitSpec, hitDir, 'melee', r)) a.hits[key] = true;
+          if (this.hurt(target, f, hitSpec, hitDir, 'melee', r)) a.hits[entry] = true;
         }
       });
 
@@ -2497,7 +2615,7 @@ export class GameEngine {
     }
 
     // Blast zone KO check (skip if match already decided so winner cannot die during victory pose)
-    if (!this.winner && (f.cx < BZ.l || f.cx > BZ.r || f.y < BZ.t || f.y > BZ.b)) {
+    if (!this.winner && (f.cx < this.blast.l || f.cx > this.blast.r || f.y < this.blast.t || f.y > this.blast.b)) {
       this.triggerKO(f, o);
     }
   }
@@ -2536,6 +2654,7 @@ export class GameEngine {
 
     if (this.mode !== 'training') {
       f.stocks--;
+      if (this.onlineCapacity && f.stocks <= 0) this.eliminated.push(f.pi);
     } else {
       f.stocks = 99;
     }
@@ -2745,7 +2864,7 @@ export class GameEngine {
     for (const f of this.fighters) {
       const a = f.atk;
       if (!a?.spec.individual || f.dead > 0) continue;
-      const o = this.fighters[1-f.pi];
+      const rivals = this.onlineCapacity ? this.fighters.filter(o => o !== f) : [this.fighters[1-f.pi]];
       a.spec.ph.forEach((p,idx) => {
         if (!p.hb || a.t<p.a[0] || a.t>p.a[1]) return;
         const boosted = a.spec.k==='l' && f.wpn>0 && f.wk==='case';
@@ -2755,12 +2874,15 @@ export class GameEngine {
           weapon:f.d.id==='alejandro'?'sarissa':f.d.anatomy.weaponType,
           direction:p.rear?-f.face:f.face});
         this.debugHitboxes.push({...box,kind:a.spec.k});
-        if (a.hits[idx] || o.dead || !this.collision.bodyTouches(o,this.T,box)) return;
         const dir = p.rear ? -f.face : f.face;
         const hit = {dmg:(p.dmg ?? 4)*(a.spec.balanced ? 1 : f.S.power)*(boosted?1.35:1),bk:p.bk ?? 3,ks:p.ks ?? .12,ang:p.ang ?? -30,heavy:a.spec.heavy};
-        contacts.push(() => {
-          if(this.hurt(o,f,hit,dir,'melee',box,a.spec.pierce)) a.hits[idx]=true;
-        });
+        for (const o of rivals) {
+          const key = this.onlineCapacity ? `${idx}:${o.pi}` : idx;
+          if (a.hits[key] || o.dead || !this.collision.bodyTouches(o, this.T, box)) continue;
+          contacts.push(() => {
+            if (this.hurt(o, f, hit, dir, 'melee', box, a.spec.pierce)) a.hits[key] = true;
+          });
+        }
       });
     }
     contacts.forEach(resolve=>resolve());
@@ -2840,7 +2962,7 @@ export class GameEngine {
               p.hit = 1;
               if (p.kind !== 'wall' && p.kind !== 'bars') p.life = 0;
             }
-            break;
+            if (!this.onlineCapacity) break;
           }
         }
       }
@@ -2857,7 +2979,7 @@ export class GameEngine {
           shape: 'diamond',
         });
       }
-      if (p.life <= 0 || p.x < -120 || p.x > W + 120 || p.y > H + 120) {
+      if (p.life <= 0 || p.x < this.blast.l + 60 || p.x > this.blast.r - 60 || p.y > this.blast.b - 60) {
         this.projectiles.splice(i, 1);
       }
     }
@@ -2881,7 +3003,7 @@ export class GameEngine {
   }
 
   step(isAttract = false) {
-    if (!isAttract && !this.isReplaying) this.pollGamepads(true);
+    if (!this.onlineCapacity && !isAttract && !this.isReplaying) this.pollGamepads(true);
 
     // Particles & Floating text
     for (const pt of this.particles) {
@@ -2940,7 +3062,7 @@ export class GameEngine {
         const ultimate = this.specializedUltimate(c.f);
         const origin = ultimate ? this.ultimateOrigin(ultimate, c.f, c.o) : undefined;
         const duration = c.f.balance && ultimate
-          ? ({ simo: 42, ricaurte: 39 }[c.f.d.id] ?? ULTIMATE_BUDGETS[ultimateCategory(c.f.d.id)].startup)
+          ? ({ simo: 42, ricaurte: 39 }[c.f.d.id] ?? ultimate.profile.tempo?.startup ?? ULTIMATE_BUDGETS[ultimateCategory(c.f.d.id)].startup)
           : 20;
         this.telegraph = { f: c.f, o: c.o, t: 0, duration, ultimateId: ultimate?.spec.id, origin,
           zones: this.getUltZones(c.f, c.o, origin) };
@@ -2990,12 +3112,22 @@ export class GameEngine {
       this.gravityFactor = this.replayData?.version === 6 ? this.gravityFactor * .5 : .5;
     }
     if (this.fighters.length >= 2) {
-      this.updateFighter(this.fighters[0], this.fighters[1]);
-      this.updateFighter(this.fighters[1], this.fighters[0]);
+      if (this.onlineCapacity) {
+        for (const fighter of this.fighters) {
+          const rivals = this.fighters.filter(other => other !== fighter && other.stocks > 0 && other.dead <= 0);
+          const opponent = rivals.reduce<FighterSim | undefined>((nearest, other) =>
+            !nearest || Math.hypot(other.cx - fighter.cx, other.y - fighter.y) <
+            Math.hypot(nearest.cx - fighter.cx, nearest.y - fighter.y) ? other : nearest, undefined);
+          this.updateFighter(fighter, opponent ?? this.fighters.find(other => other !== fighter)!);
+        }
+      } else {
+        this.updateFighter(this.fighters[0], this.fighters[1]);
+        this.updateFighter(this.fighters[1], this.fighters[0]);
+      }
       for (const f of this.fighters) if (f.rage) f.heelBox=this.collision.rearHeel(f,this.T);
       this.resolveIndividualStrikes();
 
-      if (!isAttract && !this.isReplaying && this.mode !== 'training') {
+      if (!this.onlineCapacity && !isAttract && !this.isReplaying && this.mode !== 'training') {
         const p1Acts = inputToActions(this.fighters[0].curIn);
         const p2Acts = inputToActions(this.fighters[1].curIn);
         const p1Key = p1Acts.join(',');
@@ -3032,6 +3164,16 @@ export class GameEngine {
     // Music tick
     const danger = this.fighters.some((f) => f.stocks === 1 || f.pct > 150);
     sound.tickMusic(danger);
+
+    if (this.onlineCapacity) {
+      const alive = this.fighters.filter(fighter => fighter.stocks > 0);
+      if (alive.length <= 1 && !this.winner) {
+        this.winner = alive[0] ?? this.fighters[this.eliminated[this.eliminated.length - 1]];
+        const order = [...alive.map(f => f.pi), ...this.eliminated.slice().reverse()];
+        this.onOnlineEnd?.([...new Set([...order, ...this.fighters.map(f => f.pi)])]);
+      }
+      return;
+    }
 
     // Win check
     if (this.mode !== 'training') {
@@ -3089,7 +3231,7 @@ export class GameEngine {
         };
         if (this.currentMatchMeta) {
           const replay: MatchReplayData = {
-            version: 7,
+            version: 9,
             recordedAt: new Date().toISOString(),
             seed: this.currentMatchMeta.seed,
             mode: this.mode,
@@ -3111,12 +3253,14 @@ export class GameEngine {
   }
 
   get stageNightStart() {
-    return stageStartsAtNight(this.replayData?.seed ?? this.currentMatchMeta?.seed ?? 0);
+    return stageStartsAtNight(this.onlineCapacity ? this.onlineSeed : this.replayData?.seed ?? this.currentMatchMeta?.seed ?? 0);
   }
 
-  render(targetCanvas: HTMLCanvasElement) {
-    const world: WorldRenderContext = {
+  worldSnapshot(): WorldRenderContext {
+    return {
       T: this.T,
+      online: this.onlineCapacity ?? undefined,
+      camera: this.onlineCapacity ? arenaCamera(this.fighters, this.onlineCapacity) : undefined,
       W,
       H,
       stage: this.stage,
@@ -3142,7 +3286,10 @@ export class GameEngine {
       winnerPi: this.winner ? this.winner.pi : null,
       hitboxes: this.debugHitboxes, strikes:this.strikes,
     };
-    this.renderer.renderWorld(targetCanvas, world, this.config);
+  }
+
+  render(targetCanvas: HTMLCanvasElement) {
+    this.renderer.renderWorld(targetCanvas, this.worldSnapshot(), this.config);
   }
 
   getHudSnapshot(): HudSnapshot {
