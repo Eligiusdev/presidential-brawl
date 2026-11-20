@@ -9,7 +9,7 @@ const keyboard: Record<string, PlayerAction> = {
 };
 const FRAME_INTERVAL = 62;
 
-export function NetworkPanel({canvas,onInput}:{canvas:RefObject<HTMLCanvasElement|null>;onInput:(actions:PlayerAction[])=>void}) {
+export function NetworkPanel({canvas,onInput,hideLaunch}:{hideLaunch?:boolean;canvas:RefObject<HTMLCanvasElement|null>;onInput:(actions:PlayerAction[])=>void}) {
   const [open,setOpen]=useState(()=>new URLSearchParams(location.search).has('room'));
   const [code,setCode]=useState(()=>new URLSearchParams(location.search).get('room')||'');
   const [session,setSession]=useState<RoomSession|null>(null);
@@ -94,13 +94,13 @@ export function NetworkPanel({canvas,onInput}:{canvas:RefObject<HTMLCanvasElemen
   const connect=async(host:boolean)=>{setBusy(true);setError('');try{setSession(await roomRequest(host?'':`/${code.trim().toUpperCase()}/join`));}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
   const leave=async()=>{if(!session)return;setBusy(true);try{await roomRequest(`/${session.code}`,session,undefined,'DELETE');setSession(null);setGuestConnected(false);held.current.clear(); touchHeld.current.clear();setImage('');inputCallback.current([]);}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
   const press=(action:PlayerAction,active:boolean)=>{if(!session)return;if(active)touchHeld.current.add(action);else touchHeld.current.delete(action);send(session,activeActions());};
-  if(!open)return <button className="network-launch" onClick={()=>setOpen(true)}>Jugar en línea</button>;
+  if(!open)return hideLaunch ? null : <button className="network-launch" onClick={()=>setOpen(true)}>Jugar en línea</button>;
   const link=session?`${location.origin}${import.meta.env.BASE_URL}?room=${session.code}`:'';
   return <section className={`network-panel ${session?.role==='guest'?'network-controller':''}`} aria-label="Sala en línea">
     <div className="network-heading"><strong>APEX · SALA EN LÍNEA</strong>{session?.role!=='guest'&&<button aria-label="Cerrar panel" onClick={()=>setOpen(false)}>×</button>}</div>
     {!session?<><p>Crea un duelo para dos jugadores y comparte el enlace con tu rival.</p><button disabled={busy} onClick={()=>connect(true)}>Crear sala</button><label>Código de sala<input value={code} maxLength={10} onChange={e=>setCode(e.target.value.toUpperCase())} autoCapitalize="characters" placeholder="Código de 10 caracteres"/></label><button disabled={busy||code.trim().length!==10} onClick={()=>connect(false)}>Conectar como J2</button></>:<>
       <p>Sala <strong>{session.code}</strong> · {session.role==='host'?'Equipo principal':'Mando J2'}</p>
-      {session.role==='host'?<><p>Comparte el enlace y comienza una partida J1 vs J2. Mantén esta pestaña visible. {guestConnected?'J2 conectado.':'Esperando a J2.'}</p><input readOnly aria-label="Enlace de invitación" value={link} onFocus={e=>e.target.select()}/><button onClick={()=>navigator.clipboard?.writeText(link).catch(()=>setError('Selecciona y copia el enlace.'))}>Copiar enlace</button></>:<><p>El anfitrión inicia la partida. Usa los controles táctiles o las flechas y U, I, O, M y /.</p>{image?<img src={image} alt="Partida en el equipo principal" draggable={false}/>:<p>Esperando imagen del equipo principal…</p>}<TouchControls inline onAction={press} /></>}
+      {session.role==='host'?<><p>Comparte el enlace y comienza una partida J1 vs J2. Mantén esta pestaña visible. {guestConnected?'J2 conectado.':'Esperando a J2.'}</p><input readOnly aria-label="Enlace de invitación" value={link} onFocus={e=>e.target.select()}/><button onClick={()=>navigator.clipboard?.writeText(link).catch(()=>setError('Selecciona y copia el enlace.'))}>Copiar enlace</button></>:<><p>El anfitrión inicia la partida. Usa los controles táctiles o las flechas y U, I, O, M y /.</p>{image?<img src={image} alt="Partida en el equipo principal" draggable={false}/>:<p className="network-wait">Esperando imagen del equipo principal…</p>}<TouchControls inline onAction={press} /></>}
       <button disabled={busy} onClick={leave}>Salir de la sala</button>
     </>}
     {error&&<p role="alert" className="network-error">{error}</p>}

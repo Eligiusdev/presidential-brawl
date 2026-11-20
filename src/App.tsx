@@ -1,3 +1,4 @@
+import { LandscapePrompt } from './components/LandscapePrompt';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sound } from './audio/soundEngine';
 import { NetworkPanel } from './components/NetworkPanel';
@@ -410,14 +411,15 @@ export default function App() {
 
   return (
     <main className="apex-app">
-      <NetworkPanel canvas={canvasRef} onInput={(actions) => engineRef.current?.setRemoteActions(actions)} />
+      <LandscapePrompt />
+      <NetworkPanel hideLaunch={['PLAYING', 'PAUSED', 'REPLAY'].includes(screen)} canvas={canvasRef} onInput={(actions) => engineRef.current?.setRemoteActions(actions)} />
       {/* 16:9 Isolated Pixel-Art Game Stage */}
-      <div className={`apex-frame ${['TITLE', 'SELECT', 'CUSTOMIZE'].includes(screen) ? 'apex-frame-menu' : ''} ${crtClass}`}>
+      <div className={`apex-frame ${['TITLE', 'SELECT', 'CUSTOMIZE'].includes(screen) ? 'apex-frame-menu' : ''} ${['PLAYING', 'PAUSED', 'REPLAY'].includes(screen) ? 'apex-frame-combat' : ''} ${crtClass}`}>
         <canvas
           ref={canvasRef}
           width={960}
           height={540}
-          className="pixel-canvas block h-full w-full object-contain"
+          className="apex-arena pixel-canvas block h-full w-full object-contain"
         />
 
         {screen === 'TITLE' && (

@@ -107,9 +107,9 @@ export function GameHUD({
     <>
       {/* Active Playing / Replay HUD (pointer-events-none, zero backdrop-filter over canvas) */}
       {(screen === 'PLAYING' || screen === 'PAUSED' || isReplay) && hud && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-3 sm:p-4">
+        <div className="match-hud pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-3 sm:p-4">
           {/* Top Bar: Match Timer + Live Stage Switcher + Hazard Alert + Quick Controls */}
-          <div className="flex items-start justify-between gap-2 sm:gap-3">
+          <div className="match-toolbar flex items-start justify-between gap-2 sm:gap-3">
             <div className="relative flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2.5 rounded-lg border border-[#2c3959] bg-[#0c1224]/88 px-3 py-1.5 text-xs font-semibold text-[#e2e8f0] shadow-[0_4px_14px_rgba(8,12,26,0.5)]">
                 {isReplay && lastReplay ? (
@@ -365,7 +365,7 @@ export function GameHUD({
           </div>
 
           {/* Minimalist Reactive Bottom Fighter Status Plates */}
-          <div className={`flex items-end justify-between gap-3 ${showTouch ? 'mb-28 sm:mb-2' : ''}`}>
+          <div className="match-fighter-cards flex items-end justify-between gap-3">
             {hud.fighters.map((f) => {
               const pres = roster.find((p) => p.id === f.id) || roster[0];
               const ultReady = f.vote >= 100;
@@ -383,7 +383,7 @@ export function GameHUD({
               return (
                 <div
                   key={f.pi}
-                  className={`flex w-[210px] sm:w-[264px] flex-col gap-1.5 rounded-xl border bg-[#0c1224]/84 p-2 sm:p-2.5 transition-transform duration-100 ${
+                  className={`match-fighter-card flex w-[210px] sm:w-[264px] flex-col gap-1.5 rounded-xl border bg-[#0c1224]/84 p-2 sm:p-2.5 transition-transform duration-100 ${
                     hitActive ? 'scale-[1.02]' : ''
                   }`}
                   style={{
@@ -400,7 +400,7 @@ export function GameHUD({
                           boxShadow: ultReady ? '0 0 10px rgba(255, 204, 51, 0.45)' : undefined,
                         }}
                       >
-                        <PortraitCanvas president={pres} className="h-11 w-11 sm:h-12 sm:w-12" />
+                        <PortraitCanvas president={pres} className="match-portrait h-11 w-11 sm:h-12 sm:w-12" />
                       </div>
                       <div className="min-w-0">
                         <div className="truncate font-display text-xs font-bold text-white sm:text-sm leading-tight">
@@ -445,7 +445,7 @@ export function GameHUD({
 
                     {/* Prominent Reactive Damage % */}
                     <div
-                      className={`font-mono-num text-3xl font-bold leading-none sm:text-4xl transition-transform duration-75 ${
+                      className={`match-damage font-mono-num text-3xl font-bold leading-none sm:text-4xl transition-transform duration-75 ${
                         hitActive ? '-translate-y-0.5 scale-105' : ''
                       }`}
                       style={{
@@ -459,7 +459,7 @@ export function GameHUD({
 
                   {/* Active-Only Contextual Badges (Combo / Hit-Stun / Floating / Weapon) */}
                   {(f.hitStun > 0 || f.floating || f.weaponKind || (f.combo >= 2 && f.comboTimer > 0)) && (
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px] font-semibold">
+                    <div className="match-fighter-badges flex flex-wrap items-center justify-between gap-1.5 text-[10px] font-semibold">
                       <div className="flex items-center gap-1.5 min-w-0">
                         {f.hitStun > 0 && (
                           <span className="rounded border border-[#ff5c6c]/70 bg-[#4c1220]/90 px-1.5 py-0.5 font-mono-num text-[9px] font-bold uppercase text-[#fecaca]">
