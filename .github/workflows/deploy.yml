@@ -41,7 +41,7 @@ jobs:
 
       - name: Build game for GitHub Pages
         env:
-          VITE_ROOM_API_BASE_URL: ${{ vars.ROOM_API_BASE_URL }}
+          VITE_ROOM_API_BASE_URL: ${{ vars.ROOM_API_BASE_URL || 'https://presidential-brawl-api.onrender.com' }}
         run: npm run build -- --base="${{ steps.pages.outputs.base_path }}/"
 
       - name: Check production entrypoint
