@@ -2,7 +2,7 @@ import { ArrowLeft, Dices, FlipHorizontal, Save, Sparkles, Trash2 } from 'lucide
 import { useEffect, useRef, useState } from 'react';
 import { sound } from '../audio/soundEngine';
 import { BODY_BUILD_PRESETS, makeColorRamp, PRESIDENTS_DATA, SKIN_PRESETS } from '../data/presidents';
-import { fighterArtPath, paintSprite } from '../engine/fighterSprites';
+import { fighterAsset, fighterArtPath, paintSprite } from '../engine/fighterSprites';
 import { PreviewAnimState, renderCharacterPreview } from '../engine/pixelRenderer';
 import {
   BodyBuild,
@@ -425,9 +425,10 @@ export function CharacterCustomizer({ initialBase, onSave, onDelete, onClose }: 
           </p>}
           <div className="relative flex items-center justify-center rounded-lg border border-[#25304d] bg-[#0b101b] p-2">
             {artPath && previewKey !== currentPreview && <img
-              src={artPath + 'thumb.webp'} alt="" className="pointer-events-none absolute h-[220px] w-[220px] object-contain sm:h-[256px] sm:w-[256px]"
+              key={artPath} src={fighterAsset(artPath, 'thumb.webp')} alt="" className="pointer-events-none absolute h-[220px] w-[220px] object-contain sm:h-[256px] sm:w-[256px]"
               style={{ transform: `scaleX(${faceDir})` }} />}
             <canvas
+              key={currentPreview}
               aria-label={`Vista previa de ${draft.name}`}
               ref={previewCanvasRef}
               width={288}

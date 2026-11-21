@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { fighterArtPath } from '../engine/fighterSprites';
+import { fighterAsset, fighterArtPath } from '../engine/fighterSprites';
 import { renderPresidentPortrait } from '../engine/pixelRenderer';
 import { PresidentData } from '../types/game';
 
@@ -12,7 +12,7 @@ interface PortraitCanvasProps {
 export function PortraitCanvas(props: PortraitCanvasProps) {
   const { president, className = 'w-12 h-12' } = props;
   const path = fighterArtPath(president);
-  if (path) return <img loading="lazy" decoding="async" src={path + 'portrait.png'}
+  if (path) return <img loading="lazy" decoding="async" key={path} src={fighterAsset(path, 'portrait.png')}
     alt={president.name} className={`block object-contain ${className}`} />;
   return <ProceduralPortrait {...props} />;
 }

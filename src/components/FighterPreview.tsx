@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { renderCharacterPreview } from '../engine/pixelRenderer';
-import { fighterArtPath, paintSprite } from '../engine/fighterSprites';
+import { fighterAsset, fighterArtPath, paintSprite } from '../engine/fighterSprites';
 import type { PresidentData } from '../types/game';
 
 type Props = { president: PresidentData; selected: boolean; large?: boolean };
@@ -9,7 +9,7 @@ type Clip = 'guard' | 'walk' | 'jab' | 'slash' | 'up' | 'down' | 'victory' | 'ra
 const ACTIONS: Clip[] = ['jab', 'slash', 'up', 'down', 'walk', 'victory', 'rage', 'ultimate', 'jump'];
 
 export function FighterPreview(props: Props) {
-  return <PreviewArt key={props.president.id} {...props} />;
+  return <PreviewArt key={fighterArtPath(props.president) ?? props.president.id} {...props} />;
 }
 
 function PreviewArt({ president, selected, large = false }: Props) {
@@ -73,13 +73,13 @@ function PreviewArt({ president, selected, large = false }: Props) {
 
   if (path && !large) {
     return <img loading="lazy" decoding="async" width={112} height={112}
-      src={path + 'thumb.webp'} alt={president.name}
+      src={fighterAsset(path, 'thumb.webp')} alt={president.name}
       className={`block object-contain ${size}`} />;
   }
 
   return <div className={`relative ${size}`}>
-    {path && !ready && <img src={path + 'thumb.webp'} alt="" className="absolute inset-0 h-full w-full object-contain" />}
+    {path && !ready && <img src={fighterAsset(path, 'thumb.webp')} alt="" className="absolute inset-0 h-full w-full object-contain" />}
     <canvas ref={ref} width={large ? 360 : 112} height={large ? 320 : 112}
-      aria-label={president.name + ' en guardia'} className="block h-full w-full object-contain" />
+      aria-label={president.name + ' en guardia'} className={`block h-full w-full object-contain ${path && !ready ? 'invisible' : ''}`} />
   </div>;
 }

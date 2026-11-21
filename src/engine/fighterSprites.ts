@@ -9,7 +9,7 @@ type EquipmentSheet = { image: string; authored?: boolean; regions: Record<strin
 type Manifest = { equipment?: EquipmentSheet; equipmentOverlay?: boolean; image: string; portrait: string; poses: Record<string, Pose>; animations: Record<ClipName, Clip> };
 type Art = { atlas: HTMLImageElement; portrait?: HTMLImageElement; equipment?: HTMLImageElement;
   equipmentPending?: boolean; equipmentRetryAt?: number; meta: Manifest; path: string };
-type Entry = { ready?: Art; loading: Promise<void>; used: number; retryAt?: number };
+type Entry = { thumbnail?: HTMLImageElement; ready?: Art; loading: Promise<void>; used: number; retryAt?: number };
 
 const rosterArt = new Set([
   'washington', 'lincoln', 'teddy', 'fdr', 'eisenhower', 'kennedy', 'bolivar',
@@ -36,6 +36,10 @@ export function fighterArtPath(d: PresidentData) {
   return (import.meta.env?.BASE_URL ?? '/') + 'assets/fighters/' + dir + '/';
 }
 
+export function fighterAsset(path: string, file: string) {
+  return `${path}${file}?art=2`;
+}
+
 function image(url: string): Promise<HTMLImageElement> {
   const result = new Image();
   result.src = url;
@@ -52,11 +56,13 @@ function entry(d: PresidentData) {
       cache.delete(oldest[0]);
     }
     const item: Entry = { loading: Promise.resolve(), used: ++lastUse };
+    void image(fighterAsset(path, 'thumb.webp')).then(thumb => { item.thumbnail = thumb; }).catch(() => {});
     item.loading = (async () => {
-      const response = await fetch(path + 'atlas.json');
+      const response = await fetch(fighterAsset(path, 'atlas.json'));
       if (!response.ok) throw Error('Atlas unavailable');
       const meta: Manifest = await response.json();
-      const atlas = await image(path + meta.image);
+      if (path.split('/').at(-2) !== 'ataturk' && meta.image !== 'atlas-anime.webp') throw Error('Obsolete fighter atlas');
+      const atlas = await image(fighterAsset(path, meta.image));
       for (const pose of Object.values(meta.poses)) {
         const [x, y, w, h] = pose.region;
         if (x < 0 || y < 0 || w <= 0 || h <= 0 || x+w > atlas.width || y+h > atlas.height)
@@ -67,7 +73,7 @@ function entry(d: PresidentData) {
           throw Error('Invalid animation');
       }
       item.ready = { atlas, meta, path };
-      item.ready.portrait = await image(path + meta.portrait);
+      item.ready.portrait = await image(fighterAsset(path, meta.portrait));
     })().catch(() => { if (!item.ready) item.retryAt = Date.now() + 5_000; });
     cache.set(path, item);
     current = item;
@@ -78,6 +84,17 @@ function entry(d: PresidentData) {
 
 export function preloadFighter(d: PresidentData) { return entry(d)?.loading; }
 export function spritePortrait(d: PresidentData) { return entry(d)?.ready?.portrait; }
+
+export function paintFighterThumbnail(ctx: CanvasRenderingContext2D, fighter: PresidentData, face: number, scale: number) {
+  const thumb = entry(fighter)?.thumbnail;
+  if (!thumb) return;
+  const height = 74 * scale;
+  const width = height * thumb.width / thumb.height;
+  ctx.save();
+  ctx.scale(face < 0 ? -1 : 1, 1);
+  ctx.drawImage(thumb, -width / 2, -height, width, height);
+  ctx.restore();
+}
 
 export function frameAt(clip: Clip, tick: number) {
   const total = clip.frames.reduce((n, frame) => n + frame.ticks, 0);
@@ -138,7 +155,7 @@ export function paintSprite(ctx: CanvasRenderingContext2D, d: PresidentData, cli
   const equipment = combat && clip in equipmentClips ? art.meta.equipment : undefined;
   if (equipment && !art.equipment && !art.equipmentPending && Date.now() >= (art.equipmentRetryAt ?? 0)) {
     art.equipmentPending = true;
-    void image(art.path + equipment.image).then(sheet => {
+    void image(fighterAsset(art.path, equipment.image)).then(sheet => {
       const valid = Object.values(equipment.regions).every(([x, y, w, h]) =>
         x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= sheet.width && y + h <= sheet.height);
       if (!valid) throw Error('Invalid equipment atlas bounds');

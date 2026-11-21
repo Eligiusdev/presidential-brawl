@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { PresidentData } from '../types/game';
 import { victoryTheme } from '../data/victoryThemes';
-import { fighterArtPath, paintSprite, preloadFighter } from '../engine/fighterSprites';
+import { fighterAsset, fighterArtPath, paintSprite, preloadFighter } from '../engine/fighterSprites';
 import { PortraitCanvas } from './PortraitCanvas';
 
 const customCelebrations = new Set(['bolivar', 'lincoln', 'gengis']);
@@ -21,7 +21,7 @@ export function VictoryShowcase({ fighter }: { fighter: PresidentData }) {
     const path = fighterArtPath(fighter);
     if (path && customCelebrations.has(fighter.isCustom ? fighter.spriteSourceId ?? '' : fighter.id)) {
       const image = new Image();
-      image.src = path + 'victory.webp';
+      image.src = fighterAsset(path, 'victory.webp');
       void image.decode().then(() => {
         if (!disposed) {
           celebration = image;

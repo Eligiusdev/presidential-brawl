@@ -4,7 +4,7 @@ import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
 import { sound } from '../audio/soundEngine';
 import { stageArtUrl } from '../engine/stageAtmosphere';
-import { fighterArtPath } from '../engine/fighterSprites';
+import { fighterAsset, fighterArtPath } from '../engine/fighterSprites';
 import { movesFor } from '../combat/roster.js';
 import { ultimateText } from '../engine/presidentUltimates';
 import type { RoomState } from '../network/matchState';
@@ -104,7 +104,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
           return <div key={i} className={`ob-slot ${i === slot ? 'me' : ''} ${p?.ready ? 'ready' : ''} ${art ? 'has-art' : ''}`}
             style={{
               ['--pc' as any]: accent,
-              ...(art ? { backgroundImage: `linear-gradient(90deg, rgba(10,16,28,.93) 0%, rgba(10,16,28,.78) 45%, rgba(10,16,28,.35) 100%), url("${art}selection.webp")` } : {}),
+              ...(art ? { backgroundImage: `linear-gradient(90deg, rgba(10,16,28,.93) 0%, rgba(10,16,28,.78) 45%, rgba(10,16,28,.35) 100%), url("${fighterAsset(art, 'selection.webp')}")` } : {}),
             }}>
             <div className="ob-slot-port">
               {fighter ? <PortraitCanvas president={fighter} className="h-full w-full" /> : <span className="ob-slot-q">?</span>}
@@ -172,7 +172,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
         <div className="ob-character-card" style={{ ['--accent' as any]: info.palette.accent.base }}>
           <div className="ob-card-bg" aria-hidden>
             <div className={`ob-bg-stage${infoArt ? ' blend' : ''}`} style={{ backgroundImage: `url("${stageArt}")` }} />
-            {infoArt && <div className="ob-bg-char" style={{ backgroundImage: `url("${infoArt}selection.webp")` }} />}
+            {infoArt && <div className="ob-bg-char" style={{ backgroundImage: `url("${fighterAsset(infoArt, 'selection.webp')}")` }} />}
           </div>
           <div className="ob-hero-art">
             <div className="ob-hero-fighter me solo">

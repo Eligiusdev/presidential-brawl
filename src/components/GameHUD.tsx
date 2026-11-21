@@ -1,6 +1,6 @@
 import { VictoryShowcase } from './VictoryShowcase';
 import { PRESIDENTS_DATA } from "../data/presidents";
-import { fighterArtPath } from "../engine/fighterSprites";
+import { fighterAsset, fighterArtPath } from "../engine/fighterSprites";
 import type { MatchSnapshot, RoomState } from "../network/matchState";
 import { ultimateText } from '../engine/presidentUltimates';
 import { TouchControls } from './TouchControls';
@@ -398,7 +398,7 @@ export function GameHUD({
                     borderColor: hitActive ? '#ff5c6c' : ultReady ? '#ffcc33' : `${f.accent}bb`,
                     boxShadow: cardShadow,
                     background: art
-                      ? `linear-gradient(135deg, rgba(8,14,26,.95) 0%, rgba(10,18,34,.84) 42%, rgba(10,18,34,.48) 100%), right center/cover no-repeat url("${art}selection.webp")`
+                      ? `linear-gradient(135deg, rgba(8,14,26,.95) 0%, rgba(10,18,34,.84) 42%, rgba(10,18,34,.48) 100%), right center/cover no-repeat url("${fighterAsset(art, 'selection.webp')}")`
                       : 'linear-gradient(180deg,#10192c,#0b1222)',
                   }}
                 >
@@ -943,7 +943,7 @@ export function OnlineGameHUD({ fighters, room, localSlot }: {
       const president = PRESIDENTS_DATA.find(p => p.id === f.fighterId);
       const label = president?.name ?? f.fighterId;
       return <article key={f.slot} style={{ borderColor: room.players[f.slot]?.color }} aria-label={label}>
-        {president && fighterArtPath(president) && <img src={`${fighterArtPath(president)}thumb.webp`} alt="" />}
+        {president && fighterArtPath(president) && <img src={fighterAsset(fighterArtPath(president)!, 'thumb.webp')} alt="" />}
         <div><strong title={label}>J{f.slot + 1}{f.slot === localSlot ? ' · Tú' : ''} · {label}</strong>
           <small>{Math.floor(f.damage)} % · {f.stocks} vidas</small>
           <progress max={100} value={f.ultCharge} aria-label={`Definitiva de ${label}`} /></div>

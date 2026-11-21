@@ -3,7 +3,7 @@ import type { RoomCapacity } from '../data/stages';
 import { paintUltimatePreview, paintUltimateSprite } from './ultimateSprites';
 import { type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { stageArt, stageHazardColumns, stageNightMix } from './stageAtmosphere';
-import { paintCombatSprite, paintSprite, spritePortrait } from './fighterSprites';
+import { fighterArtPath, paintCombatSprite, paintFighterThumbnail, paintSprite, spritePortrait } from './fighterSprites';
 import { drawEffects, drawShot, shotTouches, strikeBox } from '../combat/effects.js';
 import { PIXEL_PRESET_DIMS } from '../config/defaultConfig';
 import { ColorRamp, GameConfig, PlatformDef, PresidentData, StageDef } from '../types/game';
@@ -2161,7 +2161,8 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.fillRect(-1.5 * pxScale, -8 * pxScale, 3 * pxScale, 16 * pxScale);
       ctx.restore();
     }
-    if (!sprite.drawn) {
+    if (!sprite.drawn && fighterArtPath(f.d)) paintFighterThumbnail(ctx, f.d, f.face, pxScale);
+    else if (!sprite.drawn) {
       const pose = (f as {moves?:unknown}).moves ? this.fightingPose(f,T) : this.solveBlendedPose(f, T, memKey);
       const ras = this.rasterBody(f, pose, T, isFlash, false);
       ras.applyChromaticOutline(useOutline && !isFlash);
@@ -3775,6 +3776,10 @@ export function renderPresidentPortrait(canvas: HTMLCanvasElement, d: PresidentD
       canvas.height = portrait.height;
     }
     ctx.drawImage(portrait, 0, 0);
+    return;
+  }
+  if (fighterArtPath(d)) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     return;
   }
   const W = 48;

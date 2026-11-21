@@ -7,7 +7,7 @@ import { sound } from '../audio/soundEngine';
 import { stageArtUrl } from '../engine/stageAtmosphere';
 import { STAGES_DATA } from '../data/stages';
 import { GameConfig, PresidentData, PresidentRegion } from '../types/game';
-import { fighterArtPath } from '../engine/fighterSprites';
+import { fighterAsset, fighterArtPath } from '../engine/fighterSprites';
 import { FighterPreview } from './FighterPreview';
 import { PortraitCanvas } from './PortraitCanvas';
 import { SelectionRail } from './SelectionRail';
@@ -225,7 +225,7 @@ export function CharacterSelect({
 
       {artPath && (
         <section key={activeFighter.id} aria-label={'Vista de ' + activeFighter.name} className="fighter-showcase fighter-reveal"
-          style={{backgroundImage: `url("${artPath}selection.webp")`}}>
+          style={{backgroundImage: `url("${fighterAsset(artPath, 'selection.webp')}")`}}>
           <FighterPreview president={activeFighter} selected large />
           <div className="fighter-showcase-caption">
             <span>{campaignSelection || activeSlot === 0 ? 'Jugador 1' : vsAI ? 'Rival IA' : 'Jugador 2'}</span>

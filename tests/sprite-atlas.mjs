@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { frameAt, paintCombatSprite, paintSprite, preloadFighter, spriteAction } from '../src/engine/fighterSprites.ts';
+import { frameAt, paintCombatSprite, paintFighterThumbnail, paintSprite, preloadFighter, spriteAction } from '../src/engine/fighterSprites.ts';
 
 const directory = new URL('../public/assets/fighters/achilles/', import.meta.url);
 const meta = JSON.parse(readFileSync(new URL('atlas.json', directory)));
@@ -9,7 +9,7 @@ const character = { id:'aquiles' };
 const loads = [];
 // Decode production bytes. Only transport and the DOM image constructor are adapted.
 const images = new Map();
-for (const name of [meta.image, meta.portrait]) images.set(name, await loadImage(readFileSync(new URL(name, directory))));
+for (const name of [meta.image, meta.portrait, 'thumb.webp']) images.set(name, await loadImage(readFileSync(new URL(name, directory))));
 const atlas = images.get(meta.image);
 const decoded = createCanvas(atlas.width, atlas.height).getContext('2d');
 decoded.drawImage(atlas,0,0);
@@ -20,13 +20,13 @@ for (const {region:[x,y,w,h]} of Object.values(meta.poses)) {
   assert.ok(transparent > w*h*0.12, 'Sprite silhouette must have a transparent surround');
 }
 globalThis.Image = class {
-  set src(url) { this.name = url.split('/').pop(); loads.push(this.name); }
+  set src(url) { this.name = url.split('?')[0].split('/').pop(); loads.push(this.name); }
   get width() { return images.get(this.name).width; }
   get height() { return images.get(this.name).height; }
   async decode() { assert.ok(images.has(this.name)); }
 };
 globalThis.fetch = async url => {
-  assert.equal(url, '/assets/fighters/achilles/atlas.json');
+  assert.equal(url, '/assets/fighters/achilles/atlas.json?art=2');
   loads.push('atlas.json');
   return {ok:true, json:async () => meta};
 };
@@ -62,7 +62,7 @@ for (const [name, clip] of Object.entries(meta.animations)) {
   }
 }
 assert.deepEqual(snapshot('jab',3,1),snapshot('jab',3,1));
-assert.deepEqual(loads,['atlas.json',meta.image,meta.portrait]);
+assert.deepEqual(loads,['thumb.webp','atlas.json',meta.image,meta.portrait]);
 assert.equal(preloadFighter({id:'aquiles',isCustom:true}),undefined);
 assert.equal(preloadFighter({id:'sin-atlas'}),undefined);
 assert.equal(spriteAction({on:false,vy:-8,jumpTick:20},23)[0],'jump');
@@ -73,11 +73,11 @@ console.log('Atlas, duraciones, orientación, anclaje, caché y transiciones ver
 
 const juanaDirectory = new URL('../public/assets/fighters/juana/', import.meta.url);
 const juanaMeta = JSON.parse(readFileSync(new URL('atlas.json', juanaDirectory)));
-for (const name of [juanaMeta.image, juanaMeta.portrait, juanaMeta.equipment.image]) {
+for (const name of [juanaMeta.image, juanaMeta.portrait, juanaMeta.equipment.image, 'thumb.webp']) {
   images.set(name, await loadImage(readFileSync(new URL(name, juanaDirectory))));
 }
 globalThis.fetch = async url => {
-  assert.equal(url, '/assets/fighters/juana/atlas.json');
+  assert.equal(url, '/assets/fighters/juana/atlas.json?art=2');
   return { ok: true, json: async () => juanaMeta };
 };
 const juana = { id: 'juana' };
@@ -122,3 +122,15 @@ console.log('El atlas se conserva al recoger, sostener, mover y recargar el equi
 
 assert.deepEqual(spriteAction({ on: true, wpn: 100, wk: 'rocket', shootRecoil: 9, reloadT: 50 }, 42), ['rocketFire', 0]);
 assert.deepEqual(spriteAction({ on: true, wpn: 100, wk: 'rocket', shootRecoil: 0, reloadT: 41, reloadDur: 50 }, 42), ['load', 9]);
+
+const mary = { id: 'robinson' };
+globalThis.fetch = async url => {
+  assert.equal(url, '/assets/fighters/robinson/atlas.json?art=2');
+  return { ok: true, json: async () => ({ ...meta, image: 'atlas.png' }) };
+};
+const beforeStale = loads.length;
+await preloadFighter(mary);
+assert.equal(paintSprite(equippedContext, mary, 'guard', 0, 1, 1), false);
+paintFighterThumbnail(equippedContext, mary, 1, 1);
+assert.equal(equippedImage, 'thumb.webp');
+assert.deepEqual(loads.slice(beforeStale), ['thumb.webp'], 'El manifiesto viejo no solicita el atlas retirado');
