@@ -101,6 +101,8 @@ define('xiomara', 'target', 'beam', [[0.05,0.3],[-0.31,0.13],[0.28,0.12],[0.02,-
 define('diazcanel', 'caster', 'ground', [[0.17,0.27],[0.46,0.17],[0.72,0.24],[1.12,-0.06]], "Una ola azul recorre el malecón al ritmo de notas luminosas.");
 define('ortega', 'target', 'block', [[-0.42,0.27],[-0.14,-0.38],[0.22,-0.5],[0.4,0.2]], "Un sol ámbar ilumina el volcán y eleva fragmentos de obsidiana.");
 
+define('gengis', 'caster', 'slash', [[.14,.2],[.37,-.16],[.74,-.32],[1.18,.04]], 'Un estandarte dorado galopa en un arco de viento antes de dispersarse.');
+
 const sweepingUltimates: Record<string, { travel: 'sweep' | 'cavalry'; durationMs: number; hits: number; description: string } | undefined> = {
   lincoln: { travel: 'sweep', durationMs: 750, hits: 1, description: 'La locomotora cruza toda la plataforma a ras del suelo y lanza al rival al contacto.' },
   robinson: { travel: 'sweep', durationMs: 900, hits: 3, description: 'Un tornado cruza la arena, arrastra al rival hacia el vórtice y lo expulsa.' },

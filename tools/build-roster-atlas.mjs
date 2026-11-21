@@ -5,7 +5,7 @@ import { PRESIDENTS_DATA } from '../src/data/presidents.ts';
 import { movesFor } from '../src/combat/roster.js';
 
 const [sheetPath, ...ids] = process.argv.slice(2);
-if (!sheetPath || ids.length !== 3) throw Error('Uso: node --import tsx tools/build-roster-atlas.mjs hoja.png id1 id2 id3');
+if (!sheetPath || ids.length < 1 || ids.length > 3) throw Error('Uso: node --import tsx tools/build-roster-atlas.mjs hoja.png id1 [id2 id3]');
 const sheet = await loadImage(sheetPath);
 const source = createCanvas(sheet.width, sheet.height);
 const sourceCtx = source.getContext('2d');
@@ -146,6 +146,13 @@ for (const [row, id] of ids.entries()) {
     defeat: clip(false, ['hurt', 5], ['kneel', 7], ['prone', 20]),
     victory: clip(true, ['victory', 24], ['breath', 15]),
     ultimate: clip(false, ['crouch', 8], ['rise', 8], ['strike', 12], ['guard', 8]),
+    aim: clip(true, ['cast', 24], ['arcCast', 5]),
+    fire: clip(false, ['backstrike', 2], ['cast', 3]),
+    magazine: clip(false, ['cast', 4], ['crouch', 10], ['recover', 14], ['cast', 14]),
+    launcher: clip(true, ['charge', 25], ['cast', 7]),
+    rocketFire: clip(false, ['hurt', 3], ['charge', 3], ['cast', 3]),
+    load: clip(false, ['charge', 6], ['kneel', 18], ['recover', 18], ['charge', 12]),
+    case: clip(true, ['guard', 20], ['breath', 12]),
     jab: attack(jab, 'stride'),
     slash: attack(neutral, 'charge'),
     up: attack(up, 'crouch'),

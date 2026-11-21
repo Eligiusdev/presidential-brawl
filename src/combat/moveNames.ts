@@ -9,6 +9,7 @@ export const MOVE_NAMES: Readonly<Record<string, readonly [string, string, strin
   xiomara: ["Brote de ceiba","Eco de las cinco estrellas","Raíz ascendente","Trenza del valle"],
   diazcanel: ["Paso del malecón","Marea de La Habana","Crestería azul","Contracorriente cubana"],
   ortega: ["Pisada de ceniza","Cúpula de obsidiana","Cresta de Momotombo","Vuelta volcánica"],
+  gengis: ['Palma de la estepa', 'Viento de Karakórum', 'Salto del halcón', 'Retorno del estandarte'],
   kalam: ["Chispa de Propulsor","Vector Agni","Ignición PSLV","Escudo Atmosférico"],
   abelardo: ["Revés de Maletín","Objeción Fulminante","Ascenso de Estrado","Contrainterrogatorio"],
   lincoln: ["Golpe de mazo","Golpe de Emancipación","Alzada de la Unión","Surco abierto"],

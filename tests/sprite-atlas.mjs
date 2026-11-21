@@ -95,4 +95,13 @@ for (const wk of ['mg', 'rocket', 'case']) {
 }
 assert.deepEqual(paintCombatSprite(equippedContext, { d: juana, face: 1, wpn: 0, on: true }, 42, 2),
   { drawn: true, equipment: false });
+const legacyRocket = { d: character, on: true, face: 1, wpn: 100, wk: 'rocket' };
+assert.deepEqual(paintCombatSprite(equippedContext, legacyRocket, 42, 2), { drawn: true, equipment: false });
+for (const state of [{vx: 3}, {pickupT: 9}, {on: false, vy: -3}]) {
+  assert.deepEqual(paintCombatSprite(equippedContext, { ...legacyRocket, ...state }, 42, 2),
+    { drawn: true, equipment: true });
+}
 console.log('El atlas se conserva al recoger, sostener, mover y recargar el equipo.');
+
+assert.deepEqual(spriteAction({ on: true, wpn: 100, wk: 'rocket', shootRecoil: 9, reloadT: 50 }, 42), ['rocketFire', 0]);
+assert.deepEqual(spriteAction({ on: true, wpn: 100, wk: 'rocket', shootRecoil: 0, reloadT: 41, reloadDur: 50 }, 42), ['load', 9]);

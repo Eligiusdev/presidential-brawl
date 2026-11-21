@@ -68,5 +68,6 @@
   "ult_bathory": {"sheet":4,"box":[512,256,256,256]},
   "ult_xiomara": {"sheet":4,"box":[0,512,256,256]},
   "ult_diazcanel": {"sheet":4,"box":[256,512,256,256]},
-  "ult_ortega": {"sheet":4,"box":[512,512,256,256]}
+  "ult_ortega": {"sheet":4,"box":[512,512,256,256]},
+  "ult_gengis": {"sheet":5,"box":[0,0,256,256]}
 }

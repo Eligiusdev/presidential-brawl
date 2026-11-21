@@ -330,6 +330,7 @@ export class GameEngine {
   private blast = BZ;
 
   private remoteKeys: Partial<Record<PlayerAction, boolean>> = {};
+  private touchPresses = new Set<PlayerAction>();
   private touchKeys: Partial<Record<PlayerAction, boolean>> = {};
   private gpState = [false, false];
 
@@ -461,6 +462,7 @@ export class GameEngine {
   clearAllInputs() {
     this.keys = {};
     this.touchKeys = {};
+    this.touchPresses.clear();
     this.remoteKeys = {};
   }
 
@@ -469,6 +471,10 @@ export class GameEngine {
   }
 
   setTouchAction(action: PlayerAction, active: boolean) {
+    // Retain a button tap even if it ends between two simulation steps.
+    if (active && !this.touchKeys[action] && !['left', 'right', 'down'].includes(action)) {
+      this.touchPresses.add(action);
+    }
     this.touchKeys[action] = active;
   }
 
@@ -812,11 +818,13 @@ export class GameEngine {
   private readHumanInput(pi: number): InputFrame {
     const map = pi === 0 ? this.config.controls.p1 : this.config.controls.p2;
     const prefix = `GP${pi}_`;
-    const check = (action: PlayerAction) =>
-      map[action].some((c) => Boolean(this.keys[c])) ||
-      Boolean(this.keys[prefix + action]) ||
-      (pi === 0 && Boolean(this.touchKeys[action])) ||
-      (pi === 1 && Boolean(this.remoteKeys[action]));
+    const check = (action: PlayerAction) => {
+      const touchPressed = pi === 0 && this.touchPresses.delete(action);
+      return map[action].some((c) => Boolean(this.keys[c])) ||
+        Boolean(this.keys[prefix + action]) ||
+        (pi === 0 && Boolean(this.touchKeys[action])) || touchPressed ||
+        (pi === 1 && Boolean(this.remoteKeys[action]));
+    };
 
     return {
       left: check('left'),

@@ -2,7 +2,7 @@ import type { PresidentData } from '../types/game';
 import type { RenderFighterState } from './pixelRenderer';
 
 type ClipName = 'guard' | 'walk' | 'jump' | 'fall' | 'land' | 'crouch' | 'jab' | 'slash' |
-  'aim' | 'fire' | 'magazine' | 'launcher' | 'load' | 'case' | 'up' | 'down' | 'rage' | 'ultimate' | 'hurt' | 'defeat' | 'victory';
+  'aim' | 'fire' | 'magazine' | 'launcher' | 'rocketFire' | 'load' | 'case' | 'up' | 'down' | 'rage' | 'ultimate' | 'hurt' | 'defeat' | 'victory';
 type Pose = { region: [number, number, number, number]; anchor: [number, number]; scale: number };
 type Clip = { loop: boolean; frames: { pose: string; ticks: number }[] };
 type Manifest = { equipmentOverlay?: boolean; image: string; portrait: string; poses: Record<string, Pose>; animations: Record<ClipName, Clip> };
@@ -19,10 +19,11 @@ const rosterArt = new Set([
   'aquiles',
   'juana', 'espartaco', 'musashi', 'policarpa', 'wallace', 'elcid', 'ricaurte', 'simo',
   'abelardo', 'petro', 'uribe', 'santos', 'duque', 'bukele', 'sheinbaum',
+  'gengis',
   'maduro', 'putin', 'obama', 'napoleon', 'antoinette', 'bathory', 'xiomara', 'diazcanel', 'ortega',
   'milei', 'trump', 'macron', 'noboa', 'kast', 'biden',
 ]);
-const CACHE_LIMIT = 6;
+const CACHE_LIMIT = 10;
 let lastUse = 0;
 const cache = new Map<string, Entry>();
 
@@ -91,10 +92,13 @@ export function spriteAction(f: RenderFighterState, tick: number): [ClipName, nu
   if (f.winning) return ['victory', f.winT ?? 0];
   if (f.stun > 0) return ['hurt', Math.max(0, (f.maxStun ?? 14) - f.stun)];
   if (f.pickupT) return f.pickupT > 6 ? ['crouch', 0] : ['land', 14 - f.pickupT];
+  if (f.wpn > 0 && f.shootRecoil > 0) {
+    if (f.wk === 'mg') return ['fire', 5 - f.shootRecoil];
+    if (f.wk === 'rocket') return ['rocketFire', 9 - f.shootRecoil];
+  }
   if (f.wpn > 0 && f.reloadT > 0 && (f.wk === 'mg' || f.wk === 'rocket')) {
     return [f.wk === 'mg' ? 'magazine' : 'load', f.reloadDur - f.reloadT];
   }
-  if (f.wpn > 0 && f.wk === 'mg' && f.shootRecoil > 0) return ['fire', 5 - f.shootRecoil];
   if (f.atk) {
     const { spec } = f.atk;
     let t = f.atk.t;
@@ -138,7 +142,7 @@ export function paintSprite(ctx: CanvasRenderingContext2D, d: PresidentData, cli
 
 
 const equipmentClips: Partial<Record<ClipName, ClipName>> = {
-  aim: 'guard', fire: 'guard', launcher: 'guard', magazine: 'crouch', load: 'crouch', case: 'guard',
+  aim: 'guard', fire: 'guard', launcher: 'guard', rocketFire: 'launcher', magazine: 'crouch', load: 'crouch', case: 'guard',
 };
 
 export function paintCombatSprite(ctx: CanvasRenderingContext2D, f: RenderFighterState, tick: number, scale: number) {
@@ -147,6 +151,7 @@ export function paintCombatSprite(ctx: CanvasRenderingContext2D, f: RenderFighte
   const [requested, frame] = spriteAction(f, tick);
   const clip = art.meta.animations[requested] ? requested : equipmentClips[requested] ?? 'guard';
   const drawn = paintSprite(ctx, f.d, clip, frame, f.face, scale);
-  const equipment = drawn && !!art.meta.equipmentOverlay && f.wpn > 0 && !f.winning;
+  const bakedEquipment = !art.meta.equipmentOverlay && clip in equipmentClips;
+  const equipment = drawn && !bakedEquipment && f.wpn > 0 && !f.winning;
   return { drawn, equipment };
 }

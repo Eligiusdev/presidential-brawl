@@ -1601,6 +1601,16 @@ const HISTORICAL_SEEDS: PresidentSeed[] = [
     face: { faceShape: 'oval', eyeStyle: 'determined', eyeColor: '#47362e', noseStyle: 'straight', mouthStyle: 'serious', facialHair: 'none' },
     sigType: 'pulse', sigName: "Cúpula de obsidiana", powerSourceId: 'pulso', ultName: "Sol sobre Momotombo", ultCry: '¡Ahora!',
   },
+  {
+    id: 'gengis', name: 'Gengis Kan', title: 'Mongolia', era: 'Imperio mongol',
+    region: 'af_as', rosterGroup: 'mythic', role: 'Vanguardia', taunt: '¡El viento de la estepa!',
+    stats: { speed: 5.2, weight: 1.08, jumpForce: 12.5, power: 1.08 },
+    skin: '#c68e68', suit: '#244d51', accent: '#f6c66b', hair: '#262027', cape: '#733345',
+    build: 'athletic', outfit: 'gala', weapon: 'saber', hatOrHair: 'cap', tieOrSash: 'gold_sash',
+    face: { faceShape: 'oval', eyeStyle: 'determined', eyeColor: '#47362e', noseStyle: 'straight', mouthStyle: 'serious', facialHair: 'mustache' },
+    sigType: 'fencing', sigName: 'Viento de Karakórum', powerSourceId: 'libertador',
+    ultName: 'Estandarte de la Estepa', ultCry: '¡Al galope!',
+  },
 ];
 
 export const PRESIDENTS_DATA: PresidentData[] = HISTORICAL_SEEDS.map(buildPresident);

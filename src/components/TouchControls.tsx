@@ -49,9 +49,11 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     };
     const visibility = () => { if (document.hidden) release(); };
     window.addEventListener('blur', release);
+    window.addEventListener('pagehide', release);
     document.addEventListener('visibilitychange', visibility);
     return () => {
       window.removeEventListener('blur', release);
+      window.removeEventListener('pagehide', release);
       document.removeEventListener('visibilitychange', visibility);
       for (const action of active.current) callback.current(action, false);
       active.current.clear();
@@ -68,6 +70,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
 
   const startStick = (e: PointerEvent<HTMLDivElement>) => {
     if (stick.current || e.button !== 0) return;
+    e.preventDefault();
     sound.init();
     e.currentTarget.setPointerCapture(e.pointerId);
     const bounds = e.currentTarget.getBoundingClientRect();
@@ -84,9 +87,15 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     const dy = e.clientY - start.y;
     const size = Math.max(radius, Math.hypot(dx, dy));
     setOffset({ x: dx * radius / size, y: dy * radius / size });
-    setAction('left', dx / size < -0.25);
-    setAction('right', dx / size > 0.25);
-    setAction('down', dy / size > 0.43);
+    const horizontal = dx / size;
+    const left = horizontal < (active.current.has('left') ? -0.13 : -0.21);
+    const right = horizontal > (active.current.has('right') ? 0.13 : 0.21);
+    // Release before switching direction so the online client never sends both.
+    if (!left) setAction('left', false);
+    if (!right) setAction('right', false);
+    if (left) setAction('left', true);
+    if (right) setAction('right', true);
+    setAction('down', dy / size > (active.current.has('down') ? 0.25 : 0.36));
   };
   const resetStick = (e: PointerEvent<HTMLDivElement>) => {
     if (stick.current?.pointer !== e.pointerId) return;
@@ -117,6 +126,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
           onContextMenu={e => e.preventDefault()}
           onPointerDown={e => {
             if (e.button !== 0) return;
+            e.preventDefault();
             sound.init();
             e.currentTarget.setPointerCapture(e.pointerId);
             buttons.current.set(e.pointerId, action);

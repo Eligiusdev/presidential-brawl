@@ -14,7 +14,7 @@ import { SelectionRail } from './SelectionRail';
 
 export type RegionFilter = 'new' | 'all' | PresidentRegion | 'current' | 'former' | 'mythic';
 
-const NEW_FIGHTERS = new Set(['maduro', 'putin', 'obama', 'napoleon', 'antoinette', 'bathory', 'xiomara', 'diazcanel', 'ortega']);
+const NEW_FIGHTERS = new Set(['maduro', 'putin', 'obama', 'napoleon', 'antoinette', 'bathory', 'xiomara', 'diazcanel', 'ortega', 'gengis']);
 
 function normalizeSearch(value: string) {
   return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
@@ -224,13 +224,14 @@ export function CharacterSelect({
       </div>
 
       {artPath && (
-        <section aria-label={'Vista de ' + activeFighter.name} className="fighter-showcase"
+        <section key={activeFighter.id} aria-label={'Vista de ' + activeFighter.name} className="fighter-showcase fighter-reveal"
           style={{backgroundImage: `url("${artPath}selection.webp")`}}>
           <FighterPreview president={activeFighter} selected large />
           <div className="fighter-showcase-caption">
-            <span>{activeSlot === 0 ? 'Jugador 1' : vsAI ? 'Rival IA' : 'Jugador 2'}</span>
+            <span>{campaignSelection || activeSlot === 0 ? 'Jugador 1' : vsAI ? 'Rival IA' : 'Jugador 2'}</span>
             <h3>{activeFighter.name}</h3>
-            <p>{activeFighter.title}</p>
+            <p>{activeFighter.title} · {activeFighter.role}</p>
+            <div className="fighter-showcase-ultimate"><Crown size={15} aria-hidden="true" />{ultimateText(activeFighter).name}</div>
             <button type="button" className="selector-mobile-customize"
               onClick={() => onOpenCustomizer(activeFighter)}>
               <Pencil size={14} /> Personalizar

@@ -1002,3 +1002,37 @@
   overflow-x: auto;
   overscroll-behavior-x: contain;
 }
+
+.fighter-reveal {
+  isolation: isolate;
+  overflow: hidden;
+  border-color: #65728e;
+  box-shadow: inset 0 -22px 45px #050713af, 0 12px 25px #05071166;
+}
+.fighter-reveal .fighter-showcase-body {
+  filter: drop-shadow(0 9px 4px #050711c9) drop-shadow(0 0 19px #8bb8ee73);
+  animation: fighter-reveal-in .28s ease-out both;
+}
+.fighter-showcase-ultimate {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  margin-top: .35rem;
+  color: #ffe0a3;
+  font-size: clamp(.68rem, 1.3vw, .9rem);
+  font-weight: 700;
+}
+.fighter-showcase-ultimate svg { flex: none; }
+@keyframes fighter-reveal-in {
+  from { transform: translateX(-12px) scale(.96); opacity: .45; }
+  to { transform: translateX(0) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fighter-reveal .fighter-showcase-body { animation: none; }
+}
+.touch-action-grid button.touch-action[aria-pressed="true"] { transform: none; box-shadow: inset 0 0 0 2px #dceaff; }
+.touch-stick-zone, .touch-action-grid button.touch-action {
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}

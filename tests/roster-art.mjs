@@ -31,6 +31,7 @@ for (const d of PRESIDENTS_DATA) {
     assert.ok(ink>80 && clear>40,d.id+' silhouette');
     assert.ok(pose.anchor.every(Number.isFinite) && pose.scale>0);
   }
+  if (meta.equipmentOverlay) assert.ok(meta.animations.rocketFire?.frames.length, d.id + ' retroceso de lanzacohetes');
   for (const action of actions) assert.ok(meta.animations[action]?.frames.length,d.id+' '+action);
   for (const [name,clip] of Object.entries(meta.animations)) {
     assert.equal(typeof clip.loop,'boolean');
@@ -51,7 +52,7 @@ for (const d of PRESIDENTS_DATA) {
       footprints.add(JSON.stringify(feet));
     }
     if (meta.image === 'atlas.png') assert.equal(footprints.size,1,d.id+' apoyo de guardia');
-    if (meta.image === 'atlas.png') for(const pickup of ['aim','fire','magazine','launcher','load','case']) {
+    for(const pickup of ['aim','fire','magazine','launcher','load','case', ...(meta.equipmentOverlay ? ['rocketFire'] : [])]) {
       assert.ok(meta.animations[pickup],d.id+' '+pickup);
     }
     const book = movesFor(d, false, false, false).book;

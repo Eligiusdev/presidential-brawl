@@ -50,3 +50,19 @@ game.renderer.renderWorld(canvas, world, cfg);
 assert.ok(canvas.getContext('2d').getImageData(640, 360, 1, 1).data[3] > 0);
 
 console.log('Geometría de arenas, impactos múltiples, interpolación, predicción y render local verificados.');
+
+const local = new GameEngine(cfg);
+local.startMatch(0, 1, 0, false, 'versus');
+local.setTouchAction('light', true);
+local.setTouchAction('light', false);
+assert.equal(local.readHumanInput(1).light, false, 'El toque corresponde al jugador 1');
+assert.equal(local.readHumanInput(0).light, true, 'Un toque breve llega al próximo paso');
+assert.equal(local.readHumanInput(0).light, false, 'El toque breve se consume una sola vez');
+local.setTouchAction('right', true);
+assert.equal(local.readHumanInput(0).right, true);
+local.setTouchAction('right', false);
+assert.equal(local.readHumanInput(0).right, false, 'La dirección se libera de inmediato');
+local.setTouchAction('jump', true);
+local.clearAllInputs();
+assert.equal(local.readHumanInput(0).jump, false, 'La pausa cancela pulsaciones pendientes');
+console.log('Entrada táctil: pulsos breves, liberación de dirección y limpieza al pausar.');
