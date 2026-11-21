@@ -1,4 +1,5 @@
 import atlas from '../data/ultimateAtlas.json';
+import type { CombatPrimitive } from '../data/presidentUltimates';
 import type { RenderUltEffect } from './pixelRenderer';
 
 type AtlasEntry = { sheet: number; box: readonly number[] };
@@ -79,8 +80,8 @@ function spriteLayer(ctx: CanvasRenderingContext2D, sprite: NonNullable<ReturnTy
 }
 
 export function paintUltimatePreview(ctx: CanvasRenderingContext2D, id: string,
-  x: number, y: number, size: number, time: number) {
-  const sprite = getAnimatedSprite(id, Math.min(3, Math.floor(time / 8))) ?? getSprite(id);
+  x: number, y: number, size: number, time: number, duration: number) {
+  const sprite = getAnimatedSprite(id, Math.min(3, Math.floor(Math.max(0, time) * 4 / Math.max(1, duration)))) ?? getSprite(id);
   if (!sprite) return;
   const [,, width, height] = sprite.box;
   const scale = size / Math.max(width, height);
@@ -98,13 +99,77 @@ interface Placement {
   hitWidth: number;
   hitHeight: number;
   unit: number;
+  compact?: boolean;
+}
+
+// The atlas is read left to right. Damage pulses can change brightness without
+// sending the animation back to its first row between hits.
+export function ultimateSpriteFrame(t: number, duration: number, triggered: boolean, opening: number) {
+  const progress = Math.min(1, Math.max(0, t / Math.max(1, duration)));
+  if (!triggered) return Math.min(3, Math.floor(progress * 4));
+  if (progress < opening) return Math.min(3, Math.floor(progress * 4 / opening));
+  if (progress < .8) return 4 + Math.min(3, Math.floor((progress - opening) * 4 / (.8 - opening)));
+  return 8 + Math.min(3, Math.floor((progress - .8) * 20 + 1e-8));
+}
+
+const illustratedAnime = new Set(['ult_bolivar', 'ult_gengis', 'ult_lincoln']);
+
+function paintAnimeAccent(ctx: CanvasRenderingContext2D, primitive: CombatPrimitive, colors: readonly [string, string],
+  width: number, height: number, unit: number, progress: number, intensity: number, compact: boolean) {
+  const [base, light] = colors;
+  const x = width * .52;
+  const y = height * .44;
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  switch (primitive) {
+    case 'dashStrike':
+      ctx.moveTo(-x, y * .8);
+      ctx.quadraticCurveTo(x * .42, y * .56, x, -y * .74);
+      ctx.quadraticCurveTo(x * .83, y * .63, -x, y * .8);
+      break;
+    case 'spawnProjectile':
+      ctx.moveTo(-x, y * .32);
+      ctx.lineTo(x * .28, y * .12);
+      ctx.lineTo(x, -y * .28);
+      ctx.lineTo(x * .38, y * .5);
+      ctx.closePath();
+      break;
+    case 'spawnZone':
+    case 'arenaEffect':
+      ctx.ellipse(0, y * .74, x * (.7 + .3 * progress), Math.max(unit * 3, y * .38),
+        0, 0, Math.PI * 2);
+      break;
+    case 'spawnEntity':
+      ctx.moveTo(-x, y);
+      ctx.quadraticCurveTo(x * .2, y * .93, x, y * .36);
+      ctx.quadraticCurveTo(x * .73, y, -x, y);
+      break;
+    case 'counterStance':
+      ctx.ellipse(0, 0, x * .98, y * 1.18, 0, -.75, 2.18);
+      break;
+  }
+  ctx.globalAlpha = intensity * (compact ? .27 : .44);
+  ctx.strokeStyle = base;
+  ctx.lineWidth = Math.max(1, unit * 7);
+  ctx.stroke();
+  ctx.globalAlpha = intensity * (compact ? .52 : .79);
+  ctx.strokeStyle = light;
+  ctx.lineWidth = Math.max(1, unit * 1.8);
+  ctx.stroke();
+  ctx.restore();
 }
 
 export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltEffect, placement: Placement) {
   if (!u.specialized) return false;
   const { ultimate: { spec, profile }, origin, active, triggered } = u.specialized;
   const progress = Math.min(1, u.t / Math.max(1, u.dur));
-  const frame = 4 + Math.min(7, Math.floor(progress * 8));
+  const moving = Boolean(profile.travel) || ['dashStrike', 'spawnEntity', 'spawnProjectile'].includes(spec.primitive);
+  const opening = moving ? 0
+    : spec.hits > 1 ? (profile.tempo ? .12 : .25) / spec.hits
+    : profile.tempo ? .38 : .65;
+  const frame = ultimateSpriteFrame(u.t, u.dur, triggered, opening);
   const animated = getAnimatedSprite(spec.id, frame);
   const sprite = animated ?? getSprite(spec.id);
   const { x, y, hitWidth, hitHeight, unit } = placement;
@@ -147,15 +212,29 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
   ctx.save();
   ctx.translate(Math.round(x), Math.round(y));
   ctx.scale(direction, 1);
-  ctx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = Boolean(animated);
   ctx.globalAlpha = opacity * (active ? 1 : .63);
-  const moving = Boolean(profile.travel) || spec.primitive === 'dashStrike' || spec.primitive === 'spawnEntity' || spec.primitive === 'spawnProjectile';
   const bob = moving ? Math.sin(time * .28) * unit * 2 : -Math.sin(time * .13) * unit * 5;
   const beat = (time * spec.hits / Math.max(1, u.dur)) % 1;
   const accent = Math.sin(beat * Math.PI);
 
+  // A low-contrast ground layer separates the focal sprite from the arena.
+  // Moving effects get a directional wake; stationary effects get an anchor.
+  ctx.globalAlpha = opacity * (placement.compact ? .28 : .48);
+  ctx.fillStyle = primary;
+  ctx.beginPath();
+  const ground = height * .40;
+  if (moving) {
+    ctx.moveTo(-width * .79, ground);
+    ctx.quadraticCurveTo(-width * .22, ground - unit * 14, width * .43, ground - unit * 4);
+    ctx.quadraticCurveTo(width * .2, ground + unit * 13, -width * .79, ground);
+  } else {
+    ctx.ellipse(0, ground, width * (.37 + .09 * accent), Math.max(unit * 4, height * .08), 0, 0, Math.PI * 2);
+  }
+  ctx.fill();
+
   const motes = trace === 'light' ? 6 : 11;
-  for (let i = 0; i < motes; i++) {
+  for (let i = 0; i < motes; i += placement.compact ? 2 : 1) {
     const age = ((time + i * 5) % 42) / 42;
     const angle = i * 2.39996 + time * .13;
     const size = Math.max(1, Math.round(unit * (trace === 'steam' ? 5 + age * 19 : 3 + age * 6)));
@@ -189,7 +268,7 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
   }
 
   if (!animated && spec.id === 'ult_robinson') {
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 30; i += placement.compact ? 2 : 1) {
       const level = (i % 10) / 9;
       const angle = time * .29 + i * 2.4;
       const depth = Math.sin(angle);
@@ -202,7 +281,7 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
     }
   }
   if (moving && active) {
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 12; i += placement.compact ? 3 : 1) {
       const age = ((time + i * 3) % 24) / 24;
       const lift = Math.sin(i * 2.4 + time * .1) * height * .28;
       ctx.globalAlpha = opacity * (1 - age) * .64;
@@ -219,7 +298,7 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
     ctx.ellipse(0, 0, width * (.61 + .09 * progress), height * .61, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.globalAlpha = opacity * (active ? .98 : .69);
+  ctx.globalAlpha = opacity * (active ? .98 : .66 + .18 * progress);
   ctx.save();
   if (slash) ctx.rotate((accent - .5) * .31);
   if (heavy && !train) ctx.rotate(Math.sin(time * .14) * .055);
@@ -231,6 +310,11 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
     spriteLayer(ctx, sprite, width, height, 0, bob);
   }
   ctx.restore();
+
+  if (!illustratedAnime.has(spec.id) && triggered) {
+    const intensity = opacity * (active ? .56 + .44 * accent : .42);
+    paintAnimeAccent(ctx, spec.primitive, spec.colors, width, height, unit, progress, intensity, Boolean(placement.compact));
+  }
 
   if (!animated && spec.id === 'ult_lincoln') {
     const wheelY = height * .31 + bob;

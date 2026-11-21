@@ -4,7 +4,7 @@ import { paintUltimatePreview, paintUltimateSprite } from './ultimateSprites';
 import { type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { stageArt, stageHazardColumns, stageNightMix } from './stageAtmosphere';
 import { paintCombatSprite, paintSprite, spritePortrait } from './fighterSprites';
-import { drawEffects, drawStrike, drawShot, shotTouches, strikeBox } from '../combat/effects.js';
+import { drawEffects, drawShot, shotTouches, strikeBox } from '../combat/effects.js';
 import { PIXEL_PRESET_DIMS } from '../config/defaultConfig';
 import { ColorRamp, GameConfig, PlatformDef, PresidentData, StageDef } from '../types/game';
 
@@ -83,6 +83,7 @@ export interface RenderFighterState {
       individual?: boolean; downSpecial?: boolean; effect?: string;
       moveKind?: string;
       dur: number;
+      frames?: { startup: number; active: number };
       animationTiming?: { from: number[]; to: number[] };
       heavy?: boolean;
       ph: Array<{ a: [number, number]; hb?: { fx: number; y: number; w: number; h: number }; fx?: string; armor?: boolean }>;
@@ -219,7 +220,7 @@ export interface WorldRenderContext {
   bannerMsg: { t: string; l: number; m: number };
   floatTexts: Array<{ t: string; x: number; y: number; l: number; m: number }>;
   winnerPi: number | null;
-  strikes: Array<{x:number;y:number;w:number;h:number;color:string;highlight?:string;direction?:number}>;
+  strikes: Array<{x:number;y:number;w:number;h:number;color:string;highlight?:string;direction?:number;weapon?:string}>;
   hitboxes: Array<{ x: number; y: number; w: number; h: number; kind: string }>;
 }
 
@@ -2150,6 +2151,16 @@ export class PixelRenderer extends LegacyFighterGeometry {
     ctx.scale(f.squashX, f.squashY);
     const sprite = paintCombatSprite(ctx, f, T, pxScale);
     if (sprite.equipment) this.drawAtlasEquipment(ctx, f, T, pxScale);
+    if (sprite.drawn && isFlash) {
+      const x = -f.face * 10 * pxScale, y = -46 * pxScale;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(-f.face * .5);
+      ctx.fillStyle = '#fff1c3';
+      ctx.fillRect(-12 * pxScale, -1.5 * pxScale, 24 * pxScale, 3 * pxScale);
+      ctx.fillRect(-1.5 * pxScale, -8 * pxScale, 3 * pxScale, 16 * pxScale);
+      ctx.restore();
+    }
     if (!sprite.drawn) {
       const pose = (f as {moves?:unknown}).moves ? this.fightingPose(f,T) : this.solveBlendedPose(f, T, memKey);
       const ras = this.rasterBody(f, pose, T, isFlash, false);
@@ -3104,7 +3115,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     ctx.save();
     ctx.clearRect(0, 0, W, H);
 
-    if (world.cine) {
+    if (world.cine && world.fighters.length < 6) {
       const z = 1 + Math.min(world.cine.t, 24) * 0.006;
       const zx = sx(world.cine.f.cx);
       const zy = sy(world.cine.f.y + world.cine.f.h * 0.45);
@@ -3117,12 +3128,13 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.translate(Math.round((Math.random() - 0.5) * amt * 2), Math.round((Math.random() - 0.5) * amt * 2));
     }
 
+    const campal = world.fighters.length >= 6;
     const night = stageNightMix(cfg.video.stageTime, world.T, world.stageNightStart);
     const illustrated = this.drawIllustratedStage(ctx, world, night);
     if (!illustrated) this.drawStageBackground(ctx, world);
     ctx.save();
     if (illustrated) ctx.globalAlpha = 0.58;
-    if (quality.particleStep < 3) this.drawBackgroundCrowd(ctx, world);
+    if (!campal && quality.particleStep < 3) this.drawBackgroundCrowd(ctx, world);
     ctx.restore();
     if (!world.legacyHazards) this.drawArenaHazard(ctx, world);
 
@@ -3137,7 +3149,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     if (illustrated) {
       this.drawIllustratedPlatform(ctx, world.stage, night, mx, my, mw, mh);
       for (const p of world.plats) {
-        this.drawIllustratedPlatform(ctx, world.stage, night, sx(p.x), sy(p.y), sw(p.w), sw(16), true);
+        if (!campal) this.drawIllustratedPlatform(ctx, world.stage, night, sx(p.x), sy(p.y), sw(p.w), sw(16), true);
       }
     } else {
       this.pxRect(ctx, mx - 1, my - 1, mw + 2, mh + 2, mainOutline);
@@ -3156,7 +3168,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
       }
 
       // Floating Platforms (Beveled Multi-Layer Pedestals with Chromatic Smart Outlines)
-      for (const p of world.plats) {
+      for (const p of campal ? [] : world.plats) {
         const px = sx(p.x);
         const py = sy(p.y);
         const pw = sw(p.w);
@@ -3171,6 +3183,22 @@ export class PixelRenderer extends LegacyFighterGeometry {
         this.pxRect(ctx, px + pw - sw(18), py + sw(15), sw(8), sw(3), world.stage.palette.floatMain);
       }
 
+    }
+
+    if (campal) {
+      const top = Math.min(...world.plats.map(p => p.by ?? p.y));
+      for (const p of world.plats) {
+        const px = sx(p.x), py = sy(p.y), pw = sw(p.w);
+        const raised = world.fighters.length === 8 && (p.by ?? p.y) === top;
+        const depth = sw(raised ? 7 : 12);
+        this.pxRect(ctx, px - 1, py - 1, pw + 2, depth + 2, floatOutline);
+        this.pxRect(ctx, px, py, pw, depth, world.stage.palette.floatMain);
+        this.pxRect(ctx, px, py, pw, sw(3), world.stage.palette.floatTop);
+        if (!raised) {
+          this.pxRect(ctx, px + sw(8), py + depth, sw(12), sw(4), floatOutline);
+          this.pxRect(ctx, px + pw - sw(20), py + depth, sw(12), sw(4), floatOutline);
+        }
+      }
     }
 
     // Pickups (Chromatic Smart Outlines)
@@ -3196,7 +3224,9 @@ export class PixelRenderer extends LegacyFighterGeometry {
     }
 
     if (world.cine) {
-      ctx.fillStyle = world.cine.flash && world.cine.t < 3 ? 'rgba(255, 243, 207, 0.48)' : 'rgba(6, 8, 15, 0.72)';
+      ctx.fillStyle = world.cine.flash && world.cine.t < 3
+        ? (campal ? 'rgba(255, 243, 207, 0.13)' : 'rgba(255, 243, 207, 0.28)')
+        : (campal ? 'rgba(6, 8, 15, 0.19)' : 'rgba(6, 8, 15, 0.46)');
       ctx.fillRect(-30, -30, W + 60, H + 60);
     }
     // Keep the emblem behind the fighters and leave hit warnings legible.
@@ -3206,13 +3236,14 @@ export class PixelRenderer extends LegacyFighterGeometry {
       paintUltimateSprite(ctx, u, {
         x: sx(state.point.x), y: sy(state.point.y),
         hitWidth: sw(state.box.w), hitHeight: sw(state.box.h), unit: sw(100) / 100,
+        compact: campal || world.ults.length > 1 || !quality.lights,
       });
     }
     if (world.telegraph) {
       const { t, duration, ultimateId, aim, zones } = world.telegraph;
       const blink = t % 6 < 3;
       if (ultimateId && aim) {
-        paintUltimatePreview(ctx, ultimateId, sx(aim.x), sy(aim.y - 95), sw(100), t);
+        paintUltimatePreview(ctx, ultimateId, sx(aim.x), sy(aim.y - 95), sw(100), t, duration ?? 32);
       }
       const aimBox = zones[0];
       if (ultimateId === 'ult_simo' && aim && aimBox) {
@@ -3271,19 +3302,25 @@ export class PixelRenderer extends LegacyFighterGeometry {
     ctx.translate(sx(0),sy(0)); ctx.scale(this.camZoom*W/1440,this.camZoom*H/810);
     for (const f of world.fighters) drawEffects(ctx,f);
     for (const box of world.strikes) {
-      drawStrike(ctx, box);
-      if (box.highlight) {
-        ctx.save();
-        ctx.globalAlpha = .55;
-        ctx.strokeStyle = box.highlight;
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo((box.direction ?? 1) > 0 ? box.x : box.x + box.w, box.y + box.h * .8);
-        ctx.quadraticCurveTo(box.x + box.w / 2, box.y - box.h * .35,
-          (box.direction ?? 1) > 0 ? box.x + box.w : box.x, box.y + box.h * .2);
-        ctx.stroke();
-        ctx.restore();
-      }
+      ctx.save();
+      const dir = (box.direction ?? 1) > 0 ? 1 : -1;
+      const start = dir > 0 ? box.x : box.x + box.w;
+      const end = start + box.w * dir;
+      const edged = box.weapon === 'saber' || box.weapon === 'sarissa' || box.weapon === 'staff';
+      ctx.beginPath();
+      ctx.moveTo(start, box.y + box.h * .78);
+      ctx.quadraticCurveTo(start + dir * box.w * .35, box.y - box.h * (edged ? .38 : .06),
+        end, box.y + box.h * .29);
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = box.color;
+      ctx.globalAlpha = .58;
+      ctx.lineWidth = edged ? 7 : 4;
+      ctx.stroke();
+      ctx.globalAlpha = .91;
+      ctx.strokeStyle = box.highlight ?? '#fff1cc';
+      ctx.lineWidth = edged ? 2.6 : 1.6;
+      ctx.stroke();
+      ctx.restore();
     }
     ctx.restore();
 
@@ -3301,7 +3338,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
 
     for (const u of world.ults) {
       ctx.save();
-      this.drawUltEffect(ctx, u, world.T, world.main);
+      this.drawUltEffect(ctx, u, world.T, world.main, campal || world.ults.length > 1);
       ctx.restore();
     }
 
@@ -3485,7 +3522,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     ctx.restore();
   }
 
-  private drawUltEffect(ctx: CanvasRenderingContext2D, u: RenderUltEffect, T: number, main: { x: number; y: number; w: number; h: number }) {
+  private drawUltEffect(ctx: CanvasRenderingContext2D, u: RenderUltEffect, T: number, main: { x: number; y: number; w: number; h: number }, compact: boolean) {
     const sx = (v: number) => this.sx(v);
     const sy = (v: number) => this.sy(v);
     const sw = (v: number) => this.sw(v);
@@ -3507,7 +3544,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
       let motif = 0;
       for (let i = 0; i < spec.vfxKey.length; i++) motif = (Math.imul(motif, 31) + spec.vfxKey.charCodeAt(i)) >>> 0;
       if (active) {
-        const count = 3 + motif % 6;
+        const count = compact ? 3 : 3 + motif % 6;
         for (let i = 0; i < count; i++) {
           const angle = (motif % 360) * Math.PI / 180 + i * 2 * Math.PI / count + u.t * .045;
           const orbit = .6 + .17 * Math.sin(u.t * .15 + i);

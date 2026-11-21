@@ -328,7 +328,7 @@ export const ARENA_SCALE = {
   2: { width: 1, height: 1, minZoom: .85, levels: 0 },
   4: { width: 1.35, height: 1.15, minZoom: .72, levels: 1 },
   6: { width: 1.65, height: 1.25, minZoom: .60, levels: 2 },
-  8: { width: 2, height: 1.35, minZoom: .50, levels: 3 },
+  8: { width: 2, height: 1.35, minZoom: .50, levels: 2 },
 } as const;
 
 export function arenaGeometry(stage: StageDef, capacity: RoomCapacity) {
@@ -338,15 +338,19 @@ export function arenaGeometry(stage: StageDef, capacity: RoomCapacity) {
   main.x = center - main.w / 2;
   const width = main.w * .23;
   const yAt = (level: number) => main.y - (104 + 92 * (level - 1)) * scale.height;
-  const symmetric = (level: number, spread: number) => [-1, 1].map(side => ({
-    x: center + side * main.w * spread - width / 2, y: yAt(level), w: width,
+  const symmetric = (level: number, spread: number, span = width) => [-1, 1].map(side => ({
+    x: center + side * main.w * spread - span / 2, y: yAt(level), w: span,
   }));
   const plats = capacity === 2 ? stage.plats.map(p => ({ ...p }))
     : capacity === 4 ? [
       ...stage.plats.map(p => ({ ...p, x: center + (p.x - center) * scale.width, y: main.y - (main.y - p.y) * scale.height })),
       { x: center - width / 2, y: yAt(1), w: width },
     ]
-    : [...symmetric(1, .31), ...symmetric(2, .19), ...(capacity === 8 ? symmetric(3, .31) : [])];
+    : capacity === 6 ? symmetric(1, .29)
+    : [
+      ...symmetric(1, .34, main.w * .16),
+      ...symmetric(2, .13, main.w * .14),
+    ];
   const groundCount = Math.min(4, capacity);
   const spawns = Array.from({ length: groundCount }, (_, i) => ({
     x: main.x + main.w * (i + 1) / (groundCount + 1), y: main.y,

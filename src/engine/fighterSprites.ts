@@ -5,8 +5,10 @@ type ClipName = 'guard' | 'walk' | 'jump' | 'fall' | 'land' | 'crouch' | 'jab' |
   'aim' | 'fire' | 'magazine' | 'launcher' | 'rocketFire' | 'load' | 'case' | 'up' | 'down' | 'rage' | 'ultimate' | 'hurt' | 'defeat' | 'victory';
 type Pose = { region: [number, number, number, number]; anchor: [number, number]; scale: number };
 type Clip = { loop: boolean; frames: { pose: string; ticks: number }[] };
-type Manifest = { equipmentOverlay?: boolean; image: string; portrait: string; poses: Record<string, Pose>; animations: Record<ClipName, Clip> };
-type Art = { atlas: HTMLImageElement; portrait?: HTMLImageElement; meta: Manifest };
+type EquipmentSheet = { image: string; authored?: boolean; regions: Record<string, Pose['region']> };
+type Manifest = { equipment?: EquipmentSheet; equipmentOverlay?: boolean; image: string; portrait: string; poses: Record<string, Pose>; animations: Record<ClipName, Clip> };
+type Art = { atlas: HTMLImageElement; portrait?: HTMLImageElement; equipment?: HTMLImageElement;
+  equipmentPending?: boolean; equipmentRetryAt?: number; meta: Manifest; path: string };
 type Entry = { ready?: Art; loading: Promise<void>; used: number; retryAt?: number };
 
 const rosterArt = new Set([
@@ -64,7 +66,7 @@ function entry(d: PresidentData) {
         if (!clip.frames.length || clip.frames.some(f => !meta.poses[f.pose] || !(f.ticks > 0)))
           throw Error('Invalid animation');
       }
-      item.ready = { atlas, meta };
+      item.ready = { atlas, meta, path };
       item.ready.portrait = await image(path + meta.portrait);
     })().catch(() => { if (!item.ready) item.retryAt = Date.now() + 5_000; });
     cache.set(path, item);
@@ -127,15 +129,34 @@ export function spriteAction(f: RenderFighterState, tick: number): [ClipName, nu
 }
 
 export function paintSprite(ctx: CanvasRenderingContext2D, d: PresidentData, clip: ClipName, tick: number,
-  face: number, scaleX: number, scaleY = scaleX) {
+  face: number, scaleX: number, scaleY = scaleX, combat = false) {
   const art = entry(d)?.ready;
   const animation = art?.meta.animations[clip];
   if (!art || !animation) return false;
-  const pose = art.meta.poses[frameAt(animation, tick)];
+  const name = frameAt(animation, tick);
+  const pose = art.meta.poses[name];
+  const equipment = combat && clip in equipmentClips ? art.meta.equipment : undefined;
+  if (equipment && !art.equipment && !art.equipmentPending && Date.now() >= (art.equipmentRetryAt ?? 0)) {
+    art.equipmentPending = true;
+    void image(art.path + equipment.image).then(sheet => {
+      const valid = Object.values(equipment.regions).every(([x, y, w, h]) =>
+        x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= sheet.width && y + h <= sheet.height);
+      if (!valid) throw Error('Invalid equipment atlas bounds');
+      art.equipment = sheet;
+    }).catch(() => { art.equipmentRetryAt = Date.now() + 5_000; })
+      .finally(() => { art.equipmentPending = false; });
+  }
+  const region = art.equipment && equipment?.regions[name];
+  const source = region ? art.equipment! : art.atlas;
   ctx.save();
-  ctx.imageSmoothingEnabled = false;
+  const anime = art.meta.image === 'atlas-anime.webp';
+  ctx.imageSmoothingEnabled = anime;
+  if (combat) {
+    // The combat palette prioritizes silhouette and shadow separation at small scales.
+    ctx.filter = anime ? 'contrast(1.13) saturate(1.08)' : 'contrast(1.09) saturate(1.12)';
+  }
   ctx.scale((face < 0 ? -1 : 1) * scaleX * pose.scale, scaleY * pose.scale);
-  ctx.drawImage(art.atlas, ...pose.region, -pose.anchor[0], -pose.anchor[1], pose.region[2], pose.region[3]);
+  ctx.drawImage(source, ...(region || pose.region), -pose.anchor[0], -pose.anchor[1], pose.region[2], pose.region[3]);
   ctx.restore();
   return true;
 }
@@ -150,8 +171,18 @@ export function paintCombatSprite(ctx: CanvasRenderingContext2D, f: RenderFighte
   if (!art) return { drawn: false, equipment: false };
   const [requested, frame] = spriteAction(f, tick);
   const clip = art.meta.animations[requested] ? requested : equipmentClips[requested] ?? 'guard';
-  const drawn = paintSprite(ctx, f.d, clip, frame, f.face, scale);
-  const bakedEquipment = !art.meta.equipmentOverlay && clip in equipmentClips;
+  const attack = f.atk;
+  const phase = attack?.spec.frames;
+  const activeEnd = phase ? phase.startup + phase.active : attack?.spec.dur ?? 0;
+  const settle = attack && attack.t > activeEnd
+    ? 1 - Math.min(1, (attack.t - activeEnd) / Math.max(1, attack.spec.dur - activeEnd))
+    : 0;
+  const drawn = paintSprite(ctx, f.d, clip, frame, f.face, scale, scale * (1 - .09 * settle), true);
+  const authored = art.meta.equipment;
+  const animation = art.meta.animations[clip];
+  const bakedEquipment = clip in equipmentClips && (authored?.authored
+    ? Boolean(art.equipment && animation && authored.regions[frameAt(animation, frame)])
+    : !art.meta.equipmentOverlay);
   const equipment = drawn && !bakedEquipment && f.wpn > 0 && !f.winning;
   return { drawn, equipment };
 }

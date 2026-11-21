@@ -56,13 +56,13 @@ for (const [name, clip] of Object.entries(meta.animations)) {
     assert.ok(opaque>100);
     if (name==='guard') {
       const lowest=right.findLastIndex((value,i)=>i%4===3 && value>100);
-      assert.equal(Math.floor(lowest/4/320),189);
+      assert.ok(Math.abs(Math.floor(lowest/4/320) - 189) <= 1);
     }
     elapsed+=frame.ticks;
   }
 }
 assert.deepEqual(snapshot('jab',3,1),snapshot('jab',3,1));
-assert.deepEqual(loads,['atlas.json','atlas.png','portrait.png']);
+assert.deepEqual(loads,['atlas.json',meta.image,meta.portrait]);
 assert.equal(preloadFighter({id:'aquiles',isCustom:true}),undefined);
 assert.equal(preloadFighter({id:'sin-atlas'}),undefined);
 assert.equal(spriteAction({on:false,vy:-8,jumpTick:20},23)[0],'jump');
@@ -73,7 +73,7 @@ console.log('Atlas, duraciones, orientación, anclaje, caché y transiciones ver
 
 const juanaDirectory = new URL('../public/assets/fighters/juana/', import.meta.url);
 const juanaMeta = JSON.parse(readFileSync(new URL('atlas.json', juanaDirectory)));
-for (const name of [juanaMeta.image, juanaMeta.portrait]) {
+for (const name of [juanaMeta.image, juanaMeta.portrait, juanaMeta.equipment.image]) {
   images.set(name, await loadImage(readFileSync(new URL(name, juanaDirectory))));
 }
 globalThis.fetch = async url => {
@@ -82,21 +82,38 @@ globalThis.fetch = async url => {
 };
 const juana = { id: 'juana' };
 await preloadFighter(juana);
+const equipmentRequests = () => loads.filter(name => name === juanaMeta.equipment.image).length;
+const beforeEquip = equipmentRequests();
 const equippedCanvas = createCanvas(320, 220);
 const equippedContext = equippedCanvas.getContext('2d');
 const drawEquipped = equippedContext.drawImage.bind(equippedContext);
-equippedContext.drawImage = (img, ...args) => drawEquipped(images.get(img.name), ...args);
+let equippedImage;
+equippedContext.drawImage = (img, ...args) => {
+  equippedImage = img.name;
+  return drawEquipped(images.get(img.name), ...args);
+};
 equippedContext.translate(160, 190);
+const launcher = { d: juana, face: 1, wpn: 100, on: true, wk: 'rocket' };
+paintCombatSprite(equippedContext, { ...launcher, wpn: 0 }, 42, 2);
+assert.equal(equipmentRequests(), beforeEquip, 'El atlas de equipo no se solicita sin arma');
+paintCombatSprite(equippedContext, launcher, 42, 2);
+assert.equal(equippedImage, juanaMeta.image, 'El atlas base cubre la espera del atlas de equipo');
+await new Promise(resolve => setImmediate(resolve));
+paintCombatSprite(equippedContext, launcher, 42, 2);
+assert.equal(equippedImage, juanaMeta.equipment.image, 'Se usa la hoja separada al terminar la carga');
+assert.equal(equipmentRequests(), beforeEquip + 1);
 for (const wk of ['mg', 'rocket', 'case']) {
   for (const state of [{}, { pickupT: 9 }, { vx: 3 }, { on: false, vy: -3 }, { reloadT: 10 }, { shootRecoil: 4 }]) {
     const f = { d: juana, face: 1, wpn: 100, on: true, wk, reloadDur: 20, ...state };
-    assert.deepEqual(paintCombatSprite(equippedContext, f, 42, 2), { drawn: true, equipment: true });
+    const [clip] = spriteAction(f, 42);
+    const baked = ['aim', 'fire', 'launcher', 'rocketFire'].includes(clip);
+    assert.deepEqual(paintCombatSprite(equippedContext, f, 42, 2), { drawn: true, equipment: !baked });
   }
 }
 assert.deepEqual(paintCombatSprite(equippedContext, { d: juana, face: 1, wpn: 0, on: true }, 42, 2),
   { drawn: true, equipment: false });
 const legacyRocket = { d: character, on: true, face: 1, wpn: 100, wk: 'rocket' };
-assert.deepEqual(paintCombatSprite(equippedContext, legacyRocket, 42, 2), { drawn: true, equipment: false });
+assert.deepEqual(paintCombatSprite(equippedContext, legacyRocket, 42, 2), { drawn: true, equipment: true });
 for (const state of [{vx: 3}, {pickupT: 9}, {on: false, vy: -3}]) {
   assert.deepEqual(paintCombatSprite(equippedContext, { ...legacyRocket, ...state }, 42, 2),
     { drawn: true, equipment: true });

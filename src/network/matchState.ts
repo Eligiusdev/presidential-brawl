@@ -59,7 +59,7 @@ export function packMatch(world: WorldRenderContext, tick: number, stage: number
       const attack = atk ? { t: atk.t, armor: atk.armor, spec: {
         k: atk.spec.k, individual: atk.spec.individual, downSpecial: atk.spec.downSpecial,
         effect: atk.spec.effect, moveKind: atk.spec.moveKind, dur: atk.spec.dur,
-        animationTiming: atk.spec.animationTiming, heavy: atk.spec.heavy,
+        animationTiming: atk.spec.animationTiming, frames: atk.spec.frames, heavy: atk.spec.heavy,
         ph: atk.spec.ph.map(({ a, hb, fx, armor }) => ({ a, hb, fx, armor })),
       }} : null;
       return { id: pi, slot: pi, fighterId: f.d.id, facing: face, state: moveKind || (on ? 'idle' : 'air'),

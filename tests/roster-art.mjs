@@ -71,6 +71,22 @@ for (const d of PRESIDENTS_DATA) {
     }
     assert.equal(spriteAction({atk:{spec:{downSpecial:true,k:'h'},t:1}},1)[0],'down');
   }
+  assert.ok(meta.equipment, d.id + ' hoja independiente de equipo');
+  const equipment = await loadImage(readFileSync(new URL(meta.equipment.image, directory)));
+  const equipmentCtx = createCanvas(equipment.width, equipment.height).getContext('2d');
+  equipmentCtx.drawImage(equipment, 0, 0);
+  for (const clip of ['aim', 'fire', 'magazine', 'launcher', 'rocketFire', 'load', 'case']) {
+    for (const { pose } of meta.animations[clip]?.frames ?? []) {
+      const equippedRegion = meta.equipment.regions[pose];
+      if (meta.equipment.authored && ['magazine', 'load', 'case'].includes(clip) && !equippedRegion) continue;
+      const [x, y, w, h] = equippedRegion;
+      assert.ok(x >= 0 && y >= 0 && x + w <= equipment.width && y + h <= equipment.height, d.id + ' ' + clip);
+      const pixels = equipmentCtx.getImageData(x, y, w, h).data;
+      const base = ctx.getImageData(...meta.poses[pose].region).data;
+      if (meta.equipment.authored) assert.notDeepEqual(pixels, base, d.id + ' equipo ilustrado');
+      else assert.deepEqual(pixels, base, d.id + ' ' + clip);
+    }
+  }
   for(const file of ['thumb.webp','selection.webp',meta.portrait]) {
     const image=await loadImage(readFileSync(new URL(file,directory)));assert.ok(image.width>0);
   }

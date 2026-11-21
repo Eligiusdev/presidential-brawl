@@ -17,7 +17,12 @@ for (const stage of STAGES_DATA) {
     const geometry = arenaGeometry(stage, size);
     assert.equal(geometry.main.w, stage.main.w * ARENA_SCALE[size].width);
     assert.equal(new Set(geometry.spawns.map(p => `${p.x}:${p.y}`)).size, size);
-    assert.equal(geometry.plats.length, size === 2 ? stage.plats.length : size === 4 ? stage.plats.length + 1 : size === 6 ? 4 : 6);
+    assert.equal(geometry.plats.length, size === 2 ? stage.plats.length : size === 4 ? stage.plats.length + 1 : size === 6 ? 2 : 4);
+    if (size >= 6) {
+      const center = stage.main.x + stage.main.w / 2;
+      assert.ok(geometry.plats.every(p => p.x + p.w <= center || p.x >= center), 'Carril central libre');
+      assert.equal(new Set(geometry.plats.map(p => p.y)).size, size === 6 ? 1 : 2);
+    }
     for (const spawn of geometry.spawns) {
       assert.ok([geometry.main, ...geometry.plats].some(p => p.y === spawn.y && spawn.x > p.x && spawn.x < p.x + p.w));
     }
@@ -48,6 +53,15 @@ assert.equal(world.fighters[0].d.id, ids[0]);
 const canvas = createCanvas(1280, 720);
 game.renderer.renderWorld(canvas, world, cfg);
 assert.ok(canvas.getContext('2d').getImageData(640, 360, 1, 1).data[3] > 0);
+
+const crowded = new GameEngine(cfg);
+crowded.startOnline(ids, 0, 123);
+const [train, tornado, target] = crowded.fighters;
+crowded.fireUlt(train, target);
+crowded.fireUlt(tornado, target);
+const simultaneous = crowded.worldSnapshot();
+assert.equal(simultaneous.ults.length, 2, 'Dos definitivas simultáneas en Campal de ocho');
+crowded.renderer.renderWorld(canvas, simultaneous, cfg);
 
 console.log('Geometría de arenas, impactos múltiples, interpolación, predicción y render local verificados.');
 

@@ -5,7 +5,7 @@ import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { PRESIDENTS_DATA } from '../src/data/presidents.ts';
 import atlas from '../src/data/ultimateAtlas.json' with { type: 'json' };
 import { ultimateBox, ultimateFor, ultimatePoint } from '../src/engine/presidentUltimates.ts';
-import { paintUltimateSprite } from '../src/engine/ultimateSprites.ts';
+import { paintUltimateSprite, ultimateSpriteFrame } from '../src/engine/ultimateSprites.ts';
 
 const root = new URL('../public/assets/ultimates/', import.meta.url);
 const sheets = new Map(await Promise.all([...new Set(Object.values(atlas).map(entry => entry.sheet))].map(async sheet => [
@@ -108,3 +108,10 @@ for (const file of animatedFiles) {
   assert.equal(frames.size, 12, `${file}: fotogramas distintos`);
 }
 console.log(`${animatedFiles.length} atlas de definitivas con 12 fotogramas y margen transparente.`);
+
+for (const opening of [0, .06, .38, .65]) {
+  const played = Array.from({ length: 101 }, (_, tick) => ultimateSpriteFrame(tick, 100, true, opening));
+  assert.ok(played.every((frame, i) => frame >= 0 && frame <= 11 && (!i || frame >= played[i - 1])));
+  assert.equal(played.at(-1), 11);
+}
+assert.equal(ultimateSpriteFrame(100, 100, false, .65), 3);
