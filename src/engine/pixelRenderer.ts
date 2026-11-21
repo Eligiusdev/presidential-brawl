@@ -1,5 +1,6 @@
+import { fullQuality, type RenderQuality } from './renderPerformance';
 import type { RoomCapacity } from '../data/stages';
-import { paintUltimatePreview, paintUltimateSprite, preloadUltimateSprite } from './ultimateSprites';
+import { paintUltimatePreview, paintUltimateSprite } from './ultimateSprites';
 import { type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { stageArt, stageHazardColumns, stageNightMix } from './stageAtmosphere';
 import { paintCombatSprite, paintSprite, spritePortrait } from './fighterSprites';
@@ -2005,8 +2006,10 @@ export class PixelRenderer extends LegacyFighterGeometry {
     this.lightCtx.imageSmoothingEnabled = false;
   }
 
-  private syncBufferSize(cfg: GameConfig, target?: HTMLCanvasElement) {
-    const dim = target?.width && target.height ? { w: target.width, h: target.height } : PIXEL_PRESET_DIMS[cfg.video.pixelPreset] || PIXEL_PRESET_DIMS.modern;
+  private syncBufferSize(cfg: GameConfig, quality: RenderQuality, target?: HTMLCanvasElement) {
+    const preset = PIXEL_PRESET_DIMS[cfg.video.pixelPreset] || PIXEL_PRESET_DIMS.modern;
+    const dim = target?.width && target.height ? { w: target.width, h: target.height } :
+      { w: Math.round(preset.w * quality.scale), h: Math.round(preset.h * quality.scale) };
     if (this.pxW !== dim.w || this.pxH !== dim.h) {
       this.pxW = dim.w;
       this.pxH = dim.h;
@@ -3088,8 +3091,8 @@ export class PixelRenderer extends LegacyFighterGeometry {
     ctx.restore();
   }
 
-  renderWorld(targetCanvas: HTMLCanvasElement, world: WorldRenderContext, cfg: GameConfig) {
-    this.syncBufferSize(cfg, world.online ? targetCanvas : undefined);
+  renderWorld(targetCanvas: HTMLCanvasElement, world: WorldRenderContext, cfg: GameConfig, quality: RenderQuality = fullQuality) {
+    this.syncBufferSize(cfg, quality, world.online ? targetCanvas : undefined);
     this.updateCamera(world);
     const ctx = this.offCtx;
     const W = this.pxW;
@@ -3119,7 +3122,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     if (!illustrated) this.drawStageBackground(ctx, world);
     ctx.save();
     if (illustrated) ctx.globalAlpha = 0.58;
-    this.drawBackgroundCrowd(ctx, world);
+    if (quality.particleStep < 3) this.drawBackgroundCrowd(ctx, world);
     ctx.restore();
     if (!world.legacyHazards) this.drawArenaHazard(ctx, world);
 
@@ -3197,9 +3200,6 @@ export class PixelRenderer extends LegacyFighterGeometry {
       ctx.fillRect(-30, -30, W + 60, H + 60);
     }
     // Keep the emblem behind the fighters and leave hit warnings legible.
-    for (const fighter of world.fighters) {
-      if (!fighter.d.isCustom && fighter.d.ultimateId) preloadUltimateSprite(fighter.d.ultimateId);
-    }
     for (const u of world.ults) {
       const state = u.specialized;
       if (!state) continue;
@@ -3365,7 +3365,8 @@ export class PixelRenderer extends LegacyFighterGeometry {
     }
 
     // Dynamic Multi-Shape Fade-Out Particles (never flat static blocks!)
-    for (const pt of world.particles) {
+    for (let index = 0; index < world.particles.length; index += quality.particleStep) {
+      const pt = world.particles[index];
       const ratio = clamp(pt.l / Math.max(1, pt.m), 0, 1);
       const px = sx(pt.x);
       const py = sy(pt.y);
@@ -3422,7 +3423,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     }
     ctx.globalAlpha = 1;
 
-    if (cfg.video.dynamicLighting) {
+    if (cfg.video.dynamicLighting && quality.lights) {
       this.renderLightingPass(ctx, world);
     }
 

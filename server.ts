@@ -1,3 +1,4 @@
+import { ROOM_PROTOCOL } from './src/network/roomProtocol.mjs';
 import { randomInt } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { networkInterfaces } from 'node:os';
@@ -95,7 +96,7 @@ async function serveFile(res: uWS.HttpResponse, filePath: string, cache: string)
 
 app.get('/health', (res) => {
   res.onAborted(() => {});
-  serve(res, '200 OK', JSON.stringify({ status: 'ok', rooms: 'state-ws' }), 'application/json; charset=utf-8', 'no-store');
+  serve(res, '200 OK', JSON.stringify({ status: 'ok', rooms: 'state-ws', roomProtocol: ROOM_PROTOCOL }), 'application/json; charset=utf-8', 'no-store');
 });
 
 app.get('/api/*', (res) => {

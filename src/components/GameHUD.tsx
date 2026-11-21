@@ -1,3 +1,4 @@
+import { VictoryShowcase } from './VictoryShowcase';
 import { PRESIDENTS_DATA } from "../data/presidents";
 import { fighterArtPath } from "../engine/fighterSprites";
 import type { MatchSnapshot, RoomState } from "../network/matchState";
@@ -737,15 +738,7 @@ export function GameHUD({
             <div className="text-xs font-bold uppercase tracking-widest text-[#ffcc33]">Presidente Electo</div>
             <h2 className="mt-1 font-display text-3xl font-bold uppercase text-white">{summary.winnerName}</h2>
 
-            <div className="my-4 flex justify-center">
-              <div className="overflow-hidden rounded-xl border-2 border-[#ffcc33]">
-                <PortraitCanvas
-                  president={roster.find((p) => p.id === summary.winnerId) || roster[0]}
-                  className="h-24 w-24"
-                  animate
-                />
-              </div>
-            </div>
+            <VictoryShowcase fighter={roster.find(p => p.id === summary.winnerId) ?? roster[0]} />
 
             <div className="grid grid-cols-2 gap-2 rounded-lg border border-[#222b42] bg-[#0c101c] p-3 text-xs sm:grid-cols-4">
               <div>
@@ -887,11 +880,7 @@ export function GameHUD({
             <h2 className="mt-1 font-display text-3xl font-bold uppercase text-white">
               ¡Líder Supremo Mundial!
             </h2>
-            <div className="my-5 flex justify-center">
-              <div className="overflow-hidden rounded-xl border-2 border-[#ffcc33]">
-                <PortraitCanvas president={roster[campaign.hero] || roster[0]} className="h-24 w-24" animate />
-              </div>
-            </div>
+            <VictoryShowcase fighter={roster[campaign.hero] ?? roster[0]} />
             <div className="font-display text-xl font-bold text-[#ffcc33]">
               {(roster[campaign.hero] || roster[0]).name}
             </div>

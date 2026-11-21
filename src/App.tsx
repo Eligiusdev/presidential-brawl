@@ -1,3 +1,7 @@
+import { AdaptiveRenderQuality } from './engine/renderPerformance';
+import { preloadMatchArt } from './engine/matchArt';
+import { clearPerformanceSamples, performanceMetricsEnabled, samplePerformance } from './engine/performanceMetrics';
+import { PerformancePanel } from './components/PerformancePanel';
 import { LandscapePrompt } from './components/LandscapePrompt';
 import { useMenuGamepad } from './input/useMenuGamepad';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -127,6 +131,40 @@ export default function App() {
     setScreen('SELECT');
   }, []);
 
+  const touchAt = useRef<number | null>(null);
+  const matchLoading = useRef(false);
+  const [loadingArt, setLoadingArt] = useState(false);
+  const videoRef = useRef(config.video);
+  videoRef.current = config.video;
+
+  useEffect(() => {
+    if (screen === 'SELECT') void preloadMatchArt([roster[sel[0]], roster[sel[1]]].filter(Boolean));
+  }, [screen, roster, sel]);
+
+  const startWithArt = useCallback(async (first: number, second: number, start: () => void) => {
+    const engine = engineRef.current;
+    if (!engine || matchLoading.current) return;
+    const from = screenRef.current;
+    matchLoading.current = true;
+    setLoadingArt(true);
+    let deadline = 0;
+    try {
+      await Promise.race([
+        preloadMatchArt([engine.roster[first], engine.roster[second]].filter(Boolean)),
+        new Promise<void>(resolve => { deadline = window.setTimeout(resolve, 1400); }),
+      ]);
+      if (from === screenRef.current && !onlineActive.current) {
+        touchAt.current = null;
+        clearPerformanceSamples();
+        start();
+      }
+    } finally {
+      window.clearTimeout(deadline);
+      matchLoading.current = false;
+      setLoadingArt(false);
+    }
+  }, []);
+
   const launchCampaignRound = useCallback((camp: CampaignState) => {
     const engine = engineRef.current;
     if (!engine) return;
@@ -134,14 +172,17 @@ export default function App() {
     setCampaign({ ...camp });
     setMode('campaign');
     setScreen('VS');
+    void preloadMatchArt([engine.roster[camp.hero], engine.roster[camp.ladder[camp.round]]].filter(Boolean));
     sound.tone(200, 0.28, 'square', 200, 0.08);
     if (campaignTimerRef.current) window.clearTimeout(campaignTimerRef.current);
     campaignTimerRef.current = window.setTimeout(() => {
       if (screenRef.current !== 'VS') return;
-      engine.startMatch(camp.hero, camp.ladder[camp.round], camp.round % STAGES_DATA.length, true, 'campaign', camp.round);
-      setScreen('PLAYING');
+      void startWithArt(camp.hero, camp.ladder[camp.round], () => {
+        engine.startMatch(camp.hero, camp.ladder[camp.round], camp.round % STAGES_DATA.length, true, 'campaign', camp.round);
+        setScreen('PLAYING');
+      });
     }, 2400);
-  }, []);
+  }, [startWithArt]);
 
   const startCampaign = useCallback(() => {
     const hero = Math.min(sel[0], roster.length - 1);
@@ -171,9 +212,11 @@ export default function App() {
     setCampaign(null);
     setSummary(null);
     setMode('versus');
-    engine.startMatch(sel[0], sel[1], stageSel, vsAI, 'versus');
-    setScreen('PLAYING');
-  }, [sel, stageSel, vsAI]);
+    void startWithArt(sel[0], sel[1], () => {
+      engine.startMatch(sel[0], sel[1], stageSel, vsAI, 'versus');
+      setScreen('PLAYING');
+    });
+  }, [sel, stageSel, vsAI, startWithArt]);
 
   const startTraining = useCallback(() => {
     const engine = engineRef.current;
@@ -182,9 +225,11 @@ export default function App() {
     setCampaign(null);
     setSummary(null);
     setMode('training');
-    engine.startMatch(sel[0], sel[1], stageSel, false, 'training');
-    setScreen('PLAYING');
-  }, [sel, stageSel]);
+    void startWithArt(sel[0], sel[1], () => {
+      engine.startMatch(sel[0], sel[1], stageSel, false, 'training');
+      setScreen('PLAYING');
+    });
+  }, [sel, stageSel, startWithArt]);
 
   const togglePause = useCallback(() => {
     if (screenRef.current === 'PLAYING') {
@@ -340,6 +385,12 @@ export default function App() {
     let hudTick = 0;
     let halfSpeedToggle = 0;
 
+    let adaptive = videoRef.current.adaptiveQuality !== false;
+    const mobile = window.matchMedia('(pointer: coarse)').matches;
+    let quality = new AdaptiveRenderQuality(adaptive, mobile);
+    let lastPaint = 0;
+    let nextPaintAt = 0;
+    let lastScreen = '';
     let backdropStage = '';
     let backdropNight = -1;
     const frame = (now: number) => {
@@ -355,10 +406,14 @@ export default function App() {
       const shouldStepReplay =
         !configOpenRef.current && curScreen === 'REPLAY' && !replayPausedRef.current && !engine.replayEnded;
 
+      if (curScreen !== 'PLAYING') touchAt.current = null;
+      const startedSimulation = performanceMetricsEnabled ? performance.now() : 0;
+      let stepped = false;
       while (acc >= 16.667) {
         acc -= 16.667;
         if (shouldStepLive) {
           engine.step(isAttract);
+          stepped = true;
         } else if (shouldStepReplay) {
           const spd = replaySpeedRef.current;
           if (spd === 0.5) {
@@ -373,6 +428,7 @@ export default function App() {
         }
       }
 
+      const simulationCost = startedSimulation ? performance.now() - startedSimulation : 0;
       const backdrop = arenaBackdropRef.current;
       if (backdrop) {
         const stageId = engine.stage.id;
@@ -388,8 +444,34 @@ export default function App() {
         }
       }
 
-      if (canvasRef.current && curScreen !== 'CUSTOMIZE') {
-        engine.render(canvasRef.current);
+      const fighting = curScreen === 'PLAYING' || curScreen === 'REPLAY';
+      if (lastScreen !== curScreen) {
+        lastPaint = 0;
+        nextPaintAt = now;
+        lastScreen = curScreen;
+      }
+      const nextAdaptive = videoRef.current.adaptiveQuality !== false;
+      if (nextAdaptive !== adaptive) {
+        adaptive = nextAdaptive;
+        quality = new AdaptiveRenderQuality(adaptive, mobile);
+      }
+      if (canvasRef.current && curScreen !== 'CUSTOMIZE' && (now + .3 >= nextPaintAt)) {
+        const start = performance.now();
+        const period = 1000 / 60;
+        nextPaintAt += Math.max(1, Math.floor((now - nextPaintAt) / period) + 1) * period;
+        if (fighting && startedSimulation) samplePerformance('simulation', simulationCost);
+        engine.render(canvasRef.current, quality.quality);
+        const end = performance.now();
+        if (fighting && lastPaint) {
+          quality.record(now - lastPaint, end - start);
+          samplePerformance('frame', now - lastPaint);
+          samplePerformance('render', end - start);
+        }
+        if (stepped && curScreen === 'PLAYING' && touchAt.current !== null) {
+          samplePerformance('touch', end - touchAt.current);
+          touchAt.current = null;
+        }
+        lastPaint = now;
       }
 
       if (curScreen === 'PLAYING' || curScreen === 'PAUSED' || curScreen === 'REPLAY') {
@@ -423,6 +505,7 @@ export default function App() {
   };
 
   const handleTouchAction = (action: PlayerAction, active: boolean) => {
+    if (performanceMetricsEnabled && active && touchAt.current === null) touchAt.current = performance.now();
     engineRef.current?.setTouchAction(action, active);
   };
 
@@ -438,6 +521,8 @@ export default function App() {
 
   return (
     <main ref={appRef} className="apex-app">
+      {loadingArt && <div className="match-art-status" role="status">Preparando luchadores…</div>}
+      {performanceMetricsEnabled && <PerformancePanel />}
       <LandscapePrompt />
       <NetworkPanel config={config}
         openSignal={netOpenSignal}

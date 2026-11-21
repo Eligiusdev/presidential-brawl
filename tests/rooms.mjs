@@ -1,3 +1,4 @@
+import { ROOM_PROTOCOL } from '../src/network/roomProtocol.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -26,7 +27,9 @@ test('salas WebSocket de 2/4/6/8, snapshots autoritativos y migración', { timeo
       host.once('exit', () => reject(Error(stderr)));
     });
     const base = `http://127.0.0.1:${port}`;
-    assert.equal((await (await fetch(base + '/health')).json()).rooms, 'state-ws');
+    const health = await (await fetch(base + '/health')).json();
+    assert.equal(health.rooms, 'state-ws');
+    assert.equal(health.roomProtocol, ROOM_PROTOCOL);
 
     async function connect(body) {
       const ws = new WebSocket(`ws://127.0.0.1:${port}/api/rooms/ws`);
@@ -50,19 +53,25 @@ test('salas WebSocket de 2/4/6/8, snapshots autoritativos y migración', { timeo
       }
       const peer = { ws, next, send };
       peers.push(peer);
-      send(body);
+      send({ protocol: ROOM_PROTOCOL, ...body });
       return peer;
     }
 
+    const stale = await connect({ type: 'create', maxPlayers: 2, protocol: undefined });
+    assert.equal((await stale.next(m => m.type === 'error')).code, 'PROTOCOL');
+    stale.ws.close();
+
     for (const maxPlayers of [2, 4, 6, 8]) {
       const players = [];
+      let finalSeat;
       const creator = await connect({ type: 'create', maxPlayers });
       const seat = await creator.next(m => m.type === 'seat');
       assert.equal(seat.slot, 0);
       players.push(creator);
       for (let slot = 1; slot < maxPlayers; slot++) {
         const peer = await connect({ type: 'join', code: seat.code });
-        assert.equal((await peer.next(m => m.type === 'seat')).slot, slot);
+        finalSeat = await peer.next(m => m.type === 'seat');
+        assert.equal(finalSeat.slot, slot);
         players.push(peer);
       }
       const overflow = await connect({ type: 'join', code: seat.code });
@@ -70,6 +79,13 @@ test('salas WebSocket de 2/4/6/8, snapshots autoritativos y migración', { timeo
       overflow.ws.close();
 
       let leader = creator;
+      if (maxPlayers === 6) {
+        const replaced = new Promise(resolve => creator.ws.once('close', resolve));
+        leader = await connect({ type: 'resume', code: seat.code, token: seat.token });
+        assert.equal((await leader.next(m => m.type === 'seat')).slot, 0);
+        assert.equal(await replaced, 4001);
+        players[0] = leader;
+      }
       if (maxPlayers === 4) {
         creator.ws.close();
         leader = players[1];
@@ -92,11 +108,25 @@ test('salas WebSocket de 2/4/6/8, snapshots autoritativos y migración', { timeo
       assert.ok(sample.world.camera.zoom > 0);
       assert.ok(JSON.stringify(sample).length < 16000);
       assert.ok(!JSON.stringify(sample).includes('base64'));
-      const visitor = players.at(-1);
+      let visitor = players.at(-1);
       visitor.send({ type: 'input', seq: 1, actions: ['right'] });
       const moved = await players[0].next(m => m.type === 'snapshot' && m.ack.at(-1) === 1 && m.players.at(-1).vx > 0);
       assert.ok(moved.players.at(-1).x > sample.players.at(-1).x);
       assert.equal(moved.tick % 2, 0);
+      if (maxPlayers === 2 || maxPlayers === 8) {
+        const ticket = finalSeat;
+        const observer = players[0];
+        visitor.ws.terminate();
+        await observer.next(m => m.type === 'room' && m.playing && !m.players.at(-1)?.connected);
+        visitor = await connect({ type: 'resume', code: ticket.code, token: ticket.token });
+        const resumed = await visitor.next(m => m.type === 'seat');
+        assert.equal(resumed.slot, ticket.slot);
+        assert.equal(resumed.seq, 1);
+        visitor.send({ type: 'ping' });
+        await visitor.next(m => m.type === 'pong');
+        visitor.send({ type: 'input', seq: 2, actions: ['left'] });
+        await visitor.next(m => m.type === 'snapshot' && m.tick > moved.tick && m.ack.at(-1) === 2 && m.players.at(-1).vx < 0);
+      }
       if (maxPlayers === 8) {
         const startClock = performance.now();
         const later = await visitor.next(m => m.type === 'snapshot' && m.tick >= moved.tick + 24);

@@ -27,6 +27,8 @@ export type KeyBindings = Record<PlayerAction, string[]>;
 export interface GameConfig {
   video: {
     pixelPreset: PixelResolutionPreset;
+    adaptiveQuality?: boolean;
+    maxDpr?: 1 | 1.5 | 2;
     stageTime?: StageTime;
     crtFilter: CrtFilterPreset;
     dynamicLighting: boolean;
@@ -330,7 +332,7 @@ export interface ReplayKeyframe {
 }
 
 export interface MatchReplayData {
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
   recordedAt: string;
   seed: number;
   mode: GameMode;

@@ -152,6 +152,19 @@ export function ConfigModal({ config, onChange, onClose }: ConfigModalProps) {
                   <option value="night">Siempre de noche</option>
                 </select>
               </label>
+              <label className="flex items-center gap-2 text-sm text-[#cbd5e1]">
+                <input type="checkbox" checked={config.video.adaptiveQuality !== false}
+                  onChange={e => updateVideo('adaptiveQuality', e.target.checked)} />
+                Calidad gráfica adaptativa
+              </label>
+              <label className="block text-sm text-[#cbd5e1]">
+                Densidad máxima en línea
+                <select className="ml-2 rounded bg-[#121a2b] p-1 text-white"
+                  value={config.video.maxDpr ?? 1.5}
+                  onChange={e => updateVideo('maxDpr', Number(e.target.value) as 1 | 1.5 | 2)}>
+                  <option value="1">1×</option><option value="1.5">1,5×</option><option value="2">2×</option>
+                </select>
+              </label>
               <div>
                 <h3 className="font-display text-sm font-bold uppercase tracking-wider text-[#cbd5e1] mb-3">
                   Resolución Nativa del Búfer Pixelado

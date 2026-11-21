@@ -1036,3 +1036,26 @@
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
+
+.victory-showcase {
+  display: block;
+  width: min(100%, 360px);
+  height: auto;
+  margin: .4rem auto;
+  image-rendering: pixelated;
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .victory-showcase { max-height: 90px; width: auto; max-width: 100%; }
+}
+
+.match-art-status, .performance-panel {
+  position: fixed;
+  z-index: 200;
+  color: white;
+  background: #111a28ed;
+  padding: .35rem .65rem;
+  border-radius: .35rem;
+}
+.match-art-status { top: 1rem; left: 50%; transform: translateX(-50%); }
+.performance-panel { top: 4px; left: 4px; font: 11px/1.5 monospace; }
+.performance-panel button { text-decoration: underline; }

@@ -1,3 +1,5 @@
+import type { RenderQuality } from './renderPerformance';
+import { victoryTheme } from '../data/victoryThemes';
 import { combatBalance, COMBAT_LIMITS, ultimateCategory, ULTIMATE_BUDGETS } from '../data/combatBalance';
 import { ultimateBox, ultimateFor, ultimateLaneHeight, ultimatePoint, pacedUltimateDuration, type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { movesFor } from '../combat/roster.js';
@@ -2649,7 +2651,7 @@ export class GameEngine {
           vy: -1.4 - this.vRand() * 1.6,
           l: 24,
           m: 24,
-          col: this.vRand() < 0.5 ? '#ffd23f' : f.d.palette.accent.highlight || '#ffffff',
+          col: this.vRand() < 0.5 ? victoryTheme(f.d).colors[0] : victoryTheme(f.d).colors[1],
           z: 3.5,
         });
       }
@@ -2919,9 +2921,19 @@ export class GameEngine {
         const hit = {dmg:(p.dmg ?? 4)*(a.spec.balanced ? 1 : f.S.power)*(boosted?1.35:1),bk:p.bk ?? 3,ks:p.ks ?? .12,ang:p.ang ?? -30,heavy:a.spec.heavy};
         for (const o of rivals) {
           const key = this.onlineCapacity ? `${idx}:${o.pi}` : idx;
-          if (a.hits[key] || o.dead || !this.collision.bodyTouches(o, this.T, box)) continue;
+          if (a.hits[key] || o.dead) continue;
+          // A forward strike can start past a rival whose torso overlaps ours.
+          // Its inside contact keeps the same height and active frames as the strike.
+          const inside = {
+            x: f.cx - f.w / 4, y: box.y, w: f.w / 2, h: box.h,
+          };
+          const contact = this.collision.bodyTouches(o, this.T, box) ? box :
+            (!this.replayData || this.replayData.version >= 10) &&
+            Math.abs(o.cx - f.cx) < (f.w + o.w) / 4 && ov(f, o) &&
+            this.collision.bodyTouches(o, this.T, inside) ? inside : null;
+          if (!contact) continue;
           contacts.push(() => {
-            if (this.hurt(o, f, hit, dir, 'melee', box, a.spec.pierce)) a.hits[key] = true;
+            if (this.hurt(o, f, hit, dir, 'melee', contact, a.spec.pierce)) a.hits[key] = true;
           });
         }
       });
@@ -3272,7 +3284,7 @@ export class GameEngine {
         };
         if (this.currentMatchMeta) {
           const replay: MatchReplayData = {
-            version: 9,
+            version: 10,
             recordedAt: new Date().toISOString(),
             seed: this.currentMatchMeta.seed,
             mode: this.mode,
@@ -3329,8 +3341,8 @@ export class GameEngine {
     };
   }
 
-  render(targetCanvas: HTMLCanvasElement) {
-    this.renderer.renderWorld(targetCanvas, this.worldSnapshot(), this.config);
+  render(targetCanvas: HTMLCanvasElement, quality?: RenderQuality) {
+    this.renderer.renderWorld(targetCanvas, this.worldSnapshot(), this.config, quality);
   }
 
   getHudSnapshot(): HudSnapshot {

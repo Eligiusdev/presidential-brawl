@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
+import { ROOM_PROTOCOL, ROOM_RESUME_MS } from '../src/network/roomProtocol.mjs';
+
 const capacities = [2, 4, 6, 8];
 const actions = new Set(['left', 'right', 'jump', 'down', 'light', 'heavy', 'dash', 'ult', 'reload']);
 const colors = ['#fb5969','#60a5fa','#facc15','#4ade80','#fb923c','#c084fc','#22d3ee','#f3f4f6'];
@@ -73,7 +75,7 @@ export function attachRooms(app, { allowedOrigins = process.env.ALLOWED_ORIGINS 
     },
     open: (ws) => {
       clients.add(ws);
-      wsSend(ws, { type: 'hello' });
+      wsSend(ws, { type: 'hello', protocol: ROOM_PROTOCOL });
     },
     pong: (ws, message) => {
       const ud = ws.getUserData();
@@ -98,7 +100,11 @@ export function attachRooms(app, { allowedOrigins = process.env.ALLOWED_ORIGINS 
       const ud = ws.getUserData();
       let { room, player, slot } = ud;
 
+      if (msg.type === 'ping') return wsSend(ws, { type: 'pong' });
       if (!player) {
+        if (msg.protocol !== ROOM_PROTOCOL) {
+          return failure(ws, 'PROTOCOL', 'Actualiza la página para conectarte con esta versión del servidor.');
+        }
         if (msg.type === 'create') {
           if (!capacities.includes(msg.maxPlayers)) return failure(ws, 'CAPACITY', 'Elige 2, 4, 6 u 8 jugadores.');
           if (rooms.size >= 100) return failure(ws, 'LIMIT', 'El servidor ya tiene demasiadas salas.');
@@ -113,9 +119,17 @@ export function attachRooms(app, { allowedOrigins = process.env.ALLOWED_ORIGINS 
         } else return;
 
         if (msg.type === 'resume') {
-          slot = room.players.findIndex(p => p && p.token === msg.token && !p.ws);
+          slot = room.players.findIndex(p => p && p.token === msg.token);
           if (slot < 0) return failure(ws, 'RESUME', 'Ya no se puede recuperar este puesto.');
           player = room.players[slot];
+          if (player.leftAt && Date.now() - player.leftAt >= ROOM_RESUME_MS) {
+            return failure(ws, 'RESUME', 'Expiró el plazo para recuperar este puesto.');
+          }
+          const previous = player.ws;
+          player.ws = null;
+          player.input = [];
+          player.pending = [];
+          try { previous?.end(4001, 'replaced'); } catch {}
         } else {
           slot = room.players.indexOf(null);
           if (slot < 0) return failure(ws, 'ROOM_FULL', 'La sala está llena.');
@@ -189,7 +203,7 @@ export function attachRooms(app, { allowedOrigins = process.env.ALLOWED_ORIGINS 
     last = time;
     for (const [code, room] of rooms) {
       for (const p of room.players) {
-        if (p && !p.ws && now - p.leftAt > 20000) remove(room, p, false);
+        if (p && !p.ws && now - p.leftAt >= ROOM_RESUME_MS) remove(room, p, false);
       }
       if (!room.players.some(Boolean) || now - room.updated > 30 * 60 * 1000) {
         for (const p of room.players) { try { p?.ws?.end(1000, 'expired'); } catch {} }

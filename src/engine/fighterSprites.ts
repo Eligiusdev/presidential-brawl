@@ -7,7 +7,7 @@ type Pose = { region: [number, number, number, number]; anchor: [number, number]
 type Clip = { loop: boolean; frames: { pose: string; ticks: number }[] };
 type Manifest = { equipmentOverlay?: boolean; image: string; portrait: string; poses: Record<string, Pose>; animations: Record<ClipName, Clip> };
 type Art = { atlas: HTMLImageElement; portrait?: HTMLImageElement; meta: Manifest };
-type Entry = { ready?: Art; loading: Promise<void>; used: number };
+type Entry = { ready?: Art; loading: Promise<void>; used: number; retryAt?: number };
 
 const rosterArt = new Set([
   'washington', 'lincoln', 'teddy', 'fdr', 'eisenhower', 'kennedy', 'bolivar',
@@ -44,8 +44,8 @@ function entry(d: PresidentData) {
   const path = fighterArtPath(d);
   if (!path || typeof Image === 'undefined') return;
   let current = cache.get(path);
-  if (!current) {
-    if (cache.size >= CACHE_LIMIT) {
+  if (!current || (current.retryAt && Date.now() >= current.retryAt)) {
+    if (!current && cache.size >= CACHE_LIMIT) {
       const oldest = [...cache.entries()].sort((a, b) => a[1].used - b[1].used)[0];
       cache.delete(oldest[0]);
     }
@@ -66,7 +66,7 @@ function entry(d: PresidentData) {
       }
       item.ready = { atlas, meta };
       item.ready.portrait = await image(path + meta.portrait);
-    })().catch(() => { /* The previous renderer remains available. */ });
+    })().catch(() => { if (!item.ready) item.retryAt = Date.now() + 5_000; });
     cache.set(path, item);
     current = item;
   }

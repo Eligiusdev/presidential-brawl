@@ -17,6 +17,7 @@ function getAnimatedSprite(id: string, frame: number) {
   if (!url || typeof Image === 'undefined') return;
   let image = animatedImages.get(id);
   if (!image) {
+    if (animatedImages.size >= 12) animatedImages.delete(animatedImages.keys().next().value!);
     image = new Image();
     image.src = url;
     animatedImages.set(id, image);
@@ -58,9 +59,15 @@ function getSprite(id: string) {
   return { image, box: entry.box };
 }
 
-export function preloadUltimateSprite(id: string) {
+export async function preloadUltimateSprite(id: string) {
   getAnimatedSprite(id, 0);
-  getSprite(id);
+  const animated = animatedImages.get(id);
+  try {
+    if (animated?.decode) await animated.decode();
+    else getSprite(id);
+  } catch {
+    getSprite(id);
+  }
   if (id === 'ult_bolivar') getSprite('ult_uribe');
 }
 
@@ -100,9 +107,25 @@ export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltE
   const frame = 4 + Math.min(7, Math.floor(progress * 8));
   const animated = getAnimatedSprite(spec.id, frame);
   const sprite = animated ?? getSprite(spec.id);
-  if (!sprite) return false;
-
   const { x, y, hitWidth, hitHeight, unit } = placement;
+  if (!sprite) {
+    // A compact impact cue also works on the first activation with streaming art.
+    const radius = Math.max(unit * 16, Math.min(unit * 48, Math.max(hitWidth, hitHeight) * .24));
+    const pulse = (u.t % 14) / 14;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.globalAlpha = (1 - pulse) * (active ? .92 : .45);
+    ctx.strokeStyle = spec.colors[1];
+    ctx.fillStyle = spec.colors[0];
+    ctx.lineWidth = Math.max(1, unit * 3);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, radius * (.55 + pulse), radius * (.24 + pulse * .45), 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillRect(-unit * 5, -unit * 5, unit * 10, unit * 10);
+    ctx.restore();
+    return true;
+  }
+
   const train = locomotives.has(spec.id);
   const cavalry = profile.travel === 'cavalry';
   const horse = cavalry && !animated ? getSprite('ult_uribe') : undefined;

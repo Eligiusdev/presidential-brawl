@@ -41,6 +41,20 @@ npm run dev
 
 Vite sirve la interfaz en el puerto 3000 y reenvía HTTP y WebSocket bajo `/api` al backend en el puerto 3001. No ejecutes `npm start` al mismo tiempo que Vite en el puerto 3000.
 
+## Medir rendimiento en un teléfono
+
+Abre el juego con `?perf=1` en la URL. Usa `&perf=1` si ya abriste un enlace de sala. El panel muestra mediana, p95 y cantidad de muestras, en milisegundos. Reinicia la medición entre escenarios.
+
+1. Juega 60 segundos de un duelo local en horizontal. Usa toques breves, cambios de dirección y ataques simultáneos. Anota el intervalo entre cuadros, tiempo de simulación, tiempo de render y toque a cuadro procesado.
+2. Abre o únete a una sala de ocho y repite durante 60 segundos con varias definitivas. Anota el intervalo entre cuadros, tiempo de render, intervalo de snapshots y toque a confirmación del servidor.
+3. Repite con calidad adaptativa desactivada y con la misma densidad máxima en Video. Registra modelo, navegador, red y si el teléfono estaba en modo de ahorro.
+
+El panel mide intervalos internos del navegador y la confirmación del servidor. Para medir el retraso hasta que se ilumina la pantalla, usa una cámara de alta velocidad. Las estadísticas permanecen en esa pestaña.
+
+## Vercel
+
+Importa el repositorio como proyecto Vite y selecciona Node.js 24. El frontend se compila con `npm run build` en `dist`. Configura `VITE_ROOM_API_BASE_URL` con la URL HTTPS del servidor de Render antes de compilar. Añade el origen exacto del sitio de Vercel, sin barra final, a `ALLOWED_ORIGINS` en Render y conserva el de Pages si se van a usar ambos. Configura también un origen estable para los entornos de prueba que necesiten salas. Las invitaciones usan la misma página con `?room=`; el cliente abre el WebSocket directamente hacia Render.
+
 ## Controles
 
 | Acción | J1 | J2 local |
@@ -75,3 +89,10 @@ Las pruebas de combate recorren los 284 comandos y verifican activación, contac
 
 - Manual oficial de Street Fighter 6, selección y controles: https://game.capcom.com/manual/SF6/en/ps5/page/8/2
 - Recomendaciones de seguridad de Express: https://expressjs.com/en/advanced/best-practice-security/
+
+### Verificación antes de publicar
+
+- En Android e iPhone, mantén el joystick mientras saltas y atacas con otro dedo. Levanta los dedos en distinto orden, gira el teléfono y cambia de aplicación. Al volver, los controles deben quedar en reposo.
+- Con dos redes, juega un duelo y después una campal de ocho con `?perf=1`. Corta la conexión de un invitado y restablécela dentro de la ventana de recuperación de 20 segundos que concede el servidor al detectar la desconexión. Comprueba que conserva su puesto, puede volver a moverse y ve el estado de la conexión.
+- En una ventana privada con red lenta, inicia la partida y usa la primera definitiva. Mientras se carga el arte, deben verse el luchador y el efecto de impacto de respaldo. Comprueba también la pantalla de victoria.
+- Despliega Render y GitHub Pages desde la misma revisión. Consulta `/health` en Render y verifica que `roomProtocol` coincide con `src/network/roomProtocol.mjs`. Prueba una pestaña de la versión anterior y otra recién abierta. La nueva interfaz ofrece recargar cuando detecta un servidor incompatible. Una pestaña anterior a esta función recibe el aviso de actualización del servidor.

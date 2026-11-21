@@ -48,10 +48,19 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
       setPressed([]);
     };
     const visibility = () => { if (document.hidden) release(); };
+    const orientation = window.screen.orientation;
+    orientation?.addEventListener('change', release);
+    window.addEventListener('orientationchange', release);
+    window.addEventListener('pointerup', releasePointer, true);
+    window.addEventListener('pointercancel', releasePointer, true);
     window.addEventListener('blur', release);
     window.addEventListener('pagehide', release);
     document.addEventListener('visibilitychange', visibility);
     return () => {
+      orientation?.removeEventListener('change', release);
+      window.removeEventListener('orientationchange', release);
+      window.removeEventListener('pointerup', releasePointer, true);
+      window.removeEventListener('pointercancel', releasePointer, true);
       window.removeEventListener('blur', release);
       window.removeEventListener('pagehide', release);
       document.removeEventListener('visibilitychange', visibility);
@@ -97,13 +106,6 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     if (right) setAction('right', true);
     setAction('down', dy / size > (active.current.has('down') ? 0.25 : 0.36));
   };
-  const resetStick = (e: PointerEvent<HTMLDivElement>) => {
-    if (stick.current?.pointer !== e.pointerId) return;
-    stick.current = null;
-    setOrigin(null);
-    setOffset({ x: 0, y: 0 });
-    for (const action of directions) setAction(action, false);
-  };
   const releaseButton = (pointer: number) => {
     const action = buttons.current.get(pointer);
     if (!action) return;
@@ -111,9 +113,19 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     if (![...buttons.current.values()].includes(action)) setAction(action, false);
   };
 
+  const releasePointer = ({ pointerId }: { pointerId: number }) => {
+    if (stick.current?.pointer === pointerId) {
+      stick.current = null;
+      setOrigin(null);
+      setOffset({ x: 0, y: 0 });
+      for (const action of directions) setAction(action, false);
+    }
+    releaseButton(pointerId);
+  };
+
   return <div className={`touch-deck ${inline ? 'touch-deck-inline' : ''}`} aria-label="Controles táctiles">
     <div className="touch-stick-zone" aria-label="Control de movimiento" onPointerDown={startStick}
-      onPointerMove={moveStick} onPointerUp={resetStick} onPointerCancel={resetStick} onLostPointerCapture={resetStick}>
+      onPointerMove={moveStick} onPointerUp={releasePointer} onPointerCancel={releasePointer} onLostPointerCapture={releasePointer}>
       <div className={`touch-stick ${origin ? 'touch-stick-active' : ''}`}
         style={origin ? { left: origin.x, top: origin.y } : undefined}>
         <div className="touch-knob" style={{ transform: `translate(${offset.x * 0.65}px, ${offset.y * 0.65}px)` }} />

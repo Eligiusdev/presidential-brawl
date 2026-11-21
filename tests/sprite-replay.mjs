@@ -46,3 +46,24 @@ for (const version of [3, 4]) {
   assert.equal(neutral.sp[0].p.kind, version === 3 ? 'suelo' : 'orb');
 }
 console.log('Repeticiones v3 y v4 seleccionan los especiales de su versión.');
+
+for (const [p1Id, p2Id] of [['bolivar', 'lincoln'], ['gengis', 'bolivar']]) {
+  e.startReplay({ version: 10, seed: 617, mode: 'versus', p1Id, p2Id,
+    vsAI: false, stageIdx: 0, matchConfig: cfg.match, totalFrames: 90, keyframes: [] });
+  const [first, second] = e.fighters;
+  for (const [index, fighter] of e.fighters.entries()) {
+    fighter.x = e.main.x + e.main.w / 2 - fighter.w / 2;
+    fighter.y = e.main.y - fighter.h;
+    fighter.face = index ? -1 : 1;
+    fighter.inv = 0;
+    const move = fighter.moves.neutralAttack();
+    const phase = move.ph.find(p => p.hb);
+    assert.ok(phase);
+    fighter.atk = { spec: { ...move, individual: true }, t: phase.a[0] - 1, hits: {}, armor: false, ar: 0 };
+  }
+  e.resolveIndividualStrikes();
+  assert.ok(first.pct === 0 && second.pct === 0, 'sin daño antes del cuadro activo');
+  for (const fighter of e.fighters) fighter.atk.t++;
+  e.resolveIndividualStrikes();
+  assert.ok(first.pct > 0 && second.pct > 0, `intercambio simultáneo con cuerpos superpuestos: ${p1Id} ${first.pct} / ${p2Id} ${second.pct}`);
+}
