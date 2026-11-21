@@ -134,3 +134,33 @@ assert.equal(paintSprite(equippedContext, mary, 'guard', 0, 1, 1), false);
 paintFighterThumbnail(equippedContext, mary, 1, 1);
 assert.equal(equippedImage, 'thumb.webp');
 assert.deepEqual(loads.slice(beforeStale), ['thumb.webp'], 'El manifiesto viejo no solicita el atlas retirado');
+
+const { PRESIDENTS_DATA } = await import('../src/data/presidents.ts');
+const { movesFor } = await import('../src/combat/roster.js');
+{
+  const id = 'lincoln';
+  const fighter = PRESIDENTS_DATA.find(d => d.id === id);
+  const folder = new URL(`../public/assets/fighters/${id}/`, import.meta.url);
+  const manifest = JSON.parse(readFileSync(new URL('atlas.json', folder)));
+  for (const file of [manifest.image, manifest.portrait, 'thumb.webp']) {
+    images.set(file, await loadImage(readFileSync(new URL(file, folder))));
+  }
+  globalThis.fetch = async () => ({ ok: true, json: async () => manifest });
+  await preloadFighter(fighter);
+  let sampled;
+  equippedContext.drawImage = (_img, ...args) => { sampled = args.slice(0, 4); };
+  const f = { d: fighter, face: 1, on: true, wpn: 0, vx: 0, vy: 0, stun: 0 };
+  const motion = movesFor(fighter).specialNeutral();
+  const spec = { ...motion, k: 'h', moveKind: 'sig', individual: true };
+  paintCombatSprite(equippedContext, { ...f, atk: { spec, t: spec.frames.startup } }, 0, 1);
+  const windup = sampled;
+  paintCombatSprite(equippedContext, { ...f, atk: { spec, t: spec.frames.startup + 1 } }, 1, 1);
+  assert.deepEqual(sampled, manifest.poses.special.region, 'Lincoln muestra el golpe desde el primer cuadro activo');
+  assert.notDeepEqual(sampled, windup);
+  const steps = new Set();
+  for (let tick = 0; tick < 30; tick++) {
+    paintCombatSprite(equippedContext, { ...f, vx: 3 }, tick, 1);
+    steps.add(sampled.join(','));
+  }
+  assert.ok(steps.size >= 3, 'La marcha alterna al menos tres posiciones');
+}

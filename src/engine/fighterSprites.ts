@@ -145,12 +145,64 @@ export function spriteAction(f: RenderFighterState, tick: number): [ClipName, nu
   return ['guard', tick];
 }
 
+type SpriteMotion = { pose?: string; lean: number; stretch: number; lift: number };
+
+const impactPoses: Partial<Record<ClipName, readonly string[]>> = {
+  jab: ['jab', 'strike'],
+  slash: ['swing', 'special', 'rush', 'thrust', 'strike'],
+  up: ['upper', 'uppercut', 'rise'],
+  down: ['low', 'sweep', 'backstrike'],
+  rage: ['swing', 'special', 'strike'],
+};
+
+function combatMotion(f: RenderFighterState, clip: ClipName, frame: number, tick: number,
+  meta: Manifest): SpriteMotion | undefined {
+  if (meta.image !== 'atlas-anime.webp') return;
+  if (clip === 'guard' || clip === 'walk') {
+    const step = Math.sin(frame * Math.PI / (clip === 'walk' ? 5 : 19));
+    return clip === 'walk'
+      ? { lean: .065 + step * .035, stretch: 1 + step * .045, lift: Math.abs(step) * 2.5 }
+      : { lean: step * .025, stretch: 1 + step * .035, lift: 0 };
+  }
+  if (clip === 'jump' || clip === 'fall') {
+    return { lean: Math.max(-.18, Math.min(.18, f.vx * f.face * .023)),
+      stretch: 1 + Math.min(.12, Math.abs(f.vy) * .009), lift: 0 };
+  }
+  const attack = f.atk;
+  const candidates = impactPoses[clip];
+  if (!attack || !candidates) return;
+  const { spec, t } = attack;
+  const budget = spec.frames;
+  const startup = budget?.startup ?? 0;
+  const activeEnd = budget ? startup + budget.active : spec.dur;
+  const hasContactWindows = spec.ph.some(p => p.hb);
+  const contact = spec.ph.find(p => p.hb && t >= p.a[0] && t <= p.a[1]);
+  const impact = contact?.a ?? (!hasContactWindows && budget && t > startup && t <= activeEnd
+    ? [startup + 1, activeEnd] : undefined);
+  if (impact) {
+    // The visible strike uses the same simulation tick as the contact box.
+    const pose = candidates.find(name => meta.poses[name]);
+    const release = 1 - (t - impact[0]) / Math.max(1, impact[1] - impact[0] + 1);
+    return { pose, lean: (clip === 'up' ? -.09 : .16) * (.45 + .55 * release),
+      stretch: 1 + (clip === 'down' ? -.06 : .09) * release, lift: 0 };
+  }
+  if (t <= startup) {
+    const windup = t / Math.max(1, startup);
+    return { lean: -.16 * windup, stretch: 1 - .1 * windup, lift: 0 };
+  }
+  if (t > activeEnd) {
+    const recovery = 1 - Math.min(1, (t - activeEnd) / Math.max(1, spec.dur - activeEnd));
+    return { lean: .13 * recovery, stretch: 1 - .09 * recovery, lift: 0 };
+  }
+  return { lean: .045 * Math.sin(tick * .55), stretch: 1, lift: 0 };
+}
+
 export function paintSprite(ctx: CanvasRenderingContext2D, d: PresidentData, clip: ClipName, tick: number,
-  face: number, scaleX: number, scaleY = scaleX, combat = false) {
+  face: number, scaleX: number, scaleY = scaleX, combat = false, motion?: SpriteMotion) {
   const art = entry(d)?.ready;
   const animation = art?.meta.animations[clip];
   if (!art || !animation) return false;
-  const name = frameAt(animation, tick);
+  const name = motion?.pose ?? frameAt(animation, tick);
   const pose = art.meta.poses[name];
   const equipment = combat && clip in equipmentClips ? art.meta.equipment : undefined;
   if (equipment && !art.equipment && !art.equipmentPending && Date.now() >= (art.equipmentRetryAt ?? 0)) {
@@ -173,6 +225,10 @@ export function paintSprite(ctx: CanvasRenderingContext2D, d: PresidentData, cli
     ctx.filter = anime ? 'contrast(1.13) saturate(1.08)' : 'contrast(1.09) saturate(1.12)';
   }
   ctx.scale((face < 0 ? -1 : 1) * scaleX * pose.scale, scaleY * pose.scale);
+  if (motion) {
+    ctx.translate(0, -motion.lift / pose.scale);
+    ctx.transform(1, 0, -motion.lean, motion.stretch, 0, 0);
+  }
   ctx.drawImage(source, ...(region || pose.region), -pose.anchor[0], -pose.anchor[1], pose.region[2], pose.region[3]);
   ctx.restore();
   return true;
@@ -187,14 +243,9 @@ export function paintCombatSprite(ctx: CanvasRenderingContext2D, f: RenderFighte
   const art = entry(f.d)?.ready;
   if (!art) return { drawn: false, equipment: false };
   const [requested, frame] = spriteAction(f, tick);
-  const clip = art.meta.animations[requested] ? requested : equipmentClips[requested] ?? 'guard';
-  const attack = f.atk;
-  const phase = attack?.spec.frames;
-  const activeEnd = phase ? phase.startup + phase.active : attack?.spec.dur ?? 0;
-  const settle = attack && attack.t > activeEnd
-    ? 1 - Math.min(1, (attack.t - activeEnd) / Math.max(1, attack.spec.dur - activeEnd))
-    : 0;
-  const drawn = paintSprite(ctx, f.d, clip, frame, f.face, scale, scale * (1 - .09 * settle), true);
+  const clip = art.meta.animations[requested] ? requested : requested === 'rage' ? 'slash' : equipmentClips[requested] ?? 'guard';
+  const motion = combatMotion(f, clip, frame, tick, art.meta);
+  const drawn = paintSprite(ctx, f.d, clip, frame, f.face, scale, scale, true, motion);
   const authored = art.meta.equipment;
   const animation = art.meta.animations[clip];
   const bakedEquipment = clip in equipmentClips && (authored?.authored
