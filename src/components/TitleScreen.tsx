@@ -7,6 +7,7 @@ interface TitleScreenProps {
   hasReplay: boolean;
   onQuickSelect: () => void;
   onStartCampaign: () => void;
+  onStartTutorial: () => void;
   onStartTraining: () => void;
   onWatchLastReplay: () => void;
   onOpenCustomizer: () => void;
@@ -28,6 +29,7 @@ export function TitleScreen({
   onQuickSelect,
   onStartCampaign,
   onStartTraining,
+  onStartTutorial,
   onWatchLastReplay,
   onOpenCustomizer,
   onOpenConfig,
@@ -41,6 +43,7 @@ export function TitleScreen({
       { id: 'versus', label: 'Combate Versus', sub: '1P · 2P local', icon: Swords, action: onQuickSelect, primary: true },
       { id: 'campaign', label: 'Cumbre Mundial', sub: 'Campaña de 7 rondas', icon: Crown, action: onStartCampaign },
       { id: 'online', label: 'Multijugador en línea', sub: 'Salas y duelos online', icon: Globe, action: onOpenOnline },
+      { id: 'tutorial', label: 'Tutorial', sub: 'Aprende a moverte y atacar', icon: Crosshair, action: onStartTutorial },
       { id: 'training', label: 'Entrenamiento', sub: 'Practica tus movimientos', icon: Crosshair, action: onStartTraining },
       { id: 'custom', label: 'Personalizar luchador', sub: 'Crea y edita combatientes', icon: UserPlus, action: onOpenCustomizer },
     ];
@@ -49,7 +52,7 @@ export function TitleScreen({
     }
     list.push({ id: 'config', label: 'Configuración', sub: 'Controles, video y audio', icon: Settings, action: onOpenConfig });
     return list;
-  }, [hasReplay, onQuickSelect, onStartCampaign, onOpenOnline, onStartTraining, onOpenCustomizer, onWatchLastReplay, onOpenConfig]);
+  }, [hasReplay, onQuickSelect, onStartCampaign, onOpenOnline, onStartTutorial, onStartTraining, onOpenCustomizer, onWatchLastReplay, onOpenConfig]);
 
   useEffect(() => {
     btnRefs.current[0]?.focus();

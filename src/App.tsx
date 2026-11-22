@@ -218,7 +218,9 @@ export default function App() {
     });
   }, [sel, stageSel, vsAI, startWithArt]);
 
-  const startTraining = useCallback(() => {
+  const guide = useRef<{ step: number; origin: number; damage: number } | null>(null);
+  const [lesson, setLesson] = useState<number | null>(null);
+  const startTraining = useCallback((guided = false) => {
     const engine = engineRef.current;
     if (!engine) return;
     engine.campaign = null;
@@ -227,6 +229,9 @@ export default function App() {
     setMode('training');
     void startWithArt(sel[0], sel[1], () => {
       engine.startMatch(sel[0], sel[1], stageSel, false, 'training');
+      const hero = engine.fighters[0];
+      guide.current = guided === true ? { step: 0, origin: hero.x, damage: hero.damageDealt } : null;
+      setLesson(guide.current?.step ?? null);
       setScreen('PLAYING');
     });
   }, [sel, stageSel, startWithArt]);
@@ -413,6 +418,18 @@ export default function App() {
         acc -= 16.667;
         if (shouldStepLive) {
           engine.step(isAttract);
+          const task = guide.current;
+          const hero = engine.fighters[0];
+          if (!isAttract && task && hero && curScreen === 'PLAYING') {
+            const complete = task.step === 0 ? Math.abs(hero.x - task.origin) >= 48 :
+              task.step === 1 ? !hero.on && hero.vy < -1 : hero.damageDealt > task.damage;
+            if (complete) {
+              task.step++;
+              task.damage = hero.damageDealt;
+              setLesson(task.step);
+              if (task.step === 3) guide.current = null;
+            }
+          }
           stepped = true;
         } else if (shouldStepReplay) {
           const spd = replaySpeedRef.current;
@@ -542,7 +559,8 @@ export default function App() {
             hasReplay={Boolean(lastReplay)}
             onQuickSelect={() => { setCampaignSelection(false); setScreen('SELECT'); }}
             onStartCampaign={() => { setCampaignSelection(true); setScreen('SELECT'); }}
-            onStartTraining={startTraining}
+            onStartTutorial={() => startTraining(true)}
+            onStartTraining={() => startTraining()}
             onWatchLastReplay={() => startReplay('TITLE')}
             onOpenCustomizer={() => openCustomizer('TITLE')}
             onOpenConfig={() => setConfigOpen(true)}
@@ -588,6 +606,16 @@ export default function App() {
           />
         )}
 
+        {lesson !== null && screen === 'PLAYING' && mode === 'training' && !configOpen && (
+          <aside aria-live="polite" style={{position:'absolute',top:'36%',left:'50%',transform:'translateX(-50%)',zIndex:12,
+            maxWidth:'min(85vw, 28rem)',padding:'.45rem .8rem',borderRadius:8,background:'#101a30ec',color:'white',textAlign:'center',pointerEvents:'none'}}>
+            <strong>{lesson < 3 ? `Tutorial · ${lesson + 1}/3` : '¡Tutorial completado!'}</strong>
+            <div>{['Camina hacia el rival con el control de movimiento (teclado predeterminado: A / D).',
+              'Salta con el botón de salto (teclado predeterminado: W).',
+              'Acércate al rival y conecta un golpe (teclado predeterminado: J).',
+              'Puedes seguir practicando o salir desde Pausa.'][lesson]}</div>
+          </aside>
+        )}
         <GameHUD
           roster={roster}
           screen={screen}
@@ -616,13 +644,15 @@ export default function App() {
               );
               setScreen('PLAYING');
             } else if (mode === 'training') {
-              startTraining();
+              startTraining(lesson !== null);
             } else {
               startVersus();
             }
           }}
           onRematch={startVersus}
           onExitToSelect={() => {
+            guide.current = null;
+            setLesson(null);
             if (campaignTimerRef.current) window.clearTimeout(campaignTimerRef.current);
             engineRef.current?.startAttractScene();
             setScreen('SELECT');
