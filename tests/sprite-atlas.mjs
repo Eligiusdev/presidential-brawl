@@ -107,16 +107,17 @@ for (const wk of ['mg', 'rocket', 'case']) {
     const f = { d: juana, face: 1, wpn: 100, on: true, wk, reloadDur: 20, ...state };
     const [clip] = spriteAction(f, 42);
     const baked = ['aim', 'fire', 'launcher', 'rocketFire'].includes(clip);
-    assert.deepEqual(paintCombatSprite(equippedContext, f, 42, 2), { drawn: true, equipment: !baked });
+    assert.deepEqual(paintCombatSprite(equippedContext, f, 42, 2), { drawn: true, equipment: wk === 'case' && !baked });
+    if (wk !== 'case') assert.equal(equippedImage, juanaMeta.equipment.image);
   }
 }
 assert.deepEqual(paintCombatSprite(equippedContext, { d: juana, face: 1, wpn: 0, on: true }, 42, 2),
   { drawn: true, equipment: false });
 const legacyRocket = { d: character, on: true, face: 1, wpn: 100, wk: 'rocket' };
-assert.deepEqual(paintCombatSprite(equippedContext, legacyRocket, 42, 2), { drawn: true, equipment: true });
+assert.deepEqual(paintCombatSprite(equippedContext, legacyRocket, 42, 2), { drawn: true, equipment: false });
 for (const state of [{vx: 3}, {pickupT: 9}, {on: false, vy: -3}]) {
   assert.deepEqual(paintCombatSprite(equippedContext, { ...legacyRocket, ...state }, 42, 2),
-    { drawn: true, equipment: true });
+    { drawn: true, equipment: false });
 }
 console.log('El atlas se conserva al recoger, sostener, mover y recargar el equipo.');
 

@@ -197,6 +197,26 @@ function combatMotion(f: RenderFighterState, clip: ClipName, frame: number, tick
   return { lean: .045 * Math.sin(tick * .55), stretch: 1, lift: 0 };
 }
 
+function loadEquipment(art: Art) {
+  const equipment = art.meta.equipment;
+  if (equipment && !art.equipment && !art.equipmentPending && Date.now() >= (art.equipmentRetryAt ?? 0)) {
+    art.equipmentPending = true;
+    return image(fighterAsset(art.path, equipment.image)).then(sheet => {
+      const valid = Object.values(equipment.regions).every(([x, y, w, h]) =>
+        x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= sheet.width && y + h <= sheet.height);
+      if (!valid) throw Error('Invalid equipment atlas bounds');
+      art.equipment = sheet;
+    }).catch(() => { art.equipmentRetryAt = Date.now() + 5_000; })
+      .finally(() => { art.equipmentPending = false; });
+  }
+}
+
+export async function preloadArmedFighter(d: PresidentData) {
+  const item = entry(d);
+  await item?.loading;
+  if (item?.ready) await loadEquipment(item.ready);
+}
+
 export function paintSprite(ctx: CanvasRenderingContext2D, d: PresidentData, clip: ClipName, tick: number,
   face: number, scaleX: number, scaleY = scaleX, combat = false, motion?: SpriteMotion) {
   const art = entry(d)?.ready;
@@ -205,16 +225,7 @@ export function paintSprite(ctx: CanvasRenderingContext2D, d: PresidentData, cli
   const name = motion?.pose ?? frameAt(animation, tick);
   const pose = art.meta.poses[name];
   const equipment = combat && clip in equipmentClips ? art.meta.equipment : undefined;
-  if (equipment && !art.equipment && !art.equipmentPending && Date.now() >= (art.equipmentRetryAt ?? 0)) {
-    art.equipmentPending = true;
-    void image(fighterAsset(art.path, equipment.image)).then(sheet => {
-      const valid = Object.values(equipment.regions).every(([x, y, w, h]) =>
-        x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= sheet.width && y + h <= sheet.height);
-      if (!valid) throw Error('Invalid equipment atlas bounds');
-      art.equipment = sheet;
-    }).catch(() => { art.equipmentRetryAt = Date.now() + 5_000; })
-      .finally(() => { art.equipmentPending = false; });
-  }
+  if (equipment) void loadEquipment(art);
   const region = art.equipment && equipment?.regions[name];
   const source = region ? art.equipment! : art.atlas;
   ctx.save();
@@ -243,14 +254,18 @@ export function paintCombatSprite(ctx: CanvasRenderingContext2D, f: RenderFighte
   const art = entry(f.d)?.ready;
   if (!art) return { drawn: false, equipment: false };
   const [requested, frame] = spriteAction(f, tick);
-  const clip = art.meta.animations[requested] ? requested : requested === 'rage' ? 'slash' : equipmentClips[requested] ?? 'guard';
-  const motion = combatMotion(f, clip, frame, tick, art.meta);
+  let clip = art.meta.animations[requested] ? requested : requested === 'rage' ? 'slash' : equipmentClips[requested] ?? 'guard';
+  let motion = combatMotion(f, clip, frame, tick, art.meta);
+  if (art.meta.equipment?.authored && f.wpn > 0 && !f.winning && !f.stun && (f.wk === 'mg' || f.wk === 'rocket')) {
+    clip = f.wk === 'mg' ? (f.shootRecoil > 0 ? 'fire' : 'aim') : (f.shootRecoil > 0 ? 'rocketFire' : 'launcher');
+    motion = { lean: motion?.lean ?? 0, stretch: motion?.stretch ?? 1, lift: motion?.lift ?? 0 };
+  }
   const drawn = paintSprite(ctx, f.d, clip, frame, f.face, scale, scale, true, motion);
   const authored = art.meta.equipment;
   const animation = art.meta.animations[clip];
   const bakedEquipment = clip in equipmentClips && (authored?.authored
     ? Boolean(art.equipment && animation && authored.regions[frameAt(animation, frame)])
     : !art.meta.equipmentOverlay);
-  const equipment = drawn && !bakedEquipment && f.wpn > 0 && !f.winning;
+  const equipment = drawn && !(authored?.authored && (f.wk === 'mg' || f.wk === 'rocket')) && !bakedEquipment && f.wpn > 0 && !f.winning;
   return { drawn, equipment };
 }
