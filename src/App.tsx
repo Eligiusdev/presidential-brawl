@@ -218,7 +218,7 @@ export default function App() {
     });
   }, [sel, stageSel, vsAI, startWithArt]);
 
-  const guide = useRef<{ step: number; origin: number; damage: number } | null>(null);
+  const guide = useRef<{ step: number; origin: number; direction: number; jumpTick: number; damage: number } | null>(null);
   const [lesson, setLesson] = useState<number | null>(null);
   const startTraining = useCallback((guided = false) => {
     const engine = engineRef.current;
@@ -230,7 +230,13 @@ export default function App() {
     void startWithArt(sel[0], sel[1], () => {
       engine.startMatch(sel[0], sel[1], stageSel, false, 'training');
       const hero = engine.fighters[0];
-      guide.current = guided === true ? { step: 0, origin: hero.x, damage: hero.damageDealt } : null;
+      guide.current = guided === true ? {
+        step: 0,
+        origin: hero.x,
+        direction: Math.sign(engine.fighters[1].x - hero.x),
+        jumpTick: hero.jumpTick,
+        damage: hero.damageDealt,
+      } : null;
       setLesson(guide.current?.step ?? null);
       setScreen('PLAYING');
     });
@@ -421,10 +427,12 @@ export default function App() {
           const task = guide.current;
           const hero = engine.fighters[0];
           if (!isAttract && task && hero && curScreen === 'PLAYING') {
-            const complete = task.step === 0 ? Math.abs(hero.x - task.origin) >= 48 :
-              task.step === 1 ? !hero.on && hero.vy < -1 : hero.damageDealt > task.damage;
+            const walkingTowardRival = task.direction > 0 ? hero.curIn.right : hero.curIn.left;
+            const complete = task.step === 0 ? walkingTowardRival && (hero.x - task.origin) * task.direction >= 48 :
+              task.step === 1 ? hero.jumpTick > task.jumpTick : hero.damageDealt > task.damage;
             if (complete) {
               task.step++;
+              task.jumpTick = hero.jumpTick;
               task.damage = hero.damageDealt;
               setLesson(task.step);
               if (task.step === 3) guide.current = null;
