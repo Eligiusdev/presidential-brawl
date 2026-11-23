@@ -8,4 +8,4 @@ require (
 	google.golang.org/protobuf v1.36.12
 )
 
-replace github.com/presidential-brawl/server/sim => ../sim
+replace github.com/presidential-brawl/server/sim => ../../sim

@@ -8,12 +8,12 @@ Real-time authoritative backend for Presidential Brawl.
 - `contract/`: protocol definitions (protobuf + JSON control messages)
 - `gen/`: generated protobuf code
 
-La lógica de simulación vive en `../sim/` (módulo Go separado) para mantener el backend desacoplado del motor.
+La lógica de simulación vive en `../../sim/` (módulo Go separado) para mantener el backend desacoplado del motor.
 
 ## Run
 
 ```bash
-cd backend && go run ./cmd/server --dev
+cd backend/server && go run ./cmd/server --dev
 ```
 
 Environment:
