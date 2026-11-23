@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/presidential-brawl/server/src/contract"
+	"github.com/presidential-brawl/server/contract"
 	"github.com/presidential-brawl/server/sim"
 )
 

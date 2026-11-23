@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/presidential-brawl/server/src/contract"
-	"github.com/presidential-brawl/server/src/rooms"
+	"github.com/presidential-brawl/server/contract"
+	"github.com/presidential-brawl/server/rooms"
 	"github.com/presidential-brawl/server/sim"
 )
 

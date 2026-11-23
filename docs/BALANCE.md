@@ -13,7 +13,7 @@ Los tiempos están en cuadros a 60 FPS. El daño base se reparte entre los impac
 
 Las definitivas tienen cuatro presupuestos de alcance y daño. Se activan con un destello de diez cuadros y hasta quince de invulnerabilidad al comenzar el aviso. El identificador determina el patrón, los puntos de impacto y la presentación procedural. El servidor de salas transmite la partida del anfitrión y los patrones de las definitivas usan rutas fijas.
 
-El control de TypeScript abarca el cliente y la configuración del build vigente. El backend Go vive en `server/src/` (api, rooms, contract, gen) y la lógica de simulación en `server/sim/`, separados para mayor modularidad. Las pruebas de salas ejecutan el servidor Go vigente.
+El control de TypeScript abarca el cliente y la configuración del build vigente. El backend Go vive en `server/` con módulos separados (`net/`, `rooms/`, `contract/`, `gen/`) y la lógica de simulación en `server/sim/`, aislada para mayor modularidad. Las pruebas de salas ejecutan el servidor Go vigente.
 
 Ejecuta `npm run lint`, `npm test`, `npm run test:sprites`, `npm run test:rooms` y `npm run build`.
 

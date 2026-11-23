@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package pb;
 
-option go_package = "github.com/presidential-brawl/server/src/gen/go/pb";
+option go_package = "github.com/presidential-brawl/server/gen/go/pb";
 
 // Hybrid protocol: control messages are JSON text frames over WS.
 // Snapshot is sent as a binary protobuf frame.

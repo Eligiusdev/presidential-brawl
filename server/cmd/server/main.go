@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	netpkg "github.com/presidential-brawl/server/src/net"
-	"github.com/presidential-brawl/server/src/rooms"
+	netpkg "github.com/presidential-brawl/server/net"
+	"github.com/presidential-brawl/server/rooms"
 	"github.com/presidential-brawl/server/sim"
 )
 
