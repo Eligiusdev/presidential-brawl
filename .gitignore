@@ -1,6 +1,8 @@
 node_modules/
 dist/
 frontend/dist/
+frontend/public/sim/sim.wasm
+frontend/public/sim/wasm_exec.js
 server.js
 server/bin/
 server-bin

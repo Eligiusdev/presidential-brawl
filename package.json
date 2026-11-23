@@ -8,6 +8,7 @@
     "dev:server": "./scripts/dev-server.sh",
     "build": "./scripts/build.sh",
     "build:server": "./scripts/build-server.sh",
+    "build:wasm": "./scripts/build-wasm.sh",
     "start": "./scripts/start.sh",
     "preview": "npm run preview --prefix frontend",
     "clean": "./scripts/clean.sh",
