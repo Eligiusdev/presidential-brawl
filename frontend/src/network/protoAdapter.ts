@@ -52,13 +52,14 @@ function protoToMatchSnapshot(s: Snapshot): MatchSnapshot {
     cine: s.cine ? (() => { const d = s.cine!.dataJson?.length ? JSON.parse(new TextDecoder().decode(s.cine!.dataJson)) : {}; return { ...d, f: s.cine!.f, phase: s.cine!.phase, t: s.cine!.t }; })() as any : null,
     world: {
       T: w?.T ?? s.tick, shake: w?.shake ?? 0, freeze: w?.freeze ?? 0,
-      banner: { t: w?.bannerT ?? '', l: w?.bannerL ?? 0, m: w?.bannerM ?? 1 },
+      bannerMsg: { t: w?.bannerT ?? '', l: w?.bannerL ?? 0, m: w?.bannerM || 1 },
       particles: (w?.particles ?? []).map(p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, life: p.life, maxLife: p.maxLife, color: p.color, size: p.size })) as any,
       crowdParticles: (w?.crowdParticles ?? []).map(p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, life: p.life, maxLife: p.maxLife, color: p.color, size: p.size })) as any,
       crowd: { excitement: w?.crowdExcitement ?? 0, cheerTimer: w?.crowdCheerTimer ?? 0, mood: (w?.crowdMood ?? 'calm') as any, accentColor: w?.crowdAccentColor ?? '#f5d76e', accentHighlight: w?.crowdAccentHighlight ?? '#fff3a0', seed: 0 },
-      hitstop: w?.hitstop ?? 0, online: w?.onlineCapacity ?? undefined,
-      camera: { x: w?.cameraX ?? 720, y: w?.cameraY ?? 405, zoom: w?.cameraZoom ?? 1 },
-      hitboxes: [],
+      hitstop: w?.hitstop ?? 0, online: w?.onlineCapacity || undefined,
+      camera: { x: w?.cameraX ?? 720, y: w?.cameraY ?? 405, zoom: w?.cameraZoom || 1 },
+      winnerPi: null, // el proto no transporta al ganador; null evita falsos "win" en NetworkPanel
+      hitboxes: [], items: [], floatTexts: [], strikes: [],
     } as any,
   };
 }

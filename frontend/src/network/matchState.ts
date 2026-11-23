@@ -1,5 +1,5 @@
 import { PRESIDENTS_DATA } from '../data/presidents';
-import { STAGES_DATA, type RoomCapacity } from '../data/stages';
+import { arenaGeometry, STAGES_DATA, type RoomCapacity } from '../data/stages';
 import type { RenderFighterState, RenderUltEffect, WorldRenderContext } from '../engine/pixelRenderer';
 import type { PlayerAction } from '../types/game';
 
@@ -88,8 +88,19 @@ export function packMatch(world: WorldRenderContext, tick: number, stage: number
 const fightersById = new Map(PRESIDENTS_DATA.map(f => [f.id, f]));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
+/** Los snapshots binarios (protobuf) no transportan la geometría estática del escenario. */
+type PartialWorld = Partial<WorldRenderContext> & { banner?: WorldRenderContext['bannerMsg'] };
+
 export function renderMatchState(previous: MatchSnapshot, latest: MatchSnapshot, blend: number,
   localSlot: number, input: ReadonlySet<PlayerAction>, predictionFrames: number, jumpSequence = -1): WorldRenderContext {
+  const stage = STAGES_DATA[latest.stage] ?? STAGES_DATA[0];
+  const w = latest.world as PartialWorld;
+  const capacityRaw = Number(w.online);
+  const capacity: RoomCapacity = ([2, 4, 6, 8] as ReadonlyArray<number>).includes(capacityRaw)
+    ? capacityRaw as RoomCapacity : 2;
+  const geometry = arenaGeometry(stage, capacity);
+  const T = Math.floor(lerp(previous.world.T, latest.world.T, blend));
+
   const fighters = latest.players.map(p => {
     const last = previous.players[p.slot];
     const continuous = last?.stocks === p.stocks && Boolean(last?.dead) === Boolean(p.dead);
@@ -122,14 +133,34 @@ export function renderMatchState(previous: MatchSnapshot, latest: MatchSnapshot,
   const camTarget = fighters[localSlot] ?? fighters.find(f => f.slot === localSlot);
   const camera = camTarget
     ? { x: camTarget.cx, y: camTarget.y + camTarget.h * 0.45, zoom: 1.45 }
-    : latest.world.camera ?? { x: 720, y: 405, zoom: 1 };
+    : w.camera ?? { x: 720, y: 405, zoom: 1 };
   return {
-    ...latest.world,
-    T: Math.floor(lerp(previous.world.T, latest.world.T, blend)),
+    ...w,
+    T,
+    W: w.W ?? 1440,
+    H: w.H ?? 810,
     camera,
-    stage: STAGES_DATA[latest.stage], fighters,
+    stage,
+    // Geometría estática: la del snapshot (JSON) o la derivada del escenario (protobuf).
+    main: w.main ?? geometry.main,
+    plats: w.plats ?? geometry.plats,
+    hzPhase: w.hzPhase ?? 0,
+    hzMod: w.hzMod ?? T % stage.hazardDur,
+    hzDur: w.hzDur ?? stage.hazardDur,
+    items: w.items ?? [],
+    particles: w.particles ?? [],
+    crowd: w.crowd ?? { excitement: 0, cheerTimer: 0, mood: 'calm', accentColor: '#f5d76e', accentHighlight: '#fff3a0', seed: 0 },
+    crowdParticles: w.crowdParticles ?? [],
+    floatTexts: w.floatTexts ?? [],
+    strikes: w.strikes ?? [],
+    hitboxes: w.hitboxes ?? [],
+    bannerMsg: w.bannerMsg ?? w.banner ?? { t: '', l: 0, m: 1 },
+    telegraph: w.telegraph ?? null,
+    winnerPi: w.winnerPi ?? null,
+    shake: w.shake ?? 0,
+    fighters,
     projectiles,
     ults: latest.zones.map(z => ({ ...z, f: fighters[z.f], o: fighters[z.o] })),
     cine: latest.cine && { ...latest.cine, f: fighters[latest.cine.f] },
-  };
+  } as WorldRenderContext;
 }
