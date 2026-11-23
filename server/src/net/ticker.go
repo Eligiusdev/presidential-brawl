@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/presidential-brawl/server/rooms"
+	"github.com/presidential-brawl/server/src/rooms"
 )
 
 const stepMS = 1000.0 / 60.0

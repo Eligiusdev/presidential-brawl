@@ -3,7 +3,7 @@ package net
 import (
 	"encoding/json"
 
-	pb "github.com/presidential-brawl/server/gen/go"
+	pb "github.com/presidential-brawl/server/src/gen/go"
 	"google.golang.org/protobuf/proto"
 )
 
