@@ -1,17 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Crown, Crosshair, Film, Globe, Settings, Swords } from 'lucide-react';
+import { Eye, Settings, Swords } from 'lucide-react';
 import { stageArtUrl } from '../engine/stageAtmosphere';
 import { sound } from '../audio/soundEngine';
 
 interface TitleScreenProps {
-  hasReplay: boolean;
-  onQuickSelect: () => void;
-  onStartCampaign: () => void;
-  onStartTutorial: () => void;
-  onStartTraining: () => void;
-  onWatchLastReplay: () => void;
+  onOpenCombat: () => void;
+  onOpenGallery: () => void;
   onOpenConfig: () => void;
-  onOpenOnline: () => void;
 }
 
 type MenuItem = {
@@ -23,73 +18,36 @@ type MenuItem = {
   primary?: boolean;
 };
 
-export function TitleScreen({
-  hasReplay,
-  onQuickSelect,
-  onStartCampaign,
-  onStartTraining,
-  onStartTutorial,
-  onWatchLastReplay,
-  onOpenConfig,
-  onOpenOnline,
-}: TitleScreenProps) {
+export function TitleScreen({ onOpenCombat, onOpenGallery, onOpenConfig }: TitleScreenProps) {
   const [focusIdx, setFocusIdx] = useState(0);
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const items: MenuItem[] = useMemo(() => {
-    const list: MenuItem[] = [
-      { id: 'versus', label: 'Combate Versus', sub: '1P · 2P local', icon: Swords, action: onQuickSelect, primary: true },
-      { id: 'campaign', label: 'Cumbre Mundial', sub: 'Campaña de 7 rondas', icon: Crown, action: onStartCampaign },
-      { id: 'online', label: 'Multijugador en línea', sub: 'Salas y duelos online', icon: Globe, action: onOpenOnline },
-      { id: 'tutorial', label: 'Tutorial', sub: 'Aprende a moverte y atacar', icon: Crosshair, action: onStartTutorial },
-      { id: 'training', label: 'Entrenamiento', sub: 'Practica tus movimientos', icon: Crosshair, action: onStartTraining },
-    ];
-    if (hasReplay) {
-      list.push({ id: 'replay', label: 'Ver repetición', sub: 'Último combate guardado', icon: Film, action: onWatchLastReplay });
-    }
-    list.push({ id: 'config', label: 'Configuración', sub: 'Controles, video y audio', icon: Settings, action: onOpenConfig });
-    return list;
-  }, [hasReplay, onQuickSelect, onStartCampaign, onOpenOnline, onStartTutorial, onStartTraining, onWatchLastReplay, onOpenConfig]);
+  const items: MenuItem[] = useMemo(() => [
+    { id: 'combat', label: 'Combate', sub: 'Modos de juego y batalla', icon: Swords, action: onOpenCombat, primary: true },
+    { id: 'gallery', label: 'Visualizar', sub: 'Ver cada personaje', icon: Eye, action: onOpenGallery },
+    { id: 'config', label: 'Configuración', sub: 'Controles, video y audio', icon: Settings, action: onOpenConfig },
+  ], [onOpenCombat, onOpenGallery, onOpenConfig]);
 
-  useEffect(() => {
-    btnRefs.current[0]?.focus();
-  }, []);
+  useEffect(() => { btnRefs.current[0]?.focus(); }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
       if (e.code === 'ArrowDown') {
         e.preventDefault();
-        setFocusIdx((i) => {
-          const n = (i + 1) % items.length;
-          btnRefs.current[n]?.focus();
-          sound.uiClick();
-          return n;
-        });
+        setFocusIdx((i) => { const n = (i + 1) % items.length; btnRefs.current[n]?.focus(); sound.uiClick(); return n; });
       } else if (e.code === 'ArrowUp') {
         e.preventDefault();
-        setFocusIdx((i) => {
-          const n = (i - 1 + items.length) % items.length;
-          btnRefs.current[n]?.focus();
-          sound.uiClick();
-          return n;
-        });
+        setFocusIdx((i) => { const n = (i - 1 + items.length) % items.length; btnRefs.current[n]?.focus(); sound.uiClick(); return n; });
       } else if ((e.code === 'Enter' || e.code === 'Space') && !(e.target instanceof Element && e.target.closest('button,[role="menuitem"]'))) {
-        e.preventDefault();
-        sound.init();
-        sound.uiConfirm();
-        onQuickSelect();
+        e.preventDefault(); sound.init(); sound.uiConfirm(); onOpenCombat();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [items.length, onQuickSelect]);
+  }, [items.length, onOpenCombat]);
 
-  const activate = (item: MenuItem) => {
-    sound.init();
-    sound.uiConfirm();
-    item.action();
-  };
+  const activate = (item: MenuItem) => { sound.init(); sound.uiConfirm(); item.action(); };
 
   return (
     <div
@@ -105,9 +63,7 @@ export function TitleScreen({
             <rect x="8" y="25" width="48" height="3" fill="#e03131" />
             <rect x="14" y="31" width="36" height="3" fill="#3b82f6" />
           </svg>
-          <h1 className="console-game-title">
-            Presidential <span>Brawl</span>
-          </h1>
+          <h1 className="console-game-title">Presidential <span>Brawl</span></h1>
           <p className="console-tagline">Elige a tu luchador y disputa el combate en un palacio presidencial.</p>
         </div>
 

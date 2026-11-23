@@ -191,6 +191,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
         setBusy(false);
         setStatus('');
         setCode(data.code);
+        if (roomCodePattern.test(data.code)) window.history.replaceState({}, '', `/room/${data.code}`);
       }
       if (data.type === 'room') {
         setRoom(data);

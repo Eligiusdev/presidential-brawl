@@ -15,7 +15,6 @@ La base es la versión 2 del ZIP de Apex con servidor de salas, mando remoto, 40
 | `src/components/CharacterSelect.tsx`, `FighterPreview.tsx`, `PortraitCanvas.tsx` | Selección, guardia animada, retrato y carga asíncrona. |
 | `src/App.tsx`, `src/index.css` | Presentación adaptable y conservación de las proporciones del canvas. |
 | `public/assets/fighters/achilles/` | Atlas PNG indexado transparente de 1024 × 949, metadatos JSON, retrato PNG y fondo WebP. |
-| `tests/sprite-atlas.mjs`, `tests/sprite-replay.mjs`, `package.json` | Pruebas de integración visual y regresión de simulación. |
 
 ## Arte y animación
 
