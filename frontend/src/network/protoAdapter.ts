@@ -24,7 +24,7 @@ function protoToMatchSnapshot(s: Snapshot): MatchSnapshot {
       frame: p.frame, damage: p.damage, stocks: p.stocks, ultCharge: p.ultCharge, hitstop: p.hitstop,
       x: p.x, y: p.y, w: p.w, h: p.h, vx: p.vx, vy: p.vy,
       on: p.on, wall: p.wall, dead: p.dead, inv: p.inv, stun: p.stun, maxStun: p.maxStun,
-      jumpTick: p.jumpTick, koVisual: p.koVisual, dashT: p.dashT, dashCD: p.dashCD,
+      jumpTick: p.jumpTick, koVisual: p.koVisual, dashT: p.dashT, dashCD: p.dashCd,
       combo: p.combo, jabStep: p.jabStep, floating: p.floating, fastFall: p.fastFall,
       winning: p.winning, winT: p.winT, moveKind: p.moveKind, pickupT: p.pickupT,
       wpn: p.wpn as any, wk: p.wk, ammo: p.ammo, maxAmmo: p.maxAmmo, reloadT: p.reloadT, reloadDur: p.reloadDur,
