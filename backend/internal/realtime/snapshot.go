@@ -25,6 +25,30 @@ func encodeSnapshotBinary(snap any, ack []int) ([]byte, bool) {
 	if world, ok := m["world"].(map[string]any); ok {
 		s.World = mapWorld(world)
 	}
+	// El renderer necesita estos arrays para dibujar disparos, zonas y cinemáticas.
+	// El id se deriva del índice para que la interpolación cliente pueda emparejarlos entre frames.
+	if zones, ok := m["zones"].([]map[string]any); ok {
+		for _, z := range zones {
+			s.Zones = append(s.Zones, &pb.WireUltimate{
+				F: i32(z["f"]), O: i32(z["o"]), Id: sval(z["id"]),
+				T: i32(z["t"]), D: f32(z["d"]),
+			})
+		}
+	}
+	if projectiles, ok := m["projectiles"].([]map[string]any); ok {
+		for i, p := range projectiles {
+			dir := int32(1)
+			if f32(p["vx"]) < 0 { dir = -1 }
+			s.Projectiles = append(s.Projectiles, &pb.WireProjectile{
+				Id: int32(i + 1), X: f32(p["x"]), Y: f32(p["y"]),
+				W: i32(p["w"]), H: i32(p["h"]), Vx: f32(p["vx"]), Vy: f32(p["vy"]),
+				Kind: sval(p["kind"]), Dir: dir, Life: i32(p["life"]),
+			})
+		}
+	}
+	if cine, ok := m["cine"].(map[string]any); ok {
+		s.Cine = &pb.WireCine{F: i32(cine["f"]), Phase: i32(cine["phase"]), T: i32(cine["t"])}
+	}
 	b, err := proto.Marshal(s)
 	if err != nil {
 		return nil, false
@@ -54,6 +78,7 @@ func mapFighter(p map[string]any) *pb.WireFighter {
 		HitFlash: bval(p["hitFlash"]), SquashX: f32(p["squashX"]), SquashY: f32(p["squashY"]), Rage: f32(p["rage"]),
 	}
 	if p["field"] != nil { if b, err := json.Marshal(p["field"]); err == nil { f.FieldJson = b } }
+	if p["atk"] != nil { if b, err := json.Marshal(p["atk"]); err == nil { f.AtkJson = b } }
 	return f
 }
 
@@ -63,7 +88,7 @@ func mapWorld(w map[string]any) *pb.WorldState {
 	cam, _ := w["camera"].(map[string]any)
 	ws := &pb.WorldState{
 		T: i32(w["T"]), Shake: f32(w["shake"]), Freeze: i32(w["freeze"]),
-		Hitstop: i32(w["hitstop"]), OnlineCapacity: i32(w["online"]),
+		Hitstop: i32(w["hitstop"]), OnlineCapacity: i32(w["online"]), Seed: u32(w["seed"]),
 		CrowdExcitement: f32(crowd["excitement"]), CrowdCheerTimer: i32(crowd["cheerTimer"]),
 		CrowdMood: sval(crowd["mood"]), CrowdAccentColor: sval(crowd["accentColor"]), CrowdAccentHighlight: sval(crowd["accentHighlight"]),
 		BannerT: sval(banner["t"]), BannerL: i32(banner["l"]), BannerM: i32(banner["m"]),

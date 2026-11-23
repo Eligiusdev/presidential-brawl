@@ -15,7 +15,7 @@ func (m *OnlineMatch) Snapshot() any {
 			"winning": f.Winning, "winT": f.WinT, "moveKind": f.MoveKind, "pickupT": 0,
 			"wpn": "", "wk": false, "ammo": f.Ammo, "maxAmmo": f.MaxAmmo, "reloadT": f.ReloadT, "reloadDur": f.ReloadDur,
 			"shootRecoil": 0, "landT": 0, "crouch": f.Crouch, "boss": false, "hitFlash": f.HitFlash > 0,
-			"squashX": f.SquashX, "squashY": f.SquashY, "atk": nil, "field": nil, "rage": 0.0,
+			"squashX": f.SquashX, "squashY": f.SquashY, "atk": attackWire(f), "field": nil, "rage": 0.0,
 		})
 	}
 	projs := make([]map[string]any, 0, len(m.projs))
@@ -27,13 +27,58 @@ func (m *OnlineMatch) Snapshot() any {
 		"tick": m.Tick, "stage": m.Stage,
 		"players": players, "zones": []any{}, "projectiles": projs, "cine": nil,
 		"world": map[string]any{
-			"T": int(m.Tick), "shake": 0, "freeze": 0,
+			"T": int(m.Tick), "shake": 0, "freeze": 0, "seed": m.Seed,
 			"banner": map[string]any{"t": "", "l": 0, "m": 1},
 			"particles": []any{}, "crowdParticles": []any{},
 			"crowd": map[string]any{"excitement": 0.12, "cheerTimer": 0, "mood": "calm", "accentColor": "#f5d76e", "accentHighlight": "#fff3a0", "seed": m.Seed},
 			"hitstop": 0, "online": len(m.Players),
 			"camera": map[string]any{"x": camX, "y": camY, "zoom": camZ},
 			"hitboxes": []any{},
+		},
+	}
+}
+
+// attackWire expone la fase activa con la forma que espera el renderer (spec.ph).
+func attackWire(f *Fighter) any {
+	if f.Atk == nil {
+		return nil
+	}
+	spec := f.Atk.Spec
+	ph := make([]map[string]any, 0, len(spec.Ph))
+	startup, activeEnd := 0, 0
+	for i, p := range spec.Ph {
+		phase := map[string]any{"a": []int{p.A[0], p.A[1]}, "fx": "impact", "armor": p.Armor}
+		if p.HB != nil {
+			phase["hb"] = map[string]any{"fx": p.HB.FX, "y": p.HB.Y, "w": p.HB.W, "h": p.HB.H}
+		}
+		ph = append(ph, phase)
+		if i == 0 {
+			startup, activeEnd = p.A[0], p.A[1]
+		}
+	}
+	active := activeEnd - startup + 1
+	if active < 1 {
+		active = 1
+	}
+	dur := spec.Dur
+	if dur < activeEnd+1 {
+		dur = activeEnd + 1
+	}
+	kind := "h"
+	if f.Atk.MoveKind == "jab" {
+		kind = "l"
+	}
+	return map[string]any{
+		"t": f.Atk.T, "armor": false,
+		"spec": map[string]any{
+			"k": kind, "individual": false, "downSpecial": f.Atk.MoveKind == "downSpec",
+			"effect": spec.Effect, "moveKind": f.Atk.MoveKind, "dur": dur, "heavy": f.Atk.Heavy,
+			"frames": map[string]any{"startup": startup, "active": active},
+			"animationTiming": map[string]any{
+				"from": []int{0, startup, activeEnd, dur},
+				"to":   []int{0, 5, 11, 18},
+			},
+			"ph": ph,
 		},
 	}
 }

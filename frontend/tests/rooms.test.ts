@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn, type ChildProcess } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { createServer } from 'node:net';
 import WebSocket from 'ws';
 import { ROOM_PROTOCOL } from '../src/network/roomProtocol.mjs';
@@ -51,7 +52,8 @@ describe('server-frontend room communication', () => {
 
   beforeAll(async () => {
     port = await findPort();
-    const bin = process.env.SERVER_BIN || '../server-bin';
+    const binBase = process.env.SERVER_BIN || '../server-bin';
+    const bin = existsSync(binBase) ? binBase : `${binBase}.exe`;
     host = spawn(bin, [], { env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
     await new Promise<void>((resolve, reject) => {
       host.stdout?.once('data', () => resolve());
@@ -104,9 +106,15 @@ describe('server-frontend room communication', () => {
     expect(snap.players.length).toBe(2);
     expect(snap.stage).toBeDefined();
     expect(snap.world.camera.zoom).toBeGreaterThan(0);
+    expect(snap.world.seed).toBeGreaterThan(0);
 
     joiner.send({ type: 'input', seq: 1, actions: ['right'] });
     const moved = await creator.next(m => m.type === 'snapshot' && m.ack[1] === 1 && m.players[1].vx > 0);
     expect(moved.players[1].x).toBeGreaterThan(snap.players[1].x);
+
+    joiner.send({ type: 'input', seq: 2, actions: ['light'] });
+    const attacking = await creator.next(m => m.type === 'snapshot' && m.players[1]?.atk?.spec?.ph?.length > 0, 3000);
+    expect(attacking.players[1].atk.spec.ph[0].a).toHaveLength(2);
+    expect(attacking.players[1].atk.spec.ph[0].hb).toBeDefined();
   });
 });

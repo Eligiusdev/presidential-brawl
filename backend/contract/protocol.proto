@@ -88,6 +88,7 @@ message WireFighter {
   WireAttack atk = 48;
   bytes field_json = 49; // opaque combat field state
   float rage = 50;
+  bytes atk_json = 51; // opaque attack payload for render (phases/timing)
 }
 
 message WireProjectile {
@@ -152,6 +153,7 @@ message WorldState {
   float camera_x = 16;
   float camera_y = 17;
   float camera_zoom = 18;
+  uint32 seed = 19;
 }
 
 message Snapshot {

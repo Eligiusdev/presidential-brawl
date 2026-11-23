@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import net from 'node:net';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
@@ -10,7 +11,8 @@ import { ROOM_PROTOCOL } from '../src/network/roomProtocol.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '../..');
-const serverBin = path.resolve(process.env.SERVER_BIN || path.join(root, 'server-bin'));
+const serverBinBase = path.resolve(process.env.SERVER_BIN || path.join(root, 'server-bin'));
+const serverBin = existsSync(serverBinBase) ? serverBinBase : `${serverBinBase}.exe`;
 
 async function freePort(): Promise<number> {
   return await new Promise((resolve, reject) => {

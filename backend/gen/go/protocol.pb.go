@@ -361,6 +361,7 @@ type WireFighter struct {
 	Atk           *WireAttack            `protobuf:"bytes,48,opt,name=atk,proto3" json:"atk,omitempty"`
 	FieldJson     []byte                 `protobuf:"bytes,49,opt,name=field_json,json=fieldJson,proto3" json:"field_json,omitempty"` // opaque combat field state
 	Rage          float32                `protobuf:"fixed32,50,opt,name=rage,proto3" json:"rage,omitempty"`
+	AtkJson       []byte                 `protobuf:"bytes,51,opt,name=atk_json,json=atkJson,proto3" json:"atk_json,omitempty"` // opaque attack payload for render (phases/timing)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -743,6 +744,13 @@ func (x *WireFighter) GetRage() float32 {
 		return x.Rage
 	}
 	return 0
+}
+
+func (x *WireFighter) GetAtkJson() []byte {
+	if x != nil {
+		return x.AtkJson
+	}
+	return nil
 }
 
 type WireProjectile struct {
@@ -1157,6 +1165,7 @@ type WorldState struct {
 	CameraX              float32                `protobuf:"fixed32,16,opt,name=camera_x,json=cameraX,proto3" json:"camera_x,omitempty"`
 	CameraY              float32                `protobuf:"fixed32,17,opt,name=camera_y,json=cameraY,proto3" json:"camera_y,omitempty"`
 	CameraZoom           float32                `protobuf:"fixed32,18,opt,name=camera_zoom,json=cameraZoom,proto3" json:"camera_zoom,omitempty"`
+	Seed                 uint32                 `protobuf:"varint,19,opt,name=seed,proto3" json:"seed,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -1317,6 +1326,13 @@ func (x *WorldState) GetCameraZoom() float32 {
 	return 0
 }
 
+func (x *WorldState) GetSeed() uint32 {
+	if x != nil {
+		return x.Seed
+	}
+	return 0
+}
+
 type Snapshot struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Tick          uint32                 `protobuf:"varint,1,opt,name=tick,proto3" json:"tick,omitempty"`
@@ -1450,7 +1466,7 @@ const file_protocol_proto_rawDesc = "" +
 	"WireAttack\x12\f\n" +
 	"\x01t\x18\x01 \x01(\x05R\x01t\x12\x14\n" +
 	"\x05armor\x18\x02 \x01(\bR\x05armor\x12&\n" +
-	"\x04spec\x18\x03 \x01(\v2\x12.pb.WireAttackSpecR\x04spec\"\xa2\t\n" +
+	"\x04spec\x18\x03 \x01(\v2\x12.pb.WireAttackSpecR\x04spec\"\xbd\t\n" +
 	"\vWireFighter\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x12\n" +
 	"\x04slot\x18\x02 \x01(\x05R\x04slot\x12\x1d\n" +
@@ -1506,7 +1522,8 @@ const file_protocol_proto_rawDesc = "" +
 	"\x03atk\x180 \x01(\v2\x0e.pb.WireAttackR\x03atk\x12\x1d\n" +
 	"\n" +
 	"field_json\x181 \x01(\fR\tfieldJson\x12\x12\n" +
-	"\x04rage\x182 \x01(\x02R\x04rage\"\x8c\x02\n" +
+	"\x04rage\x182 \x01(\x02R\x04rage\x12\x19\n" +
+	"\batk_json\x183 \x01(\fR\aatkJson\"\x8c\x02\n" +
 	"\x0eWireProjectile\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\f\n" +
 	"\x01x\x18\x02 \x01(\x02R\x01x\x12\f\n" +
@@ -1543,7 +1560,7 @@ const file_protocol_proto_rawDesc = "" +
 	"\x04life\x18\x05 \x01(\x05R\x04life\x12\x19\n" +
 	"\bmax_life\x18\x06 \x01(\x05R\amaxLife\x12\x14\n" +
 	"\x05color\x18\a \x01(\tR\x05color\x12\x12\n" +
-	"\x04size\x18\b \x01(\x02R\x04size\"\xf8\x04\n" +
+	"\x04size\x18\b \x01(\x02R\x04size\"\x8c\x05\n" +
 	"\n" +
 	"WorldState\x12\f\n" +
 	"\x01T\x18\x01 \x01(\x05R\x01T\x12\x14\n" +
@@ -1566,7 +1583,8 @@ const file_protocol_proto_rawDesc = "" +
 	"\bcamera_x\x18\x10 \x01(\x02R\acameraX\x12\x19\n" +
 	"\bcamera_y\x18\x11 \x01(\x02R\acameraY\x12\x1f\n" +
 	"\vcamera_zoom\x18\x12 \x01(\x02R\n" +
-	"cameraZoom\"\x97\x02\n" +
+	"cameraZoom\x12\x12\n" +
+	"\x04seed\x18\x13 \x01(\rR\x04seed\"\x97\x02\n" +
 	"\bSnapshot\x12\x12\n" +
 	"\x04tick\x18\x01 \x01(\rR\x04tick\x12\x10\n" +
 	"\x03ack\x18\x02 \x03(\x05R\x03ack\x12\x14\n" +

@@ -17,7 +17,7 @@ export function GameLayout() {
       {loadingArt && <div className="match-art-status" role="status">Preparando luchadores…</div>}
       {performanceMetricsEnabled && <PerformancePanel />}
       <LandscapePrompt />
-      <NetworkPanel config={config} openSignal={netOpenSignal} onActive={active => { onlineActive.current = active; }} />
+      <NetworkPanel config={config} openSignal={netOpenSignal} crtClass={crtClass} onActive={active => { onlineActive.current = active; }} />
       <div className={`apex-frame ${menuFrame ? 'apex-frame-menu' : ''} ${combatFrame ? 'apex-frame-combat' : ''} ${crtClass}`}>
         <div ref={arenaBackdropRef} className="apex-arena-backdrop" aria-hidden="true" />
         <canvas ref={canvasRef} width={960} height={540} className="apex-arena pixel-canvas block h-full w-full object-contain" />

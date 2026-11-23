@@ -1,12 +1,12 @@
 import { ROOM_PROTOCOL, ROOM_RESUME_MS } from '../network/roomProtocol.mjs';
-import { AdaptiveRenderQuality, onlineCanvasWidth } from '../engine/renderPerformance';
+import { AdaptiveRenderQuality } from '../engine/renderPerformance';
 import { preloadMatchArt } from '../engine/matchArt';
 import { clearPerformanceSamples, performanceMetricsEnabled, samplePerformance } from '../engine/performanceMetrics';
 import { VictoryShowcase } from './VictoryShowcase';
 import { sound } from '../audio/soundEngine';
 import { useEffect, useRef, useState } from 'react';
 import { Crown, Globe, KeyRound, Swords, Users, X } from 'lucide-react';
-import { DEFAULT_P1_KEYS, DEFAULT_P2_KEYS } from '../config/defaultConfig';
+import { DEFAULT_P1_KEYS, DEFAULT_P2_KEYS, PIXEL_PRESET_DIMS } from '../config/defaultConfig';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import type { RoomCapacity } from '../data/stages';
 import { PixelRenderer } from '../engine/pixelRenderer';
@@ -45,8 +45,8 @@ const roomCodePattern = /^(?:[A-F0-9]{5}|[A-F0-9]{10})$/;
 type Seat = Extract<ServerRoomMessage, { type: 'seat' }>;
 type Samples = { previous: MatchSnapshot; latest: MatchSnapshot; at: number };
 
-export function NetworkPanel({ config, onActive, openSignal = 0 }: {
-  config: GameConfig; onActive: (active: boolean) => void; openSignal?: number;
+export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '' }: {
+  config: GameConfig; onActive: (active: boolean) => void; openSignal?: number; crtClass?: string;
 }) {
   const [invited] = useState(() => {
     const params = new URLSearchParams(location.search);
@@ -220,7 +220,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
           else if (data.cine && !last.cine) sound.siren();
           else if (data.players.some(p => p.damage > last.players[p.slot].damage)) sound.hit();
         }
-        if (data.tick % 6 === 0 || !last || data.world.winnerPi !== null) setHud(data.players);
+        if (data.tick % 3 === 0 || !last || data.world.winnerPi !== null) setHud(data.players);
       }
       if (data.type === 'error') {
         if (data.code === 'PROTOCOL') { incompatibleProtocol(); return; }
@@ -320,13 +320,6 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
     clearPerformanceSamples();
     pendingTouches.current = [];
     const slot = seat.slot;
-    let lastWidth = 0;
-    let lastHeight = 0;
-    const resize = new ResizeObserver(entries => {
-      lastWidth = entries[0].contentRect.width;
-      lastHeight = entries[0].contentRect.height;
-    });
-    resize.observe(target);
     let raf = 0;
     let lastPaint = performance.now() - 1000 / 60;
     const paintStep = 1000 / 60;
@@ -336,9 +329,10 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
       const buffer = samples.current;
       if (!target || !buffer || now - lastPaint < paintStep - .3) return;
       lastPaint += Math.max(1, Math.floor((now - lastPaint) / paintStep)) * paintStep;
-      const width = onlineCanvasWidth(Math.min(lastWidth, lastHeight * 16 / 9), devicePixelRatio, config.video.maxDpr, quality.quality);
-      const height = Math.round(width * 9 / 16);
-      if (!width || !height) return;
+      // Misma resolución interna que el modo local: pixel art escalado por CSS, no alta definición.
+      const preset = PIXEL_PRESET_DIMS[config.video.pixelPreset] || PIXEL_PRESET_DIMS.modern;
+      const width = Math.max(1, Math.round(preset.w * quality.quality.scale));
+      const height = Math.max(1, Math.round(preset.h * quality.quality.scale));
       if (target.width !== width) target.width = width;
       if (target.height !== height) target.height = height;
       const span = Math.max(33.33, (buffer.latest.tick - buffer.previous.tick) * 1000 / 60);
@@ -379,7 +373,6 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
     raf = requestAnimationFrame(frame);
     return () => {
       cancelAnimationFrame(raf);
-      resize.disconnect();
       clearInterval(timer);
       window.removeEventListener('keydown', key);
       window.removeEventListener('keyup', key);
@@ -412,10 +405,10 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
   </>;
   const championSlot = room?.standings?.[0];
   const champion = championSlot === undefined ? undefined : PRESIDENTS_DATA.find(f => f.id === room?.players[championSlot]?.fighterId);
-  if (room && seat) return <section data-gamepad-online data-gamepad-playing={playing || undefined} className="online-screen online-match" aria-label="Combate en línea">
+  if (room && seat) return <section data-gamepad-online data-gamepad-playing={playing || undefined} className={`online-screen online-match ${crtClass}`} aria-label="Combate en línea">
     <OnlineGameHUD fighters={hud} room={room} localSlot={seat.slot} />
     <div className="online-arena">
-      <canvas ref={canvas} aria-label="Arena multijugador" />
+      <canvas ref={canvas} className="pixel-canvas" aria-label="Arena multijugador" />
       {playing && !recovering && !incompatible && <div data-gamepad-ignore className="network-touch"><TouchControls inline scale={config.controls.touchScale ?? 1} layout={config.controls.touchLayout} joystick={config.controls.touchJoystick} onAction={(action, down) => {
         const touchStarted = performanceMetricsEnabled && down ? performance.now() : null;
         if (down) {

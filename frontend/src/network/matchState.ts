@@ -1,6 +1,7 @@
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { arenaGeometry, STAGES_DATA, type RoomCapacity } from '../data/stages';
 import type { RenderFighterState, RenderUltEffect, WorldRenderContext } from '../engine/pixelRenderer';
+import { stageStartsAtNight } from '../engine/stageAtmosphere';
 import type { PlayerAction } from '../types/game';
 
 export interface RoomPlayer {
@@ -89,7 +90,10 @@ const fightersById = new Map(PRESIDENTS_DATA.map(f => [f.id, f]));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 /** Los snapshots binarios (protobuf) no transportan la geometría estática del escenario. */
-type PartialWorld = Partial<WorldRenderContext> & { banner?: WorldRenderContext['bannerMsg'] };
+type PartialWorld = Partial<WorldRenderContext> & { banner?: WorldRenderContext['bannerMsg']; seed?: number };
+
+// El KO visual necesita el frame exacto en que se produjo; el server solo envía un contador.
+const koState = new Map<number, { dead: number; tick: number; x: number }>();
 
 export function renderMatchState(previous: MatchSnapshot, latest: MatchSnapshot, blend: number,
   localSlot: number, input: ReadonlySet<PlayerAction>, predictionFrames: number, jumpSequence = -1): WorldRenderContext {
@@ -99,10 +103,18 @@ export function renderMatchState(previous: MatchSnapshot, latest: MatchSnapshot,
   const capacity: RoomCapacity = ([2, 4, 6, 8] as ReadonlyArray<number>).includes(capacityRaw)
     ? capacityRaw as RoomCapacity : 2;
   const geometry = arenaGeometry(stage, capacity);
+  const seed = w.seed ?? 0;
   const T = Math.floor(lerp(previous.world.T, latest.world.T, blend));
 
   const fighters = latest.players.map(p => {
     const last = previous.players[p.slot];
+    if (p.dead > 0) {
+      if (!koState.has(p.slot)) koState.set(p.slot, { dead: p.dead, tick: T, x: p.x + p.w / 2 });
+    } else if (koState.has(p.slot)) {
+      koState.delete(p.slot);
+    }
+    const ko = koState.get(p.slot);
+    const koVisual = ko ? { x: ko.x, tick: ko.tick } : p.koVisual;
     const continuous = last?.stocks === p.stocks && Boolean(last?.dead) === Boolean(p.dead);
     let x = continuous ? lerp(last.x, p.x, blend) : p.x;
     let y = continuous ? lerp(last.y, p.y, blend) : p.y;
@@ -123,17 +135,18 @@ export function renderMatchState(previous: MatchSnapshot, latest: MatchSnapshot,
         y -= fightersById.get(p.fighterId)!.stats.jumpForce * predictionFrames;
       }
     }
-    return { ...p, pi: p.slot, face, pct: p.damage, vote: p.ultCharge, x, y, cx: x + p.w / 2, d: fightersById.get(p.fighterId)!, afterimages: [] };
+    return { ...p, pi: p.slot, face, pct: p.damage, vote: p.ultCharge, x, y, cx: x + p.w / 2,
+      koVisual, d: fightersById.get(p.fighterId)!, afterimages: [] };
   });
+  const alive = fighters.filter(f => ((f as { stocks?: number }).stocks ?? 3) > 0 && f.dead <= 0);
+  const winnerPi = w.winnerPi ?? (fighters.length > 1 && alive.length === 1 ? alive[0].pi : null);
   const oldProjectiles = new Map(previous.projectiles.map(p => [p.id, p]));
   const projectiles = latest.projectiles.map(p => {
     const old = oldProjectiles.get(p.id);
     return old ? { ...p, x: lerp(old.x, p.x, blend), y: lerp(old.y, p.y, blend) } : p;
   });
-  const camTarget = fighters[localSlot] ?? fighters.find(f => f.slot === localSlot);
-  const camera = camTarget
-    ? { x: camTarget.cx, y: camTarget.y + camTarget.h * 0.45, zoom: 1.45 }
-    : w.camera ?? { x: 720, y: 405, zoom: 1 };
+  // Sin cámara forzada el renderer usa el mismo encuadre dinámico que en local.
+  const camera: WorldRenderContext['camera'] = undefined;
   return {
     ...w,
     T,
@@ -141,6 +154,7 @@ export function renderMatchState(previous: MatchSnapshot, latest: MatchSnapshot,
     H: w.H ?? 810,
     camera,
     stage,
+    stageNightStart: w.stageNightStart ?? stageStartsAtNight(seed),
     // Geometría estática: la del snapshot (JSON) o la derivada del escenario (protobuf).
     main: w.main ?? geometry.main,
     plats: w.plats ?? geometry.plats,
@@ -149,14 +163,19 @@ export function renderMatchState(previous: MatchSnapshot, latest: MatchSnapshot,
     hzDur: w.hzDur ?? stage.hazardDur,
     items: w.items ?? [],
     particles: w.particles ?? [],
-    crowd: w.crowd ?? { excitement: 0, cheerTimer: 0, mood: 'calm', accentColor: '#f5d76e', accentHighlight: '#fff3a0', seed: 0 },
+    crowd: {
+      excitement: 0.12, cheerTimer: 0, mood: 'calm', accentHighlight: '#fff3a0',
+      ...w.crowd,
+      seed: w.crowd?.seed || seed || 1337,
+      accentColor: w.crowd?.accentColor === '#f5d76e' ? stage.palette.platformTrim : (w.crowd?.accentColor ?? stage.palette.platformTrim),
+    },
     crowdParticles: w.crowdParticles ?? [],
     floatTexts: w.floatTexts ?? [],
     strikes: w.strikes ?? [],
     hitboxes: w.hitboxes ?? [],
     bannerMsg: w.bannerMsg ?? w.banner ?? { t: '', l: 0, m: 1 },
     telegraph: w.telegraph ?? null,
-    winnerPi: w.winnerPi ?? null,
+    winnerPi,
     shake: w.shake ?? 0,
     fighters,
     projectiles,

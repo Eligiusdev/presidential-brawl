@@ -6,6 +6,7 @@ frontend/public/sim/wasm_exec.js
 server.js
 server/bin/
 server-bin
+server-bin.exe
 *.test
 *.out
 .env

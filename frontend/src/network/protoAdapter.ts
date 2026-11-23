@@ -28,16 +28,12 @@ function protoToMatchSnapshot(s: Snapshot): MatchSnapshot {
       combo: p.combo, jabStep: p.jabStep, floating: p.floating, fastFall: p.fastFall,
       winning: p.winning, winT: p.winT, moveKind: p.moveKind, pickupT: p.pickupT,
       wpn: p.wpn as any, wk: p.wk, ammo: p.ammo, maxAmmo: p.maxAmmo, reloadT: p.reloadT, reloadDur: p.reloadDur,
-      shootRecoil: p.shootRecoil, landT: p.landT, crouch: p.crouch, boss: p.boss, hitFlash: p.hitFlash,
-      squashX: p.squashX, squashY: p.squashY, atk: p.atk ? {
-        t: p.atk.t, armor: p.atk.armor, spec: {
-          k: p.atk.spec?.k ?? '', individual: p.atk.spec?.individual ?? false,
-          downSpecial: p.atk.spec?.downSpecial ?? false, effect: p.atk.spec?.effect ?? '',
-          moveKind: p.atk.spec?.moveKind ?? '', dur: p.atk.spec?.dur ?? 0,
-          animationTiming: p.atk.spec?.animationTiming ?? {}, heavy: p.atk.spec?.heavy ?? false,
-          frames: (p.atk.spec?.frames ?? []).map(f => ({ a: f.a, hb: f.hb, fx: f.fx, armor: f.armor })),
-        } as any,
-      } : null,
+      shootRecoil: p.shootRecoil, landT: p.landT, crouch: p.crouch, boss: p.boss,
+      // El proto transporta un bool; el renderer espera un contador para hacer parpadear al golpeado.
+      hitFlash: p.hitFlash ? (s.tick % 8 < 4 ? 1 : 3) : 0,
+      squashX: p.squashX, squashY: p.squashY,
+      // El ataque viaja como payload opaco con la forma exacta que consume el renderer.
+      atk: p.atkJson?.length ? JSON.parse(new TextDecoder().decode(p.atkJson)) as any : null,
       field: p.fieldJson?.length ? JSON.parse(new TextDecoder().decode(p.fieldJson)) : null,
       rage: p.rage,
     })) as any,
@@ -51,11 +47,12 @@ function protoToMatchSnapshot(s: Snapshot): MatchSnapshot {
     })) as any,
     cine: s.cine ? (() => { const d = s.cine!.dataJson?.length ? JSON.parse(new TextDecoder().decode(s.cine!.dataJson)) : {}; return { ...d, f: s.cine!.f, phase: s.cine!.phase, t: s.cine!.t }; })() as any : null,
     world: {
-      T: w?.T ?? s.tick, shake: w?.shake ?? 0, freeze: w?.freeze ?? 0,
+      T: w?.T ?? s.tick, shake: w?.shake ?? 0, freeze: w?.freeze ?? 0, seed: w?.seed ?? 0,
       bannerMsg: { t: w?.bannerT ?? '', l: w?.bannerL ?? 0, m: w?.bannerM || 1 },
-      particles: (w?.particles ?? []).map(p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, life: p.life, maxLife: p.maxLife, color: p.color, size: p.size })) as any,
-      crowdParticles: (w?.crowdParticles ?? []).map(p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, life: p.life, maxLife: p.maxLife, color: p.color, size: p.size })) as any,
-      crowd: { excitement: w?.crowdExcitement ?? 0, cheerTimer: w?.crowdCheerTimer ?? 0, mood: (w?.crowdMood ?? 'calm') as any, accentColor: w?.crowdAccentColor ?? '#f5d76e', accentHighlight: w?.crowdAccentHighlight ?? '#fff3a0', seed: 0 },
+      // El renderer lee l/m/col/z (no life/maxLife/color/size).
+      particles: (w?.particles ?? []).map(p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, l: p.life, m: p.maxLife, col: p.color, z: p.size, phase: 0, spin: 0 })) as any,
+      crowdParticles: (w?.crowdParticles ?? []).map(p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, l: p.life, m: p.maxLife, col: p.color, size: p.size, kind: 'confetti', phase: 0, spin: 0 })) as any,
+      crowd: { excitement: w?.crowdExcitement ?? 0, cheerTimer: w?.crowdCheerTimer ?? 0, mood: (w?.crowdMood || 'calm') as any, accentColor: w?.crowdAccentColor || '#f5d76e', accentHighlight: w?.crowdAccentHighlight || '#fff3a0', seed: 0 },
       hitstop: w?.hitstop ?? 0, online: w?.onlineCapacity || undefined,
       camera: { x: w?.cameraX ?? 720, y: w?.cameraY ?? 405, zoom: w?.cameraZoom || 1 },
       winnerPi: null, // el proto no transporta al ganador; null evita falsos "win" en NetworkPanel
