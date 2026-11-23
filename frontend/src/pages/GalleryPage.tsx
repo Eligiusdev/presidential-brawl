@@ -63,7 +63,7 @@ export function GalleryPage() {
               </div>
             </div>
             <div className="ob-char-info" style={{ background: 'linear-gradient(180deg,rgba(8,13,24,.62) 0%,rgba(8,13,24,.88) 24%,rgba(8,13,24,.95) 100%)' }}>
-              <div className="ob-hero-tags">
+              <div className="ob-hero-tags" style={{ flexWrap: 'wrap' }}>
                 <span className="ob-tag">{info.role}</span>
                 <span className="ob-tag"><Crown className="h-3 w-3" />{info.era}</span>
               </div>
@@ -85,11 +85,11 @@ export function GalleryPage() {
                   <div className="ob-move ult"><span className="ob-move-key">Ultimate</span><span className="ob-move-name">{ultimate.name}</span></div>
                   <div className="ob-move" style={{ gridColumn: '1 / -1' }}>
                     <span className="ob-move-key">Descripción</span>
-                    <span className="ob-move-name" style={{ whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }}>{ultimate.ultDesc}</span>
+                    <span className="ob-move-name" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', textOverflow: 'clip' }}>{ultimate.ultDesc}</span>
                   </div>
                   <div className="ob-move" style={{ gridColumn: '1 / -1' }}>
                     <span className="ob-move-key">Cómo esquivarlo</span>
-                    <span className="ob-move-name" style={{ whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', color: '#93c5fd' }}>{ultimate.dodgeTip}</span>
+                    <span className="ob-move-name" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', textOverflow: 'clip', color: '#93c5fd' }}>{ultimate.dodgeTip}</span>
                   </div>
                 </div>
               </div>
