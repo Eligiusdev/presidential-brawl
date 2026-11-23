@@ -15,7 +15,7 @@ import (
 
 	netpkg "github.com/presidential-brawl/server/net"
 	"github.com/presidential-brawl/server/rooms"
-	"github.com/presidential-brawl/server/sim"
+	"github.com/presidential-brawl/engine"
 )
 
 func main() {

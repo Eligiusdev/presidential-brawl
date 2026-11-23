@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"syscall/js"
 
-	"github.com/presidential-brawl/server/sim"
+	"github.com/presidential-brawl/engine"
 )
 
 var matches = map[int]*sim.OnlineMatch{}

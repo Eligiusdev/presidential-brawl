@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/presidential-brawl/server/contract"
-	"github.com/presidential-brawl/server/sim"
+	"github.com/presidential-brawl/engine"
 )
 
 var Capacities = []int{2, 4, 6, 8}

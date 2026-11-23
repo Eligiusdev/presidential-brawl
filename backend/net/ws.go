@@ -10,7 +10,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/presidential-brawl/server/contract"
 	"github.com/presidential-brawl/server/rooms"
-	"github.com/presidential-brawl/server/sim"
+	"github.com/presidential-brawl/engine"
 )
 
 type Server struct {
