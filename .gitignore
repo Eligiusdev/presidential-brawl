@@ -1,7 +1,12 @@
 node_modules/
 dist/
+frontend/dist/
 server.js
+server/bin/
+*.test
+*.out
 .env
 .env.*
 !.env.example
 .DS_Store
+

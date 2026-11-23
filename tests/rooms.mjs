@@ -15,9 +15,12 @@ async function findPort() {
 
 test('salas WebSocket de 2/4/6/8, snapshots autoritativos y migración', { timeout: 25000 }, async () => {
   const port = await findPort();
-  const host = spawn(process.execPath, ['--import', 'tsx', 'server.ts'], {
-    env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const serverBin = process.env.SERVER_BIN;
+  const host = serverBin
+    ? spawn(serverBin, [], { env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] })
+    : spawn(process.execPath, ['--import', 'tsx', 'server.ts'], {
+        env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'],
+      });
   const peers = [];
   let stderr = '';
   host.stderr.on('data', chunk => { stderr += chunk; });

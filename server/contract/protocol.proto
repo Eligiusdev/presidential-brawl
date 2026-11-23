@@ -1,0 +1,166 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package = "github.com/presidential-brawl/server/gen/go/pb";
+
+// Hybrid protocol: control messages are JSON text frames over WS.
+// Snapshot is sent as a binary protobuf frame.
+
+message InputFrame {
+  int32 seq = 1;
+  repeated string actions = 2;
+}
+
+message WireAttackPhase {
+  bool a = 1;
+  int32 hb = 2;
+  int32 fx = 3;
+  bool armor = 4;
+}
+
+message WireAttackSpec {
+  string k = 1;
+  bool individual = 2;
+  bool down_special = 3;
+  string effect = 4;
+  string move_kind = 5;
+  int32 dur = 6;
+  map<string, int32> animation_timing = 7;
+  repeated WireAttackPhase frames = 8;
+  bool heavy = 9;
+}
+
+message WireAttack {
+  int32 t = 1;
+  bool armor = 2;
+  WireAttackSpec spec = 3;
+}
+
+message WireFighter {
+  int32 id = 1;
+  int32 slot = 2;
+  string fighter_id = 3;
+  int32 facing = 4;
+  string state = 5;
+  int32 frame = 6;
+  float damage = 7;
+  int32 stocks = 8;
+  float ult_charge = 9;
+  int32 hitstop = 10;
+  float x = 11;
+  float y = 12;
+  int32 w = 13;
+  int32 h = 14;
+  float vx = 15;
+  float vy = 16;
+  bool on = 17;
+  bool wall = 18;
+  int32 dead = 19;
+  int32 inv = 20;
+  int32 stun = 21;
+  int32 max_stun = 22;
+  int32 jump_tick = 23;
+  int32 ko_visual = 24;
+  int32 dash_t = 25;
+  int32 dash_cd = 26;
+  int32 combo = 27;
+  int32 jab_step = 28;
+  bool floating = 29;
+  bool fast_fall = 30;
+  bool winning = 31;
+  int32 win_t = 32;
+  string move_kind = 33;
+  int32 pickup_t = 34;
+  string wpn = 35;
+  bool wk = 36;
+  int32 ammo = 37;
+  int32 max_ammo = 38;
+  int32 reload_t = 39;
+  int32 reload_dur = 40;
+  int32 shoot_recoil = 41;
+  int32 land_t = 42;
+  bool crouch = 43;
+  bool boss = 44;
+  bool hit_flash = 45;
+  float squash_x = 46;
+  float squash_y = 47;
+  WireAttack atk = 48;
+  bytes field_json = 49; // opaque combat field state
+  float rage = 50;
+}
+
+message WireProjectile {
+  int32 id = 1;
+  float x = 2;
+  float y = 3;
+  int32 w = 4;
+  int32 h = 5;
+  float vx = 6;
+  float vy = 7;
+  string kind = 8;
+  int32 w2 = 9;
+  int32 dir = 10;
+  int32 life = 11;
+  string owner_color = 12;
+  string owner_highlight = 13;
+}
+
+message WireUltimate {
+  int32 f = 1;
+  int32 o = 2;
+  string id = 3;
+  int32 t = 4;
+  float d = 5;
+  bytes data_json = 6; // opaque ultimate payload for render
+}
+
+message WireCine {
+  int32 f = 1;
+  int32 phase = 2;
+  int32 t = 3;
+  bytes data_json = 4;
+}
+
+message WireParticle {
+  float x = 1;
+  float y = 2;
+  float vx = 3;
+  float vy = 4;
+  int32 life = 5;
+  int32 max_life = 6;
+  string color = 7;
+  float size = 8;
+}
+
+message WorldState {
+  int32 T = 1;
+  float shake = 2;
+  int32 freeze = 3;
+  string banner_t = 4;
+  int32 banner_l = 5;
+  int32 banner_m = 6;
+  repeated WireParticle particles = 7;
+  repeated WireParticle crowd_particles = 8;
+  float crowd_excitement = 9;
+  int32 crowd_cheer_timer = 10;
+  string crowd_mood = 11;
+  string crowd_accent_color = 12;
+  string crowd_accent_highlight = 13;
+  int32 hitstop = 14;
+  int32 online_capacity = 15;
+  float camera_x = 16;
+  float camera_y = 17;
+  float camera_zoom = 18;
+}
+
+message Snapshot {
+  uint32 tick = 1;
+  repeated int32 ack = 2;
+  int32 stage = 3;
+  repeated WireFighter players = 4;
+  repeated WireUltimate zones = 5;
+  repeated WireProjectile projectiles = 6;
+  WireCine cine = 7;
+  WorldState world = 8;
+}
