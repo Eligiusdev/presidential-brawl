@@ -147,23 +147,31 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 				ack[i] = -1
 			}
 		}
-		msg := map[string]any{"type": "snapshot", "ack": ack}
-		if m, ok := snap.(map[string]any); ok {
-			for k, v := range m {
-				if k == "type" || k == "ack" {
-					continue
+		bin, ok := encodeSnapshotBinary(snap, ack)
+		var jsonData []byte
+		if !ok {
+			msg := map[string]any{"type": "snapshot", "ack": ack}
+			if m, ok := snap.(map[string]any); ok {
+				for k, v := range m {
+					if k == "type" || k == "ack" {
+						continue
+					}
+					msg[k] = v
 				}
-				msg[k] = v
 			}
+			jsonData, _ = json.Marshal(msg)
 		}
-		data, _ := json.Marshal(msg)
 		players := append([]*rooms.Player(nil), room.Players...)
 		standings := room.Standings
 		room.Mu().Unlock()
 
 		for _, p := range players {
 			if p != nil && p.WS != nil {
-				_ = p.WS.SendJSONRaw(data)
+				if ok {
+					_ = p.WS.SendBinary(bin)
+				} else {
+					_ = p.WS.SendJSONRaw(jsonData)
+				}
 			}
 		}
 		if standings != nil {

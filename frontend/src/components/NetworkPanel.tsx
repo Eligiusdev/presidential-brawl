@@ -11,6 +11,7 @@ import { PRESIDENTS_DATA } from '../data/presidents';
 import type { RoomCapacity } from '../data/stages';
 import { PixelRenderer } from '../engine/pixelRenderer';
 import { renderMatchState, type MatchSnapshot, type RoomState, type ServerRoomMessage } from '../network/matchState';
+import { decodeSnapshotFrame } from '../network/protoAdapter';
 import { roomSocketUrl } from '../network/roomClient';
 import type { GameConfig, PlayerAction } from '../types/game';
 import { OnlineGameHUD } from './GameHUD';
@@ -128,6 +129,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
     if (manual || !retryUntil.current) setStatus('');
     const previous = socket.current;
     const ws = new WebSocket(roomSocketUrl());
+    ws.binaryType = 'arraybuffer';
     socket.current = ws;
     if (previous && previous !== ws) try { previous.close(); } catch {}
     let lastReply = performance.now();
@@ -154,7 +156,13 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
     ws.onmessage = event => {
       if (socket.current !== ws) return;
       let data: ServerRoomMessage;
-      try { data = JSON.parse(event.data); } catch { return; }
+      if (event.data instanceof ArrayBuffer) {
+        const snap = decodeSnapshotFrame(event.data);
+        if (!snap) return;
+        data = snap as any;
+      } else {
+        try { data = JSON.parse(String(event.data)); } catch { return; }
+      }
       lastReply = performance.now();
       if (data.type === 'hello') {
         if (data.protocol !== ROOM_PROTOCOL) incompatibleProtocol();
