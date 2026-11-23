@@ -330,6 +330,9 @@ export class GameEngine {
   onOnlineEnd?: (standings: number[]) => void;
   private onlineUltContacts = new WeakMap<RenderUltEffect, Map<number, { phase: number; dodged: boolean; stock: number }>>();
   private blast = BZ;
+  private wasmSim: { create(ids:string[],stage:number,seed:number):number; step(id:number,inputs:string[][]):number; snapshot(id:number):any; free(id:number):void } | null = null;
+  private wasmMatchId: number | null = null;
+  private wasmReady: Promise<void> | null = null;
 
   private remoteKeys: Partial<Record<PlayerAction, boolean>> = {};
   private touchPresses = new Set<PlayerAction>();
@@ -626,6 +629,15 @@ export class GameEngine {
       campaignRound,
       matchConfig: { ...this.config.match },
     };
+    this.wasmMatchId = null;
+    const useWasmLocal = !vsAI && mode !== 'training' && mode !== 'campaign';
+    if (useWasmLocal) {
+      void this.ensureWasm().then(() => {
+        if (this.wasmSim && !this.onlineCapacity && !this.isReplaying && this.fighters.length === 2) {
+          try { this.wasmMatchId = this.wasmSim.create([f1Data.id, f2Data.id], chosenStage, seed); } catch (e) { console.warn('wasm create failed', e); }
+        }
+      });
+    }
     sound.resetMusic();
   }
 
@@ -687,6 +699,68 @@ export class GameEngine {
     this.lastRecP1Key = '';
     this.lastRecP2Key = '';
     sound.resetMusic();
+  }
+
+  private async ensureWasm() {
+    if (this.wasmSim) return;
+    if (this.wasmReady) return this.wasmReady;
+    this.wasmReady = (async () => {
+      try {
+        const mod = await import('../sim/wasmSim');
+        this.wasmSim = await mod.loadWasmSim();
+      } catch (e) {
+        console.warn('WASM sim unavailable, using TS fallback', e);
+        this.wasmSim = null;
+      }
+    })();
+    return this.wasmReady;
+  }
+
+  private syncWasmSnapshot(snap: any) {
+    if (!snap || !snap.players) return;
+    for (let i = 0; i < this.fighters.length && i < snap.players.length; i++) {
+      const p = snap.players[i];
+      const f = this.fighters[i];
+      f.x = p.x; f.y = p.y; f.vx = p.vx; f.vy = p.vy;
+      f.face = p.facing; f.pct = p.damage; f.stocks = p.stocks;
+      f.stun = p.stun; f.maxStun = p.maxStun || f.maxStun; f.inv = p.inv;
+      f.dead = p.dead; f.on = p.on; f.moveKind = p.moveKind || '';
+      f.hitFlash = p.hitFlash ? 6 : 0;
+      f.squashX = p.squashX ?? 1; f.squashY = p.squashY ?? 1;
+      f.dashT = p.dashT; f.dashCD = p.dashCD; f.combo = p.combo;
+      f.vote = p.ultCharge ?? f.vote;
+      f.fastFall = !!p.fastFall; f.winning = !!p.winning; f.winT = p.winT || 0;
+      if (typeof p.ammo === 'number') f.ammo = p.ammo;
+      if (typeof p.reloadT === 'number') f.reloadT = p.reloadT;
+    }
+    if (snap.world?.camera) { this.camX = snap.world.camera.x; this.camY = snap.world.camera.y; this.camZ = snap.world.camera.zoom; }
+    if (Array.isArray(snap.projectiles)) {
+      this.projectiles = snap.projectiles.map((p: any, idx: number) => ({
+        id: idx, x: p.x, y: p.y, w: p.w, h: p.h, vx: p.vx, vy: p.vy,
+        kind: p.kind || 'proj', w2: 0, dir: p.vx < 0 ? -1 : 1, life: p.life,
+        ownerColor: '#fff', ownerHighlight: '#fff', owner: p.owner,
+        dmg: p.dmg, bk: p.bk, ks: p.ks, ang: p.ang,
+      })) as any;
+    }
+  }
+
+  private stepWasmLocal() {
+    if (!this.wasmSim || this.wasmMatchId == null) return false;
+    const inputs = this.fighters.map((f, i) => {
+      const src = i === 0 ? this.fighters[0].curIn : (this.fighters[1]?.curIn ?? EMPTY_INPUT);
+      const acts: string[] = [];
+      if (src.left) acts.push('left'); if (src.right) acts.push('right');
+      if (src.jump) acts.push('jump'); if (src.down) acts.push('down');
+      if (src.light) acts.push('light'); if (src.heavy) acts.push('heavy');
+      if (src.dash) acts.push('dash'); if (src.ult) acts.push('ult');
+      if (src.reload) acts.push('reload');
+      return acts;
+    });
+    this.wasmSim.step(this.wasmMatchId, inputs);
+    const snap = this.wasmSim.snapshot(this.wasmMatchId);
+    this.syncWasmSnapshot(snap);
+    this.T = snap?.tick ?? this.T + 1;
+    return true;
   }
 
   stepOnline(inputs: PlayerAction[][]) {
@@ -3160,41 +3234,67 @@ export class GameEngine {
     this.debugHitboxes = [];
     this.gravityFactor = 1;
     this.updateStageHazards();
-    if (this.ults.some(u => u.specialized?.ultimate.profile.flags.includes('gravity') &&
-      (u.f as FighterSim).dead <= 0)) {
-      this.gravityFactor = this.replayData?.version === 6 ? this.gravityFactor * .5 : .5;
-    }
-    if (this.fighters.length >= 2) {
-      if (this.onlineCapacity) {
-        for (const fighter of this.fighters) {
-          const rivals = this.fighters.filter(other => other !== fighter && other.stocks > 0 && other.dead <= 0);
-          const opponent = rivals.reduce<FighterSim | undefined>((nearest, other) =>
-            !nearest || Math.hypot(other.cx - fighter.cx, other.y - fighter.y) <
-            Math.hypot(nearest.cx - fighter.cx, nearest.y - fighter.y) ? other : nearest, undefined);
-          this.updateFighter(fighter, opponent ?? this.fighters.find(other => other !== fighter)!);
-        }
-      } else {
-        this.updateFighter(this.fighters[0], this.fighters[1]);
-        this.updateFighter(this.fighters[1], this.fighters[0]);
+    const useWasm = this.wasmMatchId != null && this.wasmSim && !this.onlineCapacity && !isAttract && !this.isReplaying;
+    if (useWasm) {
+      for (let i = 0; i < this.fighters.length; i++) {
+        const f = this.fighters[i];
+        const inp = this.readHumanInput(f.pi);
+        const prev = f.curIn;
+        f.justIn = {
+          left: inp.left && !prev.left, right: inp.right && !prev.right, jump: inp.jump && !prev.jump,
+          down: inp.down && !prev.down, light: inp.light && !prev.light, heavy: inp.heavy && !prev.heavy,
+          dash: inp.dash && !prev.dash, ult: inp.ult && !prev.ult, reload: inp.reload && !prev.reload,
+        };
+        f.prevIn = prev;
+        f.curIn = inp;
       }
-      for (const f of this.fighters) if (f.rage) f.heelBox=this.collision.rearHeel(f,this.T);
-      this.resolveIndividualStrikes();
-
       if (!this.onlineCapacity && !isAttract && !this.isReplaying && this.mode !== 'training') {
         const p1Acts = inputToActions(this.fighters[0].curIn);
-        const p2Acts = inputToActions(this.fighters[1].curIn);
-        const p1Key = p1Acts.join(',');
-        const p2Key = p2Acts.join(',');
+        const p2Acts = inputToActions(this.fighters[1]?.curIn ?? EMPTY_INPUT);
+        const p1Key = p1Acts.join(','), p2Key = p2Acts.join(',');
         if (this.T === 1 || p1Key !== this.lastRecP1Key || p2Key !== this.lastRecP2Key) {
           this.recordedKeyframes.push({ f: this.T, p1: p1Acts, p2: p2Acts });
-          this.lastRecP1Key = p1Key;
-          this.lastRecP2Key = p2Key;
+          this.lastRecP1Key = p1Key; this.lastRecP2Key = p2Key;
         }
       }
+      this.stepWasmLocal();
+    } else {
+      if (this.ults.some(u => u.specialized?.ultimate.profile.flags.includes('gravity') &&
+        (u.f as FighterSim).dead <= 0)) {
+        this.gravityFactor = this.replayData?.version === 6 ? this.gravityFactor * .5 : .5;
+      }
+      if (this.fighters.length >= 2) {
+        if (this.onlineCapacity) {
+          for (const fighter of this.fighters) {
+            const rivals = this.fighters.filter(other => other !== fighter && other.stocks > 0 && other.dead <= 0);
+            const opponent = rivals.reduce<FighterSim | undefined>((nearest, other) =>
+              !nearest || Math.hypot(other.cx - fighter.cx, other.y - fighter.y) <
+              Math.hypot(nearest.cx - fighter.cx, nearest.y - fighter.y) ? other : nearest, undefined);
+            this.updateFighter(fighter, opponent ?? this.fighters.find(other => other !== fighter)!);
+          }
+        } else {
+          this.updateFighter(this.fighters[0], this.fighters[1]);
+          this.updateFighter(this.fighters[1], this.fighters[0]);
+        }
+        for (const f of this.fighters) if (f.rage) f.heelBox=this.collision.rearHeel(f,this.T);
+        this.resolveIndividualStrikes();
+
+        if (!this.onlineCapacity && !isAttract && !this.isReplaying && this.mode !== 'training') {
+          const p1Acts = inputToActions(this.fighters[0].curIn);
+          const p2Acts = inputToActions(this.fighters[1].curIn);
+          const p1Key = p1Acts.join(',');
+          const p2Key = p2Acts.join(',');
+          if (this.T === 1 || p1Key !== this.lastRecP1Key || p2Key !== this.lastRecP2Key) {
+            this.recordedKeyframes.push({ f: this.T, p1: p1Acts, p2: p2Acts });
+            this.lastRecP1Key = p1Key;
+            this.lastRecP2Key = p2Key;
+          }
+        }
+      }
+      this.updateProjectiles();
+      if (!isAttract) this.updateItems();
+      this.updateUltEffects();
     }
-    this.updateProjectiles();
-    if (!isAttract) this.updateItems();
-    this.updateUltEffects();
 
     if (this.telegraph && ++this.telegraph.t >= (this.telegraph.duration ?? 20)) {
       const q = this.telegraph;
