@@ -212,9 +212,15 @@ export function OnlineLobby({ room, slot, send, leave }: {
         <div className="ob-roster-head">
           <h3>Personajes</h3>
           <RosterDisplay display={display} />
-          <div className="ob-filters">
-            {REGION_TABS.filter(rt => rt.id !== 'custom').map(rt => <button key={rt.id} type="button" aria-pressed={filter === rt.id}
-              onClick={() => { sound.uiClick(); setFilter(rt.id); }}>{rt.label}</button>)}
+          <div className="ob-filters" aria-label="Filtros de personajes"
+            onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
+            {REGION_TABS.filter(rt => rt.id !== 'custom').map(rt => {
+              const count = roster.filter(fighter => matchesFilter(fighter, rt.id)).length;
+              return <button key={rt.id} type="button" aria-pressed={filter === rt.id}
+                onClick={() => { sound.uiClick(); setFilter(rt.id); }}>
+                {rt.label} <span className="ob-filter-count">{count}</span>
+              </button>;
+            })}
           </div>
         </div>
         {!filteredRoster.length && <p role="status">No se encontraron luchadores.</p>}

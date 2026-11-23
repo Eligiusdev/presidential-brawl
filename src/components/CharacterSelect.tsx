@@ -274,7 +274,8 @@ export function CharacterSelect({
           <RosterDisplay display={display} />
 
           {/* Region Filter Bar */}
-          <div className="selector-filters flex items-center gap-1.5">
+          <div className="selector-filters flex items-center gap-2 pb-1"
+            onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
             {REGION_TABS.map((rt) => {
               const count = roster.filter((fighter) => matchesFilter(fighter, rt.id)).length;
               return (
@@ -285,13 +286,13 @@ export function CharacterSelect({
                     sound.uiClick();
                     setRegionFilter(rt.id);
                   }}
-                  className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all ${
                     regionFilter === rt.id
-                      ? 'border-[#ffcc33] bg-[#211f1b] text-[#ffcc33]'
-                      : 'border-[#222b42] bg-[#101524] text-[#94a3b8] hover:text-white'
+                      ? 'border-[#ffcc33] bg-[#ffcc33] text-[#111827] shadow-[0_4px_14px_rgba(255,204,51,.2)]'
+                      : 'border-[#2f4363] bg-[#121d31] text-[#b8cee8] hover:border-[#5b7bb0] hover:text-white'
                   }`}
                 >
-                  {rt.label} <span className="font-mono-num opacity-75">({count})</span>
+                  {rt.label} <span className={`font-mono-num ${regionFilter === rt.id ? 'opacity-70' : 'opacity-55'}`}>({count})</span>
                 </button>
               );
             })}

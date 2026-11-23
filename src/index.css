@@ -194,7 +194,7 @@
 .apex-selector .fighter-showcase-body { width: min(28%, 218px); }
 .selector-layout { grid-template-columns: minmax(0, 1fr); }
 .selector-mobile-customize { display: none; }
-.selector-filters { overflow-x: auto; scrollbar-width: thin; }
+.selector-filters { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .selector-filters > button { white-space: nowrap; flex: none; }
 .selector-launch {
   position: sticky;
@@ -640,9 +640,15 @@
 .ob-roster{display:flex;flex-direction:column;min-height:0;border:1px solid #283a5c;border-radius:14px;background:linear-gradient(180deg,#0f192c,#0b1322);overflow:hidden}
 .ob-roster-head{padding:8px 8px 6px;border-bottom:1px solid #223252;background:linear-gradient(180deg,rgba(30,48,78,.35),transparent)}
 .ob-roster-head h3{margin:0 0 6px;font:800 11px var(--font-display,system-ui);text-transform:uppercase;letter-spacing:.12em;color:#eaf2ff}
-.ob-filters{display:flex;flex-wrap:wrap;gap:3px}
-.ob-filters button{border:1px solid #2a3b59;background:#121d31;color:#a9c0de;border-radius:999px;padding:2px 7px;font-size:9px;font-weight:700;cursor:pointer}
-.ob-filters button[aria-pressed="true"]{color:#081018;background:#ffcc33;border-color:#ffcc33}
+.ob-filters{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;padding:2px 0 4px;scrollbar-width:thin;scrollbar-color:#3a5074 transparent;-webkit-overflow-scrolling:touch}
+.ob-filters::-webkit-scrollbar{height:4px}
+.ob-filters::-webkit-scrollbar-thumb{background:#3a5074;border-radius:999px}
+.ob-filters button{flex:0 0 auto;border:1px solid rgba(120,160,220,.22);background:rgba(15,25,44,.72);color:#b8cee8;border-radius:999px;padding:6px 11px;font:700 11px var(--font-body,system-ui);line-height:1;cursor:pointer;white-space:nowrap;transition:border-color .12s,background .12s,color .12s,transform .08s}
+.ob-filters button:hover{border-color:rgba(120,160,220,.45);color:#fff;background:rgba(28,44,72,.85)}
+.ob-filters button:active{transform:scale(.98)}
+.ob-filters button[aria-pressed="true"]{color:#111827;background:linear-gradient(180deg,#ffe27a,#ffcc33);border-color:#ffcc33;box-shadow:0 4px 14px rgba(255,204,51,.2)}
+.ob-filter-count{font-size:10px;opacity:.65;font-variant-numeric:tabular-nums}
+.ob-filters button[aria-pressed="true"] .ob-filter-count{opacity:.75}
 .ob-grid{flex:1;min-height:0;overflow:auto;padding:6px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-content:start}
 .ob-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px;border-radius:10px;border:1px solid #2a3956;background:linear-gradient(180deg,#16233a,#10192a);color:#eaf2ff;cursor:pointer;transition:border-color .12s,box-shadow .12s}
 .ob-tile.taken{border-color:var(--ring,#4a648f);box-shadow:0 0 0 1px color-mix(in srgb,var(--ring,#4a648f) 55%,transparent),0 0 14px color-mix(in srgb,var(--ring,#4a648f) 25%,transparent)}
