@@ -388,9 +388,8 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
   }, [playing, seat, config]);
 
   const reload = () => {
-    const url = new URL(location.href);
     const roomCode = currentSeat.current?.code || (roomCodePattern.test(code) ? code : null);
-    if (roomCode) url.searchParams.set('room', roomCode);
+    const url = new URL(roomCode ? `/room/${roomCode}` : '/', location.origin);
     url.searchParams.set('refresh', Date.now().toString());
     location.replace(url);
   };

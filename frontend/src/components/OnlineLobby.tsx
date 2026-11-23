@@ -23,8 +23,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
   const self = room.players[slot];
   const host = room.hostSlot === slot;
   const allReady = room.players.every(p => p?.ready && p.connected);
-  const url = new URL(location.href);
-  url.searchParams.set('room', room.code);
+  const url = new URL(`/room/${room.code}`, location.origin);
 
   const roster = PRESIDENTS_DATA;
   const filteredRoster = useMemo(() => {

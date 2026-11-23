@@ -122,7 +122,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     prevScreenRef.current = screen;
     const p = screenToPath(screen);
     if (!p) return;
-    if (location.pathname !== p && !location.pathname.startsWith('/room')) { routeSync.current = true; navigate(p, { replace: false }); }
+    const menuPaths = ['/combat', '/visualizar'];
+    if (location.pathname !== p && !location.pathname.startsWith('/room') && !(p === '/' && menuPaths.includes(location.pathname.replace(/\/+$/, '')))) {
+      routeSync.current = true; navigate(p, { replace: false });
+    }
   }, [screen, screenToPath, navigate, location.pathname]);
 
   useEffect(() => {
@@ -131,6 +134,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (p.startsWith('/room')) {
       setNetOpenSignal(n => n + 1);
       if (screenRef.current !== 'TITLE' && screenRef.current !== 'SELECT') setScreen('TITLE');
+      return;
+    }
+    if (p === '/combat' || p === '/visualizar') {
+      if (screenRef.current !== 'TITLE') setScreen('TITLE');
       return;
     }
     if (p.startsWith('/result/')) {

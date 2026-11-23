@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom';
 import { CharacterSelect } from '../components/CharacterSelect';
 import { useGame } from '../game/GameContext';
 
 export function SelectPage() {
   const g = useGame();
+  const navigate = useNavigate();
   return (
     <CharacterSelect
       campaignSelection={g.campaignSelection}
@@ -20,7 +22,7 @@ export function SelectPage() {
       onStartTraining={g.startTraining}
       onWatchLastReplay={() => g.startReplay('SELECT')}
       onOpenConfig={() => g.setConfigOpen(true)}
-      onBack={() => { g.engineRef.current?.startAttractScene(); g.setScreen('TITLE'); }}
+      onBack={() => { g.engineRef.current?.startAttractScene(); navigate('/combat'); }}
     />
   );
 }
