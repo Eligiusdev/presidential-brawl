@@ -1,4 +1,5 @@
 import { VictoryShowcase } from './VictoryShowcase';
+import { CampaignBracket } from './CampaignBracket';
 import { PRESIDENTS_DATA } from "../data/presidents";
 import { fighterAsset, fighterArtPath } from "../engine/fighterSprites";
 import type { MatchSnapshot, RoomState } from "../network/matchState";
@@ -542,6 +543,7 @@ export function GameHUD({
       {/* Mobile Touch Controls */}
       {showTouch && (
         <TouchControls
+          scale={config.controls.touchScale ?? 1}
           ultReady={Boolean(hud?.fighters[0] && hud.fighters[0].vote >= 100)}
           hasGun={Boolean(hud?.fighters[0] && (hud.fighters[0].weaponKind === 'mg' || hud.fighters[0].weaponKind === 'rocket'))}
           onAction={onTouchAction}
@@ -550,26 +552,12 @@ export function GameHUD({
 
       {/* Campaign VS Ladder Screen */}
       {screen === 'VS' && campaign && (
-        <div className="apex-overlay absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#090c14]/94 p-6 text-center">
+        <div className="apex-overlay absolute inset-0 z-30 flex flex-col items-center justify-center overflow-y-auto bg-[#090c14]/94 p-6 text-center">
           <div className="font-display text-sm font-bold uppercase tracking-widest text-[#ffcc33]">
             {campaign.round === 6 ? '★ Gran Final Mundial ★' : `Ronda ${campaign.round + 1} de 7`}
           </div>
-          <div className="mt-4 flex flex-wrap justify-center gap-1.5 max-w-2xl">
-            {campaign.ladder.map((k, j) => (
-              <span
-                key={`${k}_${j}`}
-                className={`rounded border px-2.5 py-1 text-xs font-semibold ${
-                  j < campaign.round
-                    ? 'border-[#1e273d] bg-[#0f1422] text-[#475569] line-through'
-                    : j === campaign.round
-                      ? 'border-[#ffcc33] bg-[#212942] text-[#ffcc33]'
-                      : 'border-[#252f47] bg-[#131929] text-[#94a3b8]'
-                }`}
-              >
-                {j + 1}. {(roster[k] || roster[0]).name}
-                {j === 6 ? ' 👑' : ''}
-              </span>
-            ))}
+          <div className="mt-4 w-full max-w-4xl px-2">
+            <CampaignBracket campaign={campaign} roster={roster} state="active" />
           </div>
 
           <div className="my-8 flex items-center gap-6">
@@ -833,14 +821,17 @@ export function GameHUD({
 
       {/* Campaign Censure / Continue */}
       {screen === 'CENSURE' && campaign && (
-        <div data-gamepad-overlay className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4">
-          <div className="w-full max-w-md rounded-xl border border-[#ef4444]/50 bg-[#111726] p-6 text-center">
+        <div data-gamepad-overlay className="apex-overlay absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-[#070a12]/90 p-4">
+          <div className="w-full max-w-3xl rounded-xl border border-[#ef4444]/50 bg-[#111726] p-6 text-center">
             <div className="text-xs font-bold uppercase tracking-widest text-[#ef4444]">Moción de Censura</div>
             <h2 className="mt-1 font-display text-3xl font-bold text-white">¿Continuar Campaña?</h2>
             <p className="mt-2 text-xs text-[#94a3b8]">
               Caíste en la ronda {campaign.round + 1} de 7 ante {(roster[campaign.ladder[campaign.round]] || roster[0]).name}.
               Tu progreso en la escalera se conserva.
             </p>
+            <div className="mt-4">
+              <CampaignBracket campaign={campaign} roster={roster} state="lost" />
+            </div>
             <div className="mt-6 flex flex-wrap gap-2.5">
               <button
                 data-gamepad-back
@@ -874,8 +865,8 @@ export function GameHUD({
 
       {/* Campaign Champion */}
       {screen === 'CHAMPION' && campaign && (
-        <div data-gamepad-overlay className="apex-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#070a12]/90 p-4">
-          <div className="w-full max-w-lg rounded-xl border-2 border-[#ffcc33] bg-[#111726] p-6 text-center">
+        <div data-gamepad-overlay className="apex-overlay absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-[#070a12]/90 p-4">
+          <div className="w-full max-w-4xl rounded-xl border-2 border-[#ffcc33] bg-[#111726] p-6 text-center">
             <div className="text-xs font-bold uppercase tracking-widest text-[#ffcc33]">★ Victoria Total ★</div>
             <h2 className="mt-1 font-display text-3xl font-bold uppercase text-white">
               ¡Líder Supremo Mundial!
@@ -883,6 +874,9 @@ export function GameHUD({
             <VictoryShowcase fighter={roster[campaign.hero] ?? roster[0]} />
             <div className="font-display text-xl font-bold text-[#ffcc33]">
               {(roster[campaign.hero] || roster[0]).name}
+            </div>
+            <div className="mt-4">
+              <CampaignBracket campaign={campaign} roster={roster} state="won" />
             </div>
 
             <div className="mt-4 grid grid-cols-4 gap-2 rounded-lg border border-[#222b42] bg-[#0c101c] p-3 text-xs">
