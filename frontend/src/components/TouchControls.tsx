@@ -135,7 +135,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     <div className="touch-action-grid">
       {actions.filter(({ action }) => action !== 'reload' || hasGun).map(({ action, label, Icon }) =>
         <button key={action} type="button" className={`touch-action touch-${action}`} data-ready={action === 'ult' && ultReady}
-          aria-pressed={pressed.includes(action)} aria-label={label}
+          aria-pressed={pressed.includes(action)} aria-label={label} title={label}
           onContextMenu={e => e.preventDefault()}
           onPointerDown={e => {
             if (e.button !== 0) return;
@@ -147,7 +147,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
           }}
           onPointerUp={e => releaseButton(e.pointerId)} onPointerCancel={e => releaseButton(e.pointerId)}
           onLostPointerCapture={e => releaseButton(e.pointerId)}>
-          <Icon size={19} aria-hidden="true" /><span>{label}</span>
+          <Icon size={22} strokeWidth={2.4} aria-hidden="true" />
         </button>
       )}
     </div>

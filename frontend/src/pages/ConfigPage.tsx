@@ -56,7 +56,7 @@ export function ConfigPage() {
   ];
 
   return (
-    <section data-gamepad-config className="ob-lobby ob-gallery" aria-label="Configuración" style={{ position: 'absolute', zIndex: 20 }}>
+    <section data-gamepad-config className="ob-lobby ob-gallery" aria-label="Configuración" style={{ position: 'absolute', inset: 0, zIndex: 20, overflowY: 'auto', overflowX: 'hidden' }}>
       <header className="ob-topbar">
         <div className="ob-brand">
           <Settings className="h-5 w-5 text-[#ffcc33]" aria-hidden />
@@ -70,7 +70,7 @@ export function ConfigPage() {
         </div>
       </header>
 
-      <div className="ob-main" style={{ gridTemplateColumns: 'minmax(220px,280px) minmax(0,1fr)', alignItems: 'stretch' }}>
+      <div className="ob-main config-layout">
         <aside className="ob-roster" aria-label="Secciones de configuración" style={{ maxHeight: 'none' }}>
           <div className="ob-roster-head"><h3>Secciones</h3></div>
           <nav className="console-menu" role="tablist" aria-label="Secciones" style={{ padding: '12px', gap: 8 }}>
@@ -93,8 +93,8 @@ export function ConfigPage() {
           </div>
         </aside>
 
-        <section className="ob-preview" aria-label="Opciones" style={{ overflow: 'auto' }}>
-          <div className="ob-character-card" style={{ padding: 24, display: 'block', minHeight: '100%' }}>
+        <section className="ob-preview" aria-label="Opciones" style={{ overflow: 'visible' }}>
+          <div className="ob-character-card" style={{ padding: 24, display: 'block' }}>
             {tab === 'video' && <div className="space-y-6">
               <SectionTitle>Pixelación y video</SectionTitle>
               <label className="block text-sm font-semibold text-[#cbd5e1]">Iluminación del escenario
