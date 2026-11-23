@@ -5,6 +5,7 @@ import { clearPerformanceSamples, performanceMetricsEnabled, samplePerformance }
 import { VictoryShowcase } from './VictoryShowcase';
 import { sound } from '../audio/soundEngine';
 import { useEffect, useRef, useState } from 'react';
+import { Crown, Globe, KeyRound, Swords, Users, X } from 'lucide-react';
 import { DEFAULT_P1_KEYS, DEFAULT_P2_KEYS } from '../config/defaultConfig';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import type { RoomCapacity } from '../data/stages';
@@ -79,7 +80,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
   }, [fighterIds]);
   const pressed = useRef(new Map<string, PlayerAction>());
   const touch = useRef(new Set<PlayerAction>());
-  const enter = useRef<(request: object) => void>(() => {});
+  const enter = useRef<(request: { type: 'create'; maxPlayers: RoomCapacity } | { type: 'join'; code: string } | { type: 'resume'; code: string; token: string }) => void>(() => {});
   const autoJoined = useRef(false);
   const onActiveRef = useRef(onActive);
   onActiveRef.current = onActive;
@@ -106,10 +107,26 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
 
   enter.current = request => {
     sound.init();
+    clearTimeout(reconnect.current);
+    const manual = request.type === 'create' || request.type === 'join';
+    if (manual) {
+      retryUntil.current = 0;
+      setRecovering(false);
+      setIncompatible(false);
+      setRoom(null);
+      setSeat(null);
+      setHud([]);
+      samples.current = null;
+      currentSeat.current = null;
+      authenticatedSocket.current = null;
+      saveSeat(null);
+    }
     setBusy(true);
-    if (!retryUntil.current) setStatus('');
+    if (manual || !retryUntil.current) setStatus('');
+    const previous = socket.current;
     const ws = new WebSocket(roomSocketUrl());
     socket.current = ws;
+    if (previous && previous !== ws) try { previous.close(); } catch {}
     let lastReply = performance.now();
     let lastPing = 0;
     const watchdog = window.setInterval(() => {
@@ -359,6 +376,12 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
     location.replace(url);
   };
   const reloadButton = incompatible && <button type="button" className="console-btn" onClick={reload}>Recargar el juego</button>;
+  const roomModes: Array<{ value: RoomCapacity; label: string; desc: string; icon: typeof Swords }> = [
+    { value: 2, label: 'Duelo', desc: '1 vs 1', icon: Swords },
+    { value: 4, label: 'Campal', desc: '4 jugadores', icon: Users },
+    { value: 6, label: 'Campal', desc: '6 jugadores', icon: Crown },
+    { value: 8, label: 'Gran Campal', desc: '8 jugadores', icon: Globe },
+  ];
   if (!open) return null;
   if (room && seat && !room.playing) return <>
     <OnlineLobby room={room} slot={seat.slot} send={recovering || incompatible ? () => {} : send} leave={leave} />
@@ -396,41 +419,74 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
   </section>;
 
   return <div data-gamepad-online className="console-modal-overlay" role="dialog" aria-modal="true" aria-label="Salas en línea" onMouseDown={(e) => { if (e.target === e.currentTarget) leave(); }}>
-    <section className="console-modal">
-      <header className="console-modal-head">
-        <div>
-          <p className="console-modal-kicker">Multijugador</p>
-          <h2>Salas en línea</h2>
+    <section className="console-modal room-modal">
+      <header className="console-modal-head room-modal-head">
+        <div className="room-modal-title">
+          <div className="room-modal-icon" aria-hidden><Globe className="h-5 w-5" /></div>
+          <div>
+            <p className="console-modal-kicker">Multijugador en línea</p>
+            <h2>Salas de combate</h2>
+            <p className="room-modal-sub">Crea una sala o entra con un código para pelear en tiempo real.</p>
+          </div>
         </div>
-        <button type="button" data-gamepad-back className="console-modal-close" onClick={leave} aria-label="Cerrar">×</button>
+        <button type="button" data-gamepad-back className="console-modal-close" onClick={leave} aria-label="Cerrar"><X className="h-4 w-4" /></button>
       </header>
 
-      <div className="console-modal-body">
-        <div className="console-field">
-          <label htmlFor="room-mode">Modo de sala</label>
-          <select id="room-mode" value={capacity} disabled={incompatible || busy} onChange={e => setCapacity(Number(e.target.value) as RoomCapacity)}>
-            <option value={2}>Duelo · 2 jugadores</option>
-            <option value={4}>Campal · 4 jugadores</option>
-            <option value={6}>Campal · 6 jugadores</option>
-            <option value={8}>Gran Campal · 8 jugadores</option>
-          </select>
-        </div>
-        <button type="button" className="console-btn console-btn-primary" disabled={incompatible || busy} onClick={() => enter.current({ type: 'create', maxPlayers: capacity })}>
-          Crear sala
-        </button>
+      <div className="console-modal-body room-modal-body">
+        <section className="room-modal-section" aria-label="Crear sala">
+          <div className="room-modal-section-head">
+            <span className="room-modal-section-kicker"><Swords className="h-3.5 w-3.5" />Crear sala</span>
+            <span className="room-modal-section-note">Elige el modo antes de abrir la sala</span>
+          </div>
+          <div className="room-mode-grid" role="radiogroup" aria-label="Modo de sala">
+            {roomModes.map(mode => {
+              const Icon = mode.icon;
+              const selected = capacity === mode.value;
+              return <button
+                key={mode.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={`room-mode-card ${selected ? 'is-selected' : ''}`}
+                disabled={incompatible || busy}
+                onClick={() => { sound.uiClick(); setCapacity(mode.value); }}
+              >
+                <span className="room-mode-icon" aria-hidden><Icon className="h-4 w-4" /></span>
+                <span className="room-mode-text">
+                  <strong>{mode.label}</strong>
+                  <small>{mode.desc}</small>
+                </span>
+                <span className="room-mode-check" aria-hidden>{selected ? '●' : '○'}</span>
+              </button>;
+            })}
+          </div>
+          <button type="button" data-gamepad-initial className="console-btn console-btn-primary room-modal-create" disabled={incompatible || busy} onClick={() => enter.current({ type: 'create', maxPlayers: capacity })}>
+            <Swords className="h-4 w-4" />Crear sala {capacity === 2 ? 'duelo' : capacity === 8 ? 'gran campal' : 'campal'}
+          </button>
+        </section>
 
         <div className="console-divider"><span>o únete con código</span></div>
 
-        <div className="console-field">
-          <label htmlFor="room-code">Código de sala</label>
-          <input id="room-code" value={code} maxLength={10} placeholder="ABCDE" autoComplete="off" spellCheck={false}
-            onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 10))} />
-        </div>
-        <button type="button" className="console-btn" disabled={incompatible || busy || !roomCodePattern.test(code)} onClick={() => enter.current({ type: 'join', code })}>
-          Entrar a la sala
-        </button>
+        <section className="room-modal-section" aria-label="Unirse a sala">
+          <div className="room-modal-section-head">
+            <span className="room-modal-section-kicker"><KeyRound className="h-3.5 w-3.5" />Entrar a sala</span>
+            <span className="room-modal-section-note">Pega el código que te compartieron</span>
+          </div>
+          <label className="room-code-field" htmlFor="room-code">
+            <span className="room-code-label">Código de sala</span>
+            <div className="room-code-input-wrap">
+              <KeyRound className="h-4 w-4" aria-hidden />
+              <input id="room-code" value={code} maxLength={10} placeholder="ABCDE" autoComplete="off" spellCheck={false}
+                disabled={incompatible || busy}
+                onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 10))} />
+            </div>
+          </label>
+          <button type="button" className="console-btn room-modal-join" disabled={incompatible || busy || !roomCodePattern.test(code)} onClick={() => enter.current({ type: 'join', code })}>
+            Entrar a la sala
+          </button>
+        </section>
 
-        {(busy || status) && <p className={`console-modal-status ${status && !busy ? 'is-error' : ''}`} role="status">{busy ? 'Conectando…' : status} {reloadButton}</p>}
+        {(busy || status) && <p className={`console-modal-status ${status && !busy ? 'is-error' : ''}`} role="status">{busy ? 'Conectando con la sala…' : status} {reloadButton}</p>}
       </div>
     </section>
   </div>;
