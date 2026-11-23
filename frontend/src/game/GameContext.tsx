@@ -135,26 +135,69 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (routeSync.current) { routeSync.current = false; return; }
     const p = location.pathname;
-    const pathToScreen: Record<string, GameScreenState> = {
-      '/': 'TITLE', '/select': 'SELECT', '/customize': 'CUSTOMIZE', '/replay': 'REPLAY',
-      '/result/defeat': 'GAME_OVER', '/result/censure': 'CENSURE', '/result/champion': 'CHAMPION',
-      '/play': 'PLAYING',
-    };
     if (p.startsWith('/room')) {
       setNetOpenSignal(n => n + 1);
       if (screenRef.current !== 'TITLE' && screenRef.current !== 'SELECT') setScreen('TITLE');
       return;
     }
+    if (p.startsWith('/result/')) {
+      const kind = p.split('/')[2];
+      const map: Record<string, GameScreenState> = { defeat: 'GAME_OVER', censure: 'CENSURE', champion: 'CHAMPION' };
+      const next = map[kind];
+      if (next && next !== screenRef.current) setScreen(next);
+      return;
+    }
+    const pathToScreen: Record<string, GameScreenState> = {
+      '/': 'TITLE', '/select': 'SELECT', '/customize': 'CUSTOMIZE', '/replay': 'REPLAY',
+    };
+    if (p === '/play') {
+      const cur = screenRef.current;
+      if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') return;
+      // no active match - redirect to select
+      routeSync.current = true; navigate('/select', { replace: true });
+      return;
+    }
     const next = pathToScreen[p];
     if (!next || next === screenRef.current) return;
     const cur = screenRef.current;
-    if ((cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') && next !== cur && next !== 'PLAYING') {
+    if ((cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') && next !== 'PLAYING') {
       engineRef.current?.clearAllInputs();
       engineRef.current?.startAttractScene();
     }
-    if (next === 'PLAYING' && (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS')) return;
     setScreen(next);
-  }, [location.pathname]);
+  }, [location.pathname, navigate]);
+
+  // Sync select params to URL
+  useEffect(() => {
+    if (screen !== 'SELECT') return;
+    const params = new URLSearchParams();
+    params.set('stage', String(stageSel));
+    const p1 = roster[sel[0]]?.id; const p2 = roster[sel[1]]?.id;
+    if (p1) params.set('p1', p1);
+    if (p2) params.set('p2', p2);
+    params.set('ai', vsAI ? '1' : '0');
+    params.set('mode', campaignSelection ? 'campaign' : 'versus');
+    const search = `?${params.toString()}`;
+    if (location.pathname === '/select' && location.search !== search) {
+      routeSync.current = true;
+      navigate({ pathname: '/select', search }, { replace: true });
+    }
+  }, [screen, stageSel, sel, vsAI, campaignSelection, roster, location.pathname, location.search, navigate]);
+
+  // Read select params from URL on navigation to /select
+  useEffect(() => {
+    if (location.pathname !== '/select') return;
+    if (routeSync.current) { routeSync.current = false; return; }
+    const params = new URLSearchParams(location.search);
+    const p1 = params.get('p1'); const p2 = params.get('p2');
+    const stage = params.get('stage'); const ai = params.get('ai'); const modeP = params.get('mode');
+    if (p1) { const i = roster.findIndex(r => r.id === p1); if (i >= 0) setSel(cur => cur[0] === i ? cur : [i, cur[1]]); }
+    if (p2) { const i = roster.findIndex(r => r.id === p2); if (i >= 0) setSel(cur => cur[1] === i ? cur : [cur[0], i]); }
+    if (stage != null && !Number.isNaN(Number(stage))) { const n = Math.max(0, Math.min(STAGES_DATA.length - 1, Number(stage))); setStageSelState(cur => cur === n ? cur : n); }
+    if (ai != null) setVsAI(cur => { const v = ai === '1'; return cur === v ? cur : v; });
+    if (modeP === 'campaign') setCampaignSelection(cur => cur ? cur : true);
+    else if (modeP === 'versus') setCampaignSelection(cur => !cur ? cur : false);
+  }, [location.pathname, location.search, roster]);
 
   if (!engineRef.current) {
     engineRef.current = new GameEngine(config);
