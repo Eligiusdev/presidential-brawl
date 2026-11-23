@@ -57,7 +57,10 @@ func main() {
 				log.Println("match create:", err)
 				return nil
 			}
-			m.OnEnd = onEnd
+			m.OnEnd = func(standings []int) {
+				// always called while room.Mu() is held
+				onEnd(standings)
+			}
 			return m
 		},
 	}
@@ -83,7 +86,7 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Printf("Presidential Brawl: http://localhost:%d\n", port)
+		fmt.Printf("Presidential Brawl: http://localhost:%d\n", port)
 		if os.Getenv("RENDER") == "" {
 			printLAN(port)
 		}
@@ -113,7 +116,7 @@ func printLAN(port int) {
 			if !ok || ipn.IP.IsLoopback() || ipn.IP.To4() == nil {
 				continue
 			}
-			log.Printf("Red local: http://%s:%d\n", ipn.IP.String(), port)
+			fmt.Printf("Red local: http://%s:%d\n", ipn.IP.String(), port)
 		}
 	}
 }

@@ -66,8 +66,13 @@ func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleClose(c *rooms.Client) {
 	room, player := s.Reg.ClientRoom(c)
-	if player != nil && room != nil {
-		s.remove(room, player, true)
+	if room != nil && player != nil {
+		room.Mu().Lock()
+		isCurrent := player.WS == c
+		room.Mu().Unlock()
+		if isCurrent {
+			s.remove(room, player, true)
+		}
 	}
 	s.Reg.ClearClient(c)
 }
@@ -187,7 +192,7 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 			player.Pending = nil
 			room.Mu().Unlock()
 			if prev != nil && prev != c {
-				prev.Close(websocket.StatusPolicyViolation, "replaced")
+				prev.Close(websocket.StatusCode(4001), "replaced")
 			}
 		} else {
 			room.Mu().Lock()
@@ -351,9 +356,7 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 		room.Standings = nil
 		stage := room.Stage
 		room.Match = s.CreateMatch(ids, stage, func(standings []int) {
-			room.Mu().Lock()
 			room.Standings = standings
-			room.Mu().Unlock()
 		})
 		room.Mu().Unlock()
 		s.publish(room)
