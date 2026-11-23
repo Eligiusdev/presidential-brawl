@@ -16,7 +16,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
   room: RoomState; slot: number; send: (message: object) => void; leave: () => void;
 }) {
   const display = useRosterDisplay();
-  const { query, view } = display;
+  const { query } = display;
   const [filter, setFilter] = useState<RegionFilter>('all');
   const [copied, setCopied] = useState(false);
   const drag = useRef<{ x: number; id: number } | null>(null);
@@ -218,7 +218,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
           </div>
         </div>
         {!filteredRoster.length && <p role="status">No se encontraron luchadores.</p>}
-        <div className={`ob-grid${view === 'rail' ? ' ob-roster-rail' : ''}`} aria-label="Personajes">
+        <div className="ob-grid" aria-label="Personajes">
           <button type="button" className="ob-tile ob-tile-random" aria-label="Personaje aleatorio" disabled={!filteredRoster.length} onClick={pickRandom}>
             <span className="ob-tile-art ob-tile-art-random"><Shuffle className="h-7 w-7" /></span>
             <span className="ob-tile-name">Aleatorio</span>

@@ -1,7 +1,7 @@
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { ultimateText } from '../engine/presidentUltimates';
 import {movesFor} from '../combat/roster.js';
-import { ArrowLeft, Crown, Film, Pencil, Play, Settings, Shield, Shuffle, Trash2, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Crown, Film, Pencil, Play, Search, Settings, Shield, Shuffle, Trash2, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { sound } from '../audio/soundEngine';
 import { stageArtUrl } from '../engine/stageAtmosphere';
@@ -48,38 +48,21 @@ export const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
 
 export function useRosterDisplay() {
   const [query, setQuery] = useState('');
-  const [view, setView] = useState<'rail' | 'grid'>(() => {
-    try {
-      return localStorage.getItem('presidential-brawl.roster-view') === 'grid' ? 'grid' : 'rail';
-    } catch {
-      return 'rail';
-    }
-  });
-
-  return {
-    query, setQuery, view,
-    changeView(next: 'rail' | 'grid') {
-      setView(next);
-      try { localStorage.setItem('presidential-brawl.roster-view', next); } catch { /* vista temporal */ }
-    },
-  };
+  return { query, setQuery };
 }
 
 export function RosterDisplay({ display }: { display: ReturnType<typeof useRosterDisplay> }) {
   return (
-    <div className="roster-display">
-      <label>
-        Buscar luchador
-        <input type="search" value={display.query} onChange={e => display.setQuery(e.target.value)}
-          placeholder="Nombre o país" />
-      </label>
-      <label>
-        Vista del plantel
-        <select value={display.view} onChange={e => display.changeView(e.target.value === 'grid' ? 'grid' : 'rail')}>
-          <option value="rail">Carrusel</option>
-          <option value="grid">Cuadrícula</option>
-        </select>
-      </label>
+    <div className="roster-search">
+      <Search className="roster-search-icon" aria-hidden />
+      <input
+        type="search"
+        value={display.query}
+        onChange={e => display.setQuery(e.target.value)}
+        placeholder="Buscar luchador o país..."
+        aria-label="Buscar luchador"
+        className="roster-search-input"
+      />
     </div>
   );
 }
@@ -131,7 +114,7 @@ export function CharacterSelect({
 }: CharacterSelectProps) {
   const [activeSlot, setActiveSlot] = useState<0 | 1>(0);
   const display = useRosterDisplay();
-  const { query, view } = display;
+  const { query } = display;
   const [regionFilter, setRegionFilter] = useState<RegionFilter>('all');
   const p1 = roster[sel[0]] || roster[0];
   const p2 = roster[sel[1]] || roster[0];
@@ -316,7 +299,7 @@ export function CharacterSelect({
 
           {/* Roster Grid (Built-in + Custom Fighters) */}
           {!filteredRoster.length && <p role="status">No se encontraron luchadores.</p>}
-          <SelectionRail label="Luchadores" variant="fighters" grid={view === 'grid'} resetKey={regionFilter + query}>
+          <SelectionRail label="Luchadores" variant="fighters" grid resetKey={regionFilter + query}>
             <button
               type="button"
               onClick={() => {
