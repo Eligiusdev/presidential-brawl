@@ -57,8 +57,15 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
     return (code ?? (navigation?.type === 'reload' ? readSeat()?.code : '') ?? '').trim().toUpperCase();
   });
   const [open, setOpen] = useState(Boolean(invited));
-  useEffect(() => { if (openSignal) setOpen(true); }, [openSignal]);
   const [code, setCode] = useState(invited);
+  useEffect(() => {
+    if (!openSignal) return;
+    setOpen(true);
+    const fromPath = location.pathname.match(/^\/room\/([A-Za-z0-9]+)$/)?.[1];
+    const fromQuery = new URLSearchParams(location.search).get('room');
+    const next = (fromPath || fromQuery || '').trim().toUpperCase();
+    if (next && roomCodePattern.test(next)) setCode(next);
+  }, [openSignal]);
   const [capacity, setCapacity] = useState<RoomCapacity>(2);
   const [room, setRoom] = useState<RoomState | null>(null);
   const [seat, setSeat] = useState<Seat | null>(null);
