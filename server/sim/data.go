@@ -18,7 +18,6 @@ var fighterIDs = []string{
 }
 
 func FighterIDs() []string { return fighterIDs }
-func StageCount() int      { return 12 }
 
 func RandomSeed() uint32 {
 	var b [4]byte

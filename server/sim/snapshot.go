@@ -3,9 +3,7 @@ package sim
 func (m *OnlineMatch) Snapshot() any {
 	players := make([]map[string]any, 0, len(m.Players))
 	for _, f := range m.Players {
-		if f == nil {
-			continue
-		}
+		if f == nil { continue }
 		players = append(players, map[string]any{
 			"id": f.Slot, "slot": f.Slot, "fighterId": f.FighterID, "facing": f.Facing,
 			"state": stateName(f), "frame": int(m.Tick), "damage": f.Damage, "stocks": f.Stocks,
@@ -17,13 +15,17 @@ func (m *OnlineMatch) Snapshot() any {
 			"winning": f.Winning, "winT": f.WinT, "moveKind": f.MoveKind, "pickupT": 0,
 			"wpn": "", "wk": false, "ammo": f.Ammo, "maxAmmo": f.MaxAmmo, "reloadT": f.ReloadT, "reloadDur": f.ReloadDur,
 			"shootRecoil": 0, "landT": 0, "crouch": f.Crouch, "boss": false, "hitFlash": f.HitFlash > 0,
-			"squashX": 1.0, "squashY": 1.0, "atk": nil, "field": nil, "rage": 0.0,
+			"squashX": f.SquashX, "squashY": f.SquashY, "atk": nil, "field": nil, "rage": 0.0,
 		})
+	}
+	projs := make([]map[string]any, 0, len(m.projs))
+	for _, p := range m.projs {
+		projs = append(projs, map[string]any{"x":p.X,"y":p.Y,"w":p.W,"h":p.H,"vx":p.VX,"vy":p.VY,"owner":p.Owner,"dmg":p.Dmg,"bk":p.BK,"ks":p.KS,"ang":p.Ang,"life":p.Life,"kind":p.Kind})
 	}
 	camX, camY, camZ := m.camera()
 	return map[string]any{
 		"tick": m.Tick, "stage": m.Stage,
-		"players": players, "zones": []any{}, "projectiles": []any{}, "cine": nil,
+		"players": players, "zones": []any{}, "projectiles": projs, "cine": nil,
 		"world": map[string]any{
 			"T": int(m.Tick), "shake": 0, "freeze": 0,
 			"banner": map[string]any{"t": "", "l": 0, "m": 1},
@@ -37,37 +39,21 @@ func (m *OnlineMatch) Snapshot() any {
 }
 
 func stateName(f *Fighter) string {
-	if f.Dead > 0 {
-		return "ko"
-	}
-	if f.MoveKind != "" {
-		return f.MoveKind
-	}
-	if f.On {
-		return "idle"
-	}
+	if f.Dead > 0 { return "ko" }
+	if f.MoveKind != "" { return f.MoveKind }
+	if f.On { return "idle" }
 	return "air"
 }
 
 func (m *OnlineMatch) camera() (float64, float64, float64) {
-	// simple camera: center on alive fighters
 	var sx, sy, n float64
 	for _, f := range m.Players {
-		if f == nil || f.Stocks <= 0 {
-			continue
-		}
-		sx += f.X + f.W/2
-		sy += f.Y + f.H/2
-		n++
+		if f == nil || f.Stocks <= 0 { continue }
+		sx += f.X + f.W/2; sy += f.Y + f.H/2; n++
 	}
-	if n == 0 {
-		return 720, 405, 1.0
-	}
+	if n == 0 { return 720, 405, 1.0 }
 	cx, cy := sx/n, sy/n
-	// clamp and zoom - keep it simple
 	zoom := 1.0
-	if n > 2 {
-		zoom = 0.85
-	}
+	if n > 2 { zoom = 0.85 }
 	return cx, cy, zoom
 }
