@@ -14,12 +14,15 @@ const actions = [
 const directions = ['left', 'right', 'down'] as const;
 const radius = 42;
 
-export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false, scale = 1 }: {
+type TouchLayout = Partial<Record<'jump' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload', { x: number; y: number; scale?: number }>>;
+
+export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false, scale = 1, layout }: {
   onAction: (action: PlayerAction, active: boolean) => void;
   ultReady?: boolean;
   hasGun?: boolean;
   inline?: boolean;
   scale?: number;
+  layout?: TouchLayout;
 }) {
   const callback = useRef(onAction);
   callback.current = onAction;
@@ -133,9 +136,15 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
       </div>
     </div>
     <div className="touch-action-grid">
-      {actions.filter(({ action }) => action !== 'reload' || hasGun).map(({ action, label, Icon }) =>
-        <button key={action} type="button" className={`touch-action touch-${action}`} data-ready={action === 'ult' && ultReady}
+      {actions.filter(({ action }) => action !== 'reload' || hasGun).map(({ action, label, Icon }) => {
+        const pos = layout?.[action];
+        const baseScale = action === 'jump' ? 1.12 : action === 'reload' ? 0.88 : 1;
+        const btnScale = baseScale * (pos?.scale ?? 1);
+        const sizeStyle = { width: `calc(var(--touch-size) * ${btnScale})`, height: `calc(var(--touch-size) * ${btnScale})` };
+        const posStyle = pos ? { left: `${pos.x}%`, top: `${100 - pos.y}%`, right: 'auto', bottom: 'auto', transform: 'translate(-50%,-50%)' } : undefined;
+        return <button key={action} type="button" className={`touch-action touch-${action}`} data-ready={action === 'ult' && ultReady}
           aria-pressed={pressed.includes(action)} aria-label={label} title={label}
+          style={{ ...sizeStyle, ...posStyle }}
           onContextMenu={e => e.preventDefault()}
           onPointerDown={e => {
             if (e.button !== 0) return;
@@ -148,8 +157,8 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
           onPointerUp={e => releaseButton(e.pointerId)} onPointerCancel={e => releaseButton(e.pointerId)}
           onLostPointerCapture={e => releaseButton(e.pointerId)}>
           <Icon size={22} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-      )}
+        </button>;
+      })}
     </div>
   </div>;
 }

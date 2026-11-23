@@ -59,6 +59,14 @@ export const DEFAULT_CONFIG: GameConfig = {
     p2: DEFAULT_P2_KEYS,
     touchMode: 'auto',
     touchScale: 1.0,
+    touchLayout: {
+      jump: { x: 92, y: 88 },
+      light: { x: 58, y: 86 },
+      heavy: { x: 88, y: 42 },
+      dash: { x: 24, y: 88 },
+      ult: { x: 56, y: 40 },
+      reload: { x: 22, y: 44 },
+    },
     gamepadVibration: true,
   },
 };

@@ -411,7 +411,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
     <OnlineGameHUD fighters={hud} room={room} localSlot={seat.slot} />
     <div className="online-arena">
       <canvas ref={canvas} aria-label="Arena multijugador" />
-      {playing && !recovering && !incompatible && <div data-gamepad-ignore className="network-touch"><TouchControls inline scale={config.controls.touchScale ?? 1} onAction={(action, down) => {
+      {playing && !recovering && !incompatible && <div data-gamepad-ignore className="network-touch"><TouchControls inline scale={config.controls.touchScale ?? 1} layout={config.controls.touchLayout} onAction={(action, down) => {
         const touchStarted = performanceMetricsEnabled && down ? performance.now() : null;
         if (down) {
           if (action === 'jump' && !actions().has('jump')) jumpSequence.current = sequence.current + 1;

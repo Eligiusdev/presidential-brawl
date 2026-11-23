@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Bot, Swords, Users } from 'lucide-react';
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Swords, Users } from 'lucide-react';
 import { FighterPreview } from './FighterPreview';
 import { movesFor } from '../combat/roster.js';
 import { ultimateText } from '../engine/presidentUltimates';

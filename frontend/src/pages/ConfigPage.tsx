@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Gamepad2, Monitor, RotateCcw, Settings, Sliders, Volume2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowUp, Crown, Crosshair, Gamepad2, Monitor, RotateCcw, Settings, Sliders, Swords, Volume2, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { sound } from '../audio/soundEngine';
 import { ACTION_LABELS, DEFAULT_CONFIG, DEFAULT_P1_KEYS, DEFAULT_P2_KEYS, formatKeyCode, PIXEL_PRESET_DIMS } from '../config/defaultConfig';
@@ -179,7 +179,12 @@ export function ConfigPage() {
                   <div className="flex gap-2">{(['auto','on','off'] as TouchMode[]).map(tm => <button key={tm} onClick={() => updateControls('touchMode', tm)} className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase ${config.controls.touchMode===tm ? 'border-[#ffcc33] bg-[#ffcc33] text-[#0b0e17]' : 'border-[#2a344d] bg-[#101522] text-[#94a3b8]'}`}>{tm==='auto'?'Auto':tm==='on'?'Siempre ON':'OFF'}</button>)}</div>
                 </div>
                 <SliderField label="Tamaño de botones táctiles" value={config.controls.touchScale ?? 1} min={0.8} max={1.6} step={0.05} format={v=>`${Math.round(v*100)}%`} onChange={v=>updateControls('touchScale', v)} />
-                <TouchPreview scale={config.controls.touchScale ?? 1} />
+                <TouchPreview
+                  scale={config.controls.touchScale ?? 1}
+                  layout={config.controls.touchLayout}
+                  onChange={(touchLayout) => updateControls('touchLayout', touchLayout)}
+                  onReset={() => updateControls('touchLayout', structuredClone(DEFAULT_CONFIG.controls.touchLayout))}
+                />
               </div>
 
               <div className="rounded-lg border border-[#252f47] bg-[#141b2d] p-4">
@@ -249,51 +254,142 @@ function ToggleRow({ label, desc, checked, onChange }: { label: string; desc: st
   );
 }
 
-function TouchPreview({ scale }: { scale: number }) {
-  const size = Math.round(54 * scale);
-  const btn = (label: string, cls: string) => (
-    <div className={`flex flex-col items-center justify-center rounded-full border-2 border-[#9bb8d4b0] bg-[#1a2f4fe0] text-white ${cls}`} style={{ width: size, height: size }}>
-      <span style={{ fontSize: Math.max(8, Math.round(10 * scale)) }} className="font-bold leading-none">{label}</span>
-    </div>
-  );
+type TouchBtnKey = 'jump' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload';
+type TouchLayout = Partial<Record<TouchBtnKey, { x: number; y: number }>>;
+
+const DEFAULT_TOUCH_LAYOUT: Record<TouchBtnKey, { x: number; y: number }> = {
+  jump: { x: 92, y: 88 }, light: { x: 58, y: 86 }, heavy: { x: 88, y: 42 },
+  dash: { x: 24, y: 88 }, ult: { x: 56, y: 40 }, reload: { x: 22, y: 44 },
+};
+
+function TouchPreview({ scale, layout, onChange, onReset }: { scale: number; layout?: TouchLayout; onChange: (l: TouchLayout) => void; onReset: () => void }) {
+  const S = Math.round(52 * scale);
+  const areaRef = useRef<HTMLDivElement | null>(null);
+  const drag = useRef<{ key: TouchBtnKey; id: number } | null>(null);
+  const layoutRef = useRef<TouchLayout>({});
+  const merged: Record<TouchBtnKey, { x: number; y: number }> = { ...DEFAULT_TOUCH_LAYOUT, ...(layout || {}) };
+  layoutRef.current = merged;
+
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const d = drag.current; const area = areaRef.current;
+      if (!d || !area || e.pointerId !== d.id) return;
+      const r = area.getBoundingClientRect();
+      const x = Math.max(6, Math.min(94, ((e.clientX - r.left) / r.width) * 100));
+      const y = Math.max(6, Math.min(94, (1 - (e.clientY - r.top) / r.height) * 100));
+      onChange({ ...layoutRef.current, [d.key]: { x: Math.round(x), y: Math.round(y) } });
+    };
+    const up = (e: PointerEvent) => { if (drag.current?.id === e.pointerId) drag.current = null; };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+  }, [onChange]);
+
+  const Btn = ({ k, label, icon: Icon, size=S, primary=false }: { k: TouchBtnKey; label: string; icon: any; size?: number; primary?: boolean }) => {
+    const p = merged[k];
+    return (
+      <div role="button" tabIndex={0} aria-label={`Mover ${label}`} title={`${label} (arrastra para mover)`}
+        onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); drag.current = { key: k, id: e.pointerId }; }}
+        className={`absolute flex items-center justify-center rounded-full border-2 text-white cursor-grab active:cursor-grabbing select-none ${primary ? 'border-[#ffd86b] bg-[#2d4f7ce8]' : 'border-[#9bb8d4b0] bg-[#1a2f4fe0]'}`}
+        style={{ width: size, height: size, left: `${p.x}%`, top: `${100 - p.y}%`, transform: 'translate(-50%,-50%)', boxShadow: primary ? '0 0 0 2px #ffd86b33, 0 6px 14px #0008' : '0 6px 14px #0008', touchAction: 'none' }}>
+        <Icon size={Math.max(16, Math.round(size * 0.38))} strokeWidth={2.4} aria-hidden />
+      </div>
+    );
+  };
+
+  const W = Math.round(S * 3.6);
+  const H = Math.round(S * 2.8);
   return (
     <div className="rounded-lg border border-[#2a3a55] bg-[#0d1524] p-4">
-      <div className="text-xs text-[#94a3b8] mb-3">Vista previa táctil</div>
-      <div className="flex items-end justify-between gap-4 max-w-[520px] mx-auto">
-        <div className="flex flex-col items-center gap-2">
-          <div className="rounded-full border-2 border-[#bbd2f799] bg-[#172842cc] grid place-items-center" style={{ width: Math.round(86 * scale), height: Math.round(86 * scale) }}>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div><div className="text-xs text-[#94a3b8]">Vista previa táctil</div><div className="text-[11px] text-[#64748b]">Arrastra los botones para personalizar su posición</div></div>
+        <button type="button" onClick={onReset} className="text-[11px] px-2 py-1 rounded border border-[#334155] text-[#cbd5e1] hover:border-[#ffcc33]">Restablecer</button>
+      </div>
+      <div className="flex items-end justify-between gap-4 max-w-[560px] mx-auto">
+        <div className="flex flex-col items-center gap-2 shrink-0">
+          <div className="rounded-full border-2 border-[#bbd2f799] bg-[#172842cc] grid place-items-center" style={{ width: Math.round(88 * scale), height: Math.round(88 * scale) }}>
             <div className="rounded-full bg-[#c9d7e6cc]" style={{ width: Math.round(34 * scale), height: Math.round(34 * scale) }} />
           </div>
-          <span className="text-[10px] text-[#94a3b8] font-semibold">Mover / Agachar</span>
+          <span className="text-[10px] text-[#94a3b8] font-semibold">Joystick</span>
         </div>
-        <div className="grid grid-cols-3 gap-2" style={{ gap: Math.round(8 * scale) }}>
-          <div />{btn('ULT','')}{btn('ESP','')}
-          {btn('DASH','')}{btn('GOL','')}{btn('SALTO','')}
+        <div ref={areaRef} className="relative shrink-0 rounded-lg border border-dashed border-[#334155] bg-[#0b1220]/50" style={{ width: W, height: H }}>
+          <Btn k="jump" label="Saltar" icon={ArrowUp} size={Math.round(S*1.12)} primary />
+          <Btn k="light" label="Golpe" icon={Swords} />
+          <Btn k="heavy" label="Especial" icon={Crosshair} />
+          <Btn k="dash" label="Dash" icon={Zap} />
+          <Btn k="ult" label="ULT" icon={Crown} />
+          <Btn k="reload" label="Recargar" icon={RotateCcw} size={Math.round(S*0.88)} />
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#94a3b8] justify-center">
-        <span><b className="text-[#cbd5e1]">GOL</b> Golpe ligero</span>
-        <span><b className="text-[#cbd5e1]">ESP</b> Especial</span>
-        <span><b className="text-[#cbd5e1]">ULT</b> Supremo</span>
-        <span><b className="text-[#cbd5e1]">DASH</b> Esquivar</span>
+        <span className="inline-flex items-center gap-1"><ArrowUp size={12}/>Saltar</span>
+        <span className="inline-flex items-center gap-1"><Swords size={12}/>Golpe</span>
+        <span className="inline-flex items-center gap-1"><Crosshair size={12}/>Especial</span>
+        <span className="inline-flex items-center gap-1"><Zap size={12}/>Dash</span>
+        <span className="inline-flex items-center gap-1"><Crown size={12}/>ULT</span>
+        <span className="inline-flex items-center gap-1"><RotateCcw size={12}/>Recargar</span>
       </div>
     </div>
   );
 }
 
+
+const KEY_ROWS: Array<Array<{ code: string; label: string; w?: number }>> = [
+  [{code:'Escape',label:'Esc'},{code:'Digit1',label:'1'},{code:'Digit2',label:'2'},{code:'Digit3',label:'3'},{code:'Digit4',label:'4'},{code:'Digit5',label:'5'},{code:'Digit6',label:'6'},{code:'Digit7',label:'7'},{code:'Digit8',label:'8'},{code:'Digit9',label:'9'},{code:'Digit0',label:'0'},{code:'Minus',label:'-'},{code:'Equal',label:'='},{code:'Backspace',label:'⌫',w:1.8}],
+  [{code:'Tab',label:'Tab',w:1.4},{code:'KeyQ',label:'Q'},{code:'KeyW',label:'W'},{code:'KeyE',label:'E'},{code:'KeyR',label:'R'},{code:'KeyT',label:'T'},{code:'KeyY',label:'Y'},{code:'KeyU',label:'U'},{code:'KeyI',label:'I'},{code:'KeyO',label:'O'},{code:'KeyP',label:'P'},{code:'BracketLeft',label:'['},{code:'BracketRight',label:']'},{code:'Backslash',label:'\\',w:1.4}],
+  [{code:'CapsLock',label:'Caps',w:1.7},{code:'KeyA',label:'A'},{code:'KeyS',label:'S'},{code:'KeyD',label:'D'},{code:'KeyF',label:'F'},{code:'KeyG',label:'G'},{code:'KeyH',label:'H'},{code:'KeyJ',label:'J'},{code:'KeyK',label:'K'},{code:'KeyL',label:'L'},{code:'Semicolon',label:';'},{code:'Quote',label:"'"},{code:'Enter',label:'Enter',w:2.1}],
+  [{code:'ShiftLeft',label:'Shift',w:2.2},{code:'KeyZ',label:'Z'},{code:'KeyX',label:'X'},{code:'KeyC',label:'C'},{code:'KeyV',label:'V'},{code:'KeyB',label:'B'},{code:'KeyN',label:'N'},{code:'KeyM',label:'M'},{code:'Comma',label:','},{code:'Period',label:'.'},{code:'Slash',label:'/'},{code:'ShiftRight',label:'Shift',w:2.2}],
+  [{code:'ControlLeft',label:'Ctrl',w:1.4},{code:'AltLeft',label:'Alt',w:1.2},{code:'Space',label:'Space',w:6.2},{code:'AltRight',label:'Alt',w:1.2},{code:'ControlRight',label:'Ctrl',w:1.4},{code:'ArrowLeft',label:'←'},{code:'ArrowUp',label:'↑'},{code:'ArrowDown',label:'↓'},{code:'ArrowRight',label:'→'}],
+];
+
+const ACTION_COLORS: Record<PlayerAction, string> = {
+  left:'#38bdf8', right:'#38bdf8', jump:'#4ade80', down:'#94a3b8',
+  light:'#f59e0b', heavy:'#f97316', dash:'#a78bfa', ult:'#ffcc33', reload:'#f43f5e',
+};
+
 function KeyboardPreview({ bindings }: { bindings: Record<PlayerAction, string[]> }) {
-  const items: Array<[string, PlayerAction]> = [
-    ['Izq', 'left'], ['Der', 'right'], ['Salto', 'jump'], ['Agachar', 'down'],
-    ['Golpe', 'light'], ['Especial', 'heavy'], ['Dash', 'dash'], ['ULT', 'ult'], ['Recarga', 'reload'],
-  ];
+  const byCode = new Map<string, { action: PlayerAction; label: string }>();
+  (Object.keys(ACTION_LABELS) as PlayerAction[]).forEach(act => {
+    for (const code of bindings[act] || []) byCode.set(code, { action: act, label: ACTION_LABELS[act] });
+  });
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {items.map(([label, act]) => (
-        <div key={act} className="flex items-center justify-between rounded border border-[#283652] bg-[#101827] px-2 py-1.5 text-[11px]">
-          <span className="text-[#94a3b8]">{label}</span>
-          <span className="font-mono-num font-bold text-[#ffcc33]">{(bindings[act] || []).map(formatKeyCode).join('/') || '-'}</span>
+    <div className="space-y-2">
+      <div className="overflow-x-auto pb-1">
+        <div className="min-w-[560px] space-y-1.5 rounded-lg border border-[#24314b] bg-[#0b1220] p-3">
+          {KEY_ROWS.map((row, i) => (
+            <div key={i} className="flex gap-1.5">
+              {row.map(k => {
+                const hit = byCode.get(k.code);
+                const color = hit ? ACTION_COLORS[hit.action] : undefined;
+                return (
+                  <div key={k.code} title={hit ? `${hit.label} (${k.label})` : k.label}
+                    className="relative flex h-9 items-center justify-center rounded-md border text-[10px] font-bold select-none"
+                    style={{
+                      flex: `${k.w ?? 1} 0 0`,
+                      minWidth: 28,
+                      borderColor: color ? color : '#334155',
+                      background: color ? `color-mix(in srgb, ${color} 22%, #111827)` : '#111827',
+                      color: color ? '#fff' : '#94a3b8',
+                      boxShadow: color ? `inset 0 0 0 1px ${color}55` : undefined,
+                    }}>
+                    <span>{k.label}</span>
+                    {hit && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded px-1 text-[8px] leading-3 font-bold" style={{ background: color, color: '#0b0e17', whiteSpace: 'nowrap' }}>{hit.label.split(' ')[0]}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
+      <div className="flex flex-wrap gap-2 text-[10px]">
+        {(Object.keys(ACTION_LABELS) as PlayerAction[]).map(act => {
+          const active = (bindings[act] || []).length > 0;
+          return <span key={act} className="inline-flex items-center gap-1 rounded border px-2 py-0.5" style={{ borderColor: ACTION_COLORS[act] + '88', color: active ? '#e2e8f0' : '#64748b', background: active ? ACTION_COLORS[act] + '22' : '#0f172a' }}>
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: ACTION_COLORS[act] }} />{ACTION_LABELS[act]}
+          </span>;
+        })}
+      </div>
     </div>
   );
 }

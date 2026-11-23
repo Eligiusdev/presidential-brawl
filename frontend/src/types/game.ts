@@ -58,6 +58,7 @@ export interface GameConfig {
     p2: KeyBindings;
     touchMode: TouchMode;
     touchScale: number;
+    touchLayout?: Partial<Record<'jump' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload', { x: number; y: number; scale?: number }>>;
     gamepadVibration: boolean;
   };
 }

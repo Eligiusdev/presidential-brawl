@@ -1161,8 +1161,8 @@
 .performance-panel button { text-decoration: underline; }
 
 /* Config page */
-.config-layout { grid-template-columns: minmax(220px,280px) minmax(0,1fr); align-items: stretch; }
-.config-layout .ob-preview { overflow: visible; }
+.config-layout { grid-template-columns: minmax(220px,280px) minmax(0,1fr); align-items: stretch; flex: 1 0 auto; min-height: auto; }
+.config-layout .ob-preview { overflow: visible; min-height: auto; }
 .config-layout .ob-roster { overflow: visible; max-height: none; }
 @media (max-width: 900px) {
   .config-layout { grid-template-columns: 1fr; }

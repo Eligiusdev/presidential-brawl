@@ -544,6 +544,7 @@ export function GameHUD({
       {showTouch && (
         <TouchControls
           scale={config.controls.touchScale ?? 1}
+          layout={config.controls.touchLayout}
           ultReady={Boolean(hud?.fighters[0] && hud.fighters[0].vote >= 100)}
           hasGun={Boolean(hud?.fighters[0] && (hud.fighters[0].weaponKind === 'mg' || hud.fighters[0].weaponKind === 'rocket'))}
           onAction={onTouchAction}
