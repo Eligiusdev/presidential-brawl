@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { DEFAULT_CONFIG } from '../src/config/defaultConfig.ts';
-import { STAGES_DATA } from '../src/data/stages.ts';
-import { stageArtUrl, stageHazardColumns, stageNightMix, stageStartsAtNight, STAGE_LIGHT_PERIOD } from '../src/engine/stageAtmosphere.ts';
+import { DEFAULT_CONFIG } from '../frontend/src/config/defaultConfig.ts';
+import { STAGES_DATA } from '../frontend/src/data/stages.ts';
+import { stageArtUrl, stageHazardColumns, stageNightMix, stageStartsAtNight, STAGE_LIGHT_PERIOD } from '../frontend/src/engine/stageAtmosphere.ts';
 
 globalThis.document = { createElement: () => createCanvas(640, 360) };
 globalThis.window = {};
-const { GameEngine } = await import('../src/engine/gameEngine.ts');
+const { GameEngine } = await import('../frontend/src/engine/gameEngine.ts');
 const config = structuredClone(DEFAULT_CONFIG);
 config.audio.muted = true;
 config.match.itemSpawnRate = 'off';

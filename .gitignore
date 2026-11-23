@@ -3,6 +3,7 @@ dist/
 frontend/dist/
 server.js
 server/bin/
+server-bin
 *.test
 *.out
 .env

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { createCanvas } from '@napi-rs/canvas';
-import { combatBalance, COMBAT_LIMITS, ultimateCategory, ULTIMATE_BUDGETS } from '../src/data/combatBalance.ts';
-import { PRESIDENTS_DATA } from '../src/data/presidents.ts';
-import { movesFor } from '../src/combat/roster.js';
+import { combatBalance, COMBAT_LIMITS, ultimateCategory, ULTIMATE_BUDGETS } from '../frontend/src/data/combatBalance.ts';
+import { PRESIDENTS_DATA } from '../frontend/src/data/presidents.ts';
+import { movesFor } from '../frontend/src/combat/roster.js';
 globalThis.document = { createElement: () => createCanvas(640, 360) };
 globalThis.window = {};
-const { GameEngine } = await import('../src/engine/gameEngine.ts');
-const { DEFAULT_CONFIG } = await import('../src/config/defaultConfig.ts');
+const { GameEngine } = await import('../frontend/src/engine/gameEngine.ts');
+const { DEFAULT_CONFIG } = await import('../frontend/src/config/defaultConfig.ts');
 const cfg = structuredClone(DEFAULT_CONFIG);
 cfg.audio.muted = true;
 cfg.video.hitstopEnabled = false;

@@ -1,4 +1,4 @@
-import { ROOM_PROTOCOL } from '../src/network/roomProtocol.mjs';
+import { ROOM_PROTOCOL } from '../frontend/src/network/roomProtocol.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';

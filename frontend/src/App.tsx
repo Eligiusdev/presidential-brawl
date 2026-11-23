@@ -5,6 +5,7 @@ import { PerformancePanel } from './components/PerformancePanel';
 import { LandscapePrompt } from './components/LandscapePrompt';
 import { useMenuGamepad } from './input/useMenuGamepad';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { sound } from './audio/soundEngine';
 import { NetworkPanel } from './components/NetworkPanel';
 import { CharacterCustomizer } from './components/CharacterCustomizer';
@@ -63,6 +64,9 @@ export default function App() {
   const [replayEnded, setReplayEnded] = useState<boolean>(false);
   const [replayFrame, setReplayFrame] = useState<number>(0);
   const [netOpenSignal, setNetOpenSignal] = useState<number>(0);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const routeSync = useRef(false);
 
   const roster = useMemo(() => [...PRESIDENTS_DATA, ...customPresidents], [customPresidents]);
 
@@ -79,6 +83,48 @@ export default function App() {
   configOpenRef.current = configOpen;
   replayPausedRef.current = replayPaused;
   replaySpeedRef.current = replaySpeed;
+
+  const screenToPath = useCallback((s: GameScreenState) => {
+    if (s === 'TITLE') return '/';
+    if (s === 'SELECT') return '/select';
+    if (s === 'CUSTOMIZE') return '/customize';
+    if (s === 'REPLAY') return '/replay';
+    if (s === 'GAME_OVER') return '/result/defeat';
+    if (s === 'CENSURE') return '/result/censure';
+    if (s === 'CHAMPION') return '/result/champion';
+    return null;
+  }, []);
+
+  useEffect(() => {
+    const p = screenToPath(screen);
+    if (!p) return;
+    if (location.pathname !== p) {
+      routeSync.current = true;
+      navigate(p, { replace: false });
+    }
+  }, [screen, screenToPath, navigate, location.pathname]);
+
+  useEffect(() => {
+    if (routeSync.current) { routeSync.current = false; return; }
+    const p = location.pathname;
+    const pathToScreen: Record<string, GameScreenState> = {
+      '/': 'TITLE', '/select': 'SELECT', '/customize': 'CUSTOMIZE', '/replay': 'REPLAY',
+      '/result/defeat': 'GAME_OVER', '/result/censure': 'CENSURE', '/result/champion': 'CHAMPION',
+    };
+    if (p.startsWith('/room')) {
+      setNetOpenSignal(n => n + 1);
+      if (screenRef.current !== 'TITLE' && screenRef.current !== 'SELECT') setScreen('TITLE');
+      return;
+    }
+    const next = pathToScreen[p];
+    if (!next || next === screenRef.current) return;
+    const cur = screenRef.current;
+    if ((cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') && next !== cur) {
+      engineRef.current?.clearAllInputs();
+      engineRef.current?.startAttractScene();
+    }
+    setScreen(next);
+  }, [location.pathname]);
 
   if (!engineRef.current) {
     engineRef.current = new GameEngine(config);

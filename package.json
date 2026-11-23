@@ -4,16 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview",
-    "clean": "rm -rf dist",
-    "lint": "tsc --noEmit",
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "preview": "npm run preview --prefix frontend",
+    "clean": "rm -rf frontend/dist dist",
+    "lint": "npm run lint --prefix frontend",
     "test": "node --import tsx tests/movesets.mjs && node --import tsx tests/president-ultimates.mjs && node --import tsx tests/combat-balance.mjs",
-    "start": "node --import tsx server.ts",
-    "dev:server": "node --import tsx --watch server.ts --dev",
-    "test:sprites": "node --import tsx tests/sprite-atlas.mjs && node --import tsx tests/sprite-replay.mjs && node --import tsx tests/roster-art.mjs && node --import tsx tests/ultimate-art.mjs",
-    "test:rooms": "node --test tests/rooms.mjs && node --import tsx tests/online-combat.mjs"
+    "start": "cd server && go run ./cmd/server",
+    "dev:server": "cd server && go run ./cmd/server --dev",
+    "build:server": "cd server && go build -o ../server-bin ./cmd/server",
+    "test:rooms": "SERVER_BIN=${SERVER_BIN:-../server-bin} node --test tests/rooms.mjs && node --import tsx tests/online-combat.mjs",
+    "test:sprites": "node --import tsx tests/sprite-atlas.mjs && node --import tsx tests/sprite-replay.mjs && node --import tsx tests/roster-art.mjs && node --import tsx tests/ultimate-art.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

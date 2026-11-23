@@ -48,7 +48,10 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
   config: GameConfig; onActive: (active: boolean) => void; openSignal?: number;
 }) {
   const [invited] = useState(() => {
-    const code = new URLSearchParams(location.search).get('room');
+    const params = new URLSearchParams(location.search);
+    const fromQuery = params.get('room');
+    const fromPath = location.pathname.match(/^\/room\/([A-Za-z0-9]+)$/)?.[1];
+    const code = fromQuery || fromPath;
     const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
     return (code ?? (navigation?.type === 'reload' ? readSeat()?.code : '') ?? '').trim().toUpperCase();
   });

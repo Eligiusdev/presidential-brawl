@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { PRESIDENTS_DATA } from '../src/data/presidents.ts';
-import atlas from '../src/data/ultimateAtlas.json' with { type: 'json' };
-import { ultimateBox, ultimateFor, ultimatePoint } from '../src/engine/presidentUltimates.ts';
-import { paintUltimateSprite, ultimateSpriteFrame } from '../src/engine/ultimateSprites.ts';
+import { PRESIDENTS_DATA } from '../frontend/src/data/presidents.ts';
+import atlas from '../frontend/src/data/ultimateAtlas.json' with { type: 'json' };
+import { ultimateBox, ultimateFor, ultimatePoint } from '../frontend/src/engine/presidentUltimates.ts';
+import { paintUltimateSprite, ultimateSpriteFrame } from '../frontend/src/engine/ultimateSprites.ts';
 
 const root = new URL('../public/assets/ultimates/', import.meta.url);
 const sheets = new Map(await Promise.all([...new Set(Object.values(atlas).map(entry => entry.sheet))].map(async sheet => [
@@ -75,7 +75,7 @@ assert.deepEqual(new Set(Object.keys(atlas)), ids);
 assert.equal(sprites.size, ids.size);
 console.log(`${ids.size} sprites de definitivas distintos, transparentes y animados.`);
 
-const animatedRoot = new URL('../src/art/ultimates/', import.meta.url);
+const animatedRoot = new URL('../frontend/src/art/ultimates/', import.meta.url);
 const animatedFiles = readdirSync(animatedRoot).filter(file => /^ult_.*\.webp$/.test(file));
 assert.deepEqual(new Set(animatedFiles.map(file => file.slice(0, -5))), ids);
 const frameCanvas = createCanvas(256, 256);

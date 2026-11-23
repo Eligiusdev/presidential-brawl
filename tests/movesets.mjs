@@ -2,9 +2,9 @@ import { createCanvas } from '@napi-rs/canvas';
 globalThis.document = { createElement: () => createCanvas(640, 360) };
 globalThis.window = {};
 
-const { GameEngine } = await import('../src/engine/gameEngine.ts');
-const { movesFor } = await import('../src/combat/roster.js');
-const { DEFAULT_CONFIG } = await import('../src/config/defaultConfig.ts');
+const { GameEngine } = await import('../frontend/src/engine/gameEngine.ts');
+const { movesFor } = await import('../frontend/src/combat/roster.js');
+const { DEFAULT_CONFIG } = await import('../frontend/src/config/defaultConfig.ts');
 const cfg = structuredClone(DEFAULT_CONFIG);
 cfg.video.hitstopEnabled = false;
 cfg.match.itemSpawnRate = 'off';
@@ -124,7 +124,7 @@ e.step();
 check(pad.atk?.spec.name === 'Vuelo de Bucéfalo', 'gamepad up');
 delete navigator.getGamepads;
 // Orbe: colisión circular, rebote en el escenario y retención real.
-const { shotTouches } = await import('../src/combat/effects.js');
+const { shotTouches } = await import('../frontend/src/combat/effects.js');
 check(
   !shotTouches({ kind: 'orb', x: 0, y: 0, w: 20, h: 20 }, { x: 0, y: 0, w: 1, h: 1 }),
   'orb transparent corner',

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { createCanvas } from '@napi-rs/canvas';
 globalThis.document = { createElement: () => createCanvas(640, 360) };
-const { GameEngine } = await import('../src/engine/gameEngine.ts');
-const { DEFAULT_CONFIG } = await import('../src/config/defaultConfig.ts');
-const { arenaGeometry, ARENA_SCALE, STAGES_DATA } = await import('../src/data/stages.ts');
-const { packMatch, renderMatchState } = await import('../src/network/matchState.ts');
+const { GameEngine } = await import('../frontend/src/engine/gameEngine.ts');
+const { DEFAULT_CONFIG } = await import('../frontend/src/config/defaultConfig.ts');
+const { arenaGeometry, ARENA_SCALE, STAGES_DATA } = await import('../frontend/src/data/stages.ts');
+const { packMatch, renderMatchState } = await import('../frontend/src/network/matchState.ts');
 
 const cfg = structuredClone(DEFAULT_CONFIG);
 cfg.audio.muted = true;
@@ -81,7 +81,7 @@ local.clearAllInputs();
 assert.equal(local.readHumanInput(0).jump, false, 'La pausa cancela pulsaciones pendientes');
 console.log('Entrada táctil: pulsos breves, liberación de dirección y limpieza al pausar.');
 
-const { AdaptiveRenderQuality, onlineCanvasWidth } = await import('../src/engine/renderPerformance.ts');
+const { AdaptiveRenderQuality, onlineCanvasWidth } = await import('../frontend/src/engine/renderPerformance.ts');
 const quality = new AdaptiveRenderQuality(true, true);
 assert.equal(quality.quality.scale, .8);
 for (let i = 0; i < 45; i++) quality.record(33, 14);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { frameAt, paintCombatSprite, paintFighterThumbnail, paintSprite, preloadFighter, spriteAction } from '../src/engine/fighterSprites.ts';
+import { frameAt, paintCombatSprite, paintFighterThumbnail, paintSprite, preloadFighter, spriteAction } from '../frontend/src/engine/fighterSprites.ts';
 
 const directory = new URL('../public/assets/fighters/achilles/', import.meta.url);
 const meta = JSON.parse(readFileSync(new URL('atlas.json', directory)));
@@ -136,8 +136,8 @@ paintFighterThumbnail(equippedContext, mary, 1, 1);
 assert.equal(equippedImage, 'thumb.webp');
 assert.deepEqual(loads.slice(beforeStale), ['thumb.webp'], 'El manifiesto viejo no solicita el atlas retirado');
 
-const { PRESIDENTS_DATA } = await import('../src/data/presidents.ts');
-const { movesFor } = await import('../src/combat/roster.js');
+const { PRESIDENTS_DATA } = await import('../frontend/src/data/presidents.ts');
+const { movesFor } = await import('../frontend/src/combat/roster.js');
 {
   const id = 'lincoln';
   const fighter = PRESIDENTS_DATA.find(d => d.id === id);

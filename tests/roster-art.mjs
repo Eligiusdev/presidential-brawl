@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { loadImage, createCanvas } from '@napi-rs/canvas';
-import { PRESIDENTS_DATA } from '../src/data/presidents.ts';
-import { movesFor } from '../src/combat/roster.js';
-import { fighterArtPath, spriteAction } from '../src/engine/fighterSprites.ts';
+import { PRESIDENTS_DATA } from '../frontend/src/data/presidents.ts';
+import { movesFor } from '../frontend/src/combat/roster.js';
+import { fighterArtPath, spriteAction } from '../frontend/src/engine/fighterSprites.ts';
 
 const aquiles = PRESIDENTS_DATA.find(d => d.id === 'aquiles');
 const custom = { ...aquiles, id: 'custom_test', isCustom: true };

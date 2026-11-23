@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import { createCanvas } from '@napi-rs/canvas';
-import { movesFor } from '../src/combat/roster.js';
-import { MOVE_NAMES } from '../src/combat/moveNames.ts';
-import { PRESIDENTS_DATA } from '../src/data/presidents.ts';
-import { PRESIDENT_ULTIMATES } from '../src/data/presidentUltimates.ts';
-import { ultimateDuration, ultimateFor, ultimatePoint } from '../src/engine/presidentUltimates.ts';
+import { movesFor } from '../frontend/src/combat/roster.js';
+import { MOVE_NAMES } from '../frontend/src/combat/moveNames.ts';
+import { PRESIDENTS_DATA } from '../frontend/src/data/presidents.ts';
+import { PRESIDENT_ULTIMATES } from '../frontend/src/data/presidentUltimates.ts';
+import { ultimateDuration, ultimateFor, ultimatePoint } from '../frontend/src/engine/presidentUltimates.ts';
 
 globalThis.document = { createElement: () => createCanvas(640, 360) };
 globalThis.window = {};
-const { GameEngine } = await import('../src/engine/gameEngine.ts');
-const { DEFAULT_CONFIG } = await import('../src/config/defaultConfig.ts');
+const { GameEngine } = await import('../frontend/src/engine/gameEngine.ts');
+const { DEFAULT_CONFIG } = await import('../frontend/src/config/defaultConfig.ts');
 const config = structuredClone(DEFAULT_CONFIG);
 config.audio.muted = true;
 config.video.hitstopEnabled = false;
