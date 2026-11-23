@@ -1,4 +1,4 @@
-package sim
+package rng
 
 type RNG struct {
 	state uint32

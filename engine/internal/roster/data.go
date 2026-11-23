@@ -1,4 +1,4 @@
-package sim
+package roster
 
 var repertoire = map[string][]string{
 	"maduro": {"toque pausa bajo","arco reverso arco","gancho arco alto","suelo bajo pausa"},
@@ -137,3 +137,28 @@ var moveLabels = map[string][]string{
 	"kast": {"Apertura · martillo bajo toque","Ascenso · martillo bajo toque","Réplica · martillo bajo toque"},
 	"biden": {"Apertura · toque pausa reverso","Ascenso · toque pausa reverso","Réplica · toque pausa reverso"},
 }
+
+var sigNames = map[string]string{
+	"washington":"Cañonazo de Delaware","lincoln":"Hacha del Riel","teddy":"Carga de San Juan","fdr":"Cortina del New Deal",
+	"eisenhower":"Bombardeo D-Day","kennedy":"Órbita Lunar","bolivar":"Onda Patriótica","sanmartin":"Cruce de los Andes",
+	"juarez":"Reforma Imparable","cardenas":"Expropiación","ohiggins":"Carga de Rancagua","sarmiento":"Cañón de la Educación",
+	"alfaro":"Tren Libertario","batlle":"Escudo Social","vargas":"Estado Novo","kubitschek":"Avance 50 Años",
+	"allende":"Unidad Popular","sucre":"Carga de Ayacucho","artigas":"Lanza Federal","mujica":"Arado del Pueblo",
+	"degaulle":"Cruz de Lorena","mitterrand":"Rosa de Acero","chirac":"Escudo Nuclear","masaryk":"Veto de Acero",
+	"havel":"Revolución de Terciopelo","walesa":"Martillo Solidario","pertini":"Resistencia Alpina","kekkonen":"Línea Finlandesa",
+	"robinson":"Campo Escudo","mandela":"Puño de la Libertad","sankara":"Furia del Sahel","nkrumah":"Estrella de Ghana",
+	"nyerere":"Ujamaa","ataturk":"Llama de Ankara","sunyatsen":"Tres Principios","kalam":"Misil Agni",
+	"cesar":"Gladius Voraz","alejandro":"Estocada de Caballería","aquiles":"Furia de Tesalia","lula":"Martillo del Pueblo",
+	"juana":"Estandarte de Orleans","espartaco":"Ruptura de cadenas","musashi":"Cruce de los dos cielos","policarpa":"Finta de La Pola",
+	"wallace":"Grito de Stirling","elcid":"Tizona","ricaurte":"Mecha de San Mateo","simo":"Muerte Blanca",
+	"abelardo":"Furia Llanera","petro":"Órbita de la plaza","uribe":"Seguridad Democrática","santos":"Nobel de Paz",
+	"duque":"Centro Democrático","bukele":"Doble destello","sheinbaum":"Trayectoria orbital","milei":"Motosierra",
+	"trump":"Muro Dorado","macron":"En Marche","noboa":"Mano Firme","kast":"Orden Republicano",
+	"biden":"Unión Americana","maduro":"Puño del Pueblo","putin":"Oso Siberiano","obama":"Hope Strike",
+	"napoleon":"Cañón de Austerlitz","antoinette":"Guillotina","bathory":"Baño de Sangre","xiomara":"Refundación",
+	"diazcanel":"Continuidad","ortega":"Frente Sandinista","gengis":"Horda Dorada",
+}
+
+func Repertoire(id string) []string { r := repertoire[id]; out := make([]string, len(r)); copy(out,r); return out }
+func Labels(id string) []string { r := moveLabels[id]; out := make([]string, len(r)); copy(out,r); return out }
+func SigName(id string) (string, bool) { s, ok := sigNames[id]; return s, ok }

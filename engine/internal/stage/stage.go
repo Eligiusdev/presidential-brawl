@@ -1,4 +1,4 @@
-package sim
+package stage
 
 type StagePlat struct{ X,Y,W,Amp float64 }
 type StageDef struct{ ID,Name string; Main struct{X,Y,W,H float64}; Plats []StagePlat }
@@ -74,6 +74,8 @@ var stages=[]StageDef{
 
 func StageCount() int { return len(stages) }
 func GetStage(i int) StageDef { if i<0||i>=len(stages){i=0}; return stages[i] }
+
+type Platform struct{ X, Y, W float64 }
 
 type ArenaGeom struct {
 	Main struct{ X,Y,W,H float64 }

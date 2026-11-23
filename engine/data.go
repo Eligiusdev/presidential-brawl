@@ -3,6 +3,8 @@ package sim
 import (
 	"crypto/rand"
 	"encoding/binary"
+
+	stagedata "github.com/presidential-brawl/engine/internal/stage"
 )
 
 var fighterIDs = []string{
@@ -18,6 +20,7 @@ var fighterIDs = []string{
 }
 
 func FighterIDs() []string { return fighterIDs }
+func StageCount() int      { return stagedata.StageCount() }
 
 func RandomSeed() uint32 {
 	var b [4]byte

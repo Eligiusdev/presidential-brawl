@@ -1,13 +1,18 @@
 package sim
 
-import "math"
+import (
+	"math"
+
+	"github.com/presidential-brawl/engine/internal/rng"
+	"github.com/presidential-brawl/engine/internal/roster"
+	stagedata "github.com/presidential-brawl/engine/internal/stage"
+)
 
 func has(a []string, k string) bool {
 	for _, x := range a { if x == k { return true } }
 	return false
 }
 
-type Platform struct{ X, Y, W float64 }
 type Hitbox struct{ X,Y,W,H,Dmg,BK,KS,Ang float64; Owner,Life int; Heavy bool; Dir int }
 
 type Projectile struct {
@@ -19,7 +24,7 @@ type Projectile struct {
 }
 
 type ActiveAtk struct {
-	Spec MoveSpec
+	Spec roster.MoveSpec
 	T int
 	Hits map[int]bool
 	Heavy bool
@@ -27,8 +32,8 @@ type ActiveAtk struct {
 }
 
 type Fighter struct {
-	Slot int; FighterID string; Stats Stats
-	Moves [4]MoveSpec // jab, neutral, up, down
+	Slot int; FighterID string; Stats roster.Stats
+	Moves [4]roster.MoveSpec // jab, neutral, up, down
 	X,Y,W,H float64; VX,VY float64
 	Facing int; On bool; Dead int; Stocks int
 	Damage float64; UltCharge float64
@@ -50,10 +55,10 @@ type OnlineMatch struct {
 	OnEnd func([]int); standings []int
 	main struct{ X,Y,W,H float64 }
 	blast struct{ L,R,T,B float64 }
-	plats []Platform
+	plats []stagedata.Platform
 	hits []Hitbox
 	projs []Projectile
-	rng *RNG
+	rng *rng.RNG
 	ended bool
 }
 
@@ -61,42 +66,17 @@ type simpleErr string
 func (e simpleErr) Error() string { return string(e) }
 func fmtErr(s string) error { return simpleErr(s) }
 
-func buildMoves(id string) [4]MoveSpec {
-	rep := repertoire[id]
-	lab := moveLabels[id]
-	// defaults
+func buildMoves(id string) [4]roster.MoveSpec {
+	rep := roster.Repertoire(id)
+	lab := roster.Labels(id)
 	jabScore, neuScore, upScore, downScore := "toque", "punta", "alto", "bajo"
 	jabName, neuName, upName, downName := "Jab", "Especial", "Arriba", "Abajo"
 	if len(rep) >= 4 { jabScore, neuScore, upScore, downScore = rep[0], rep[1], rep[2], rep[3] }
 	if len(lab) >= 3 { jabName, upName, downName = lab[0], lab[1], lab[2] }
-	// neutral name: use MOVE_NAMES-like fallback - just use sigName style
-	neuName = "Especial"
-	if n, ok := sigNames[id]; ok { neuName = n }
-	m := [4]MoveSpec{ ParseMove(jabName,jabScore), ParseMove(neuName,neuScore), ParseMove(upName,upScore), ParseMove(downName,downScore) }
-	// mark up as launch move if it has launch-like beat (carga/alto/punta) - approximate
+	if n, ok := roster.SigName(id); ok { neuName = n }
+	m := [4]roster.MoveSpec{ roster.ParseMove(jabName,jabScore), roster.ParseMove(neuName,neuScore), roster.ParseMove(upName,upScore), roster.ParseMove(downName,downScore) }
 	m[2].Effect = "launch"
 	return m
-}
-
-var sigNames = map[string]string{
-	"washington":"Cañonazo de Delaware","lincoln":"Hacha del Riel","teddy":"Carga de San Juan","fdr":"Cortina del New Deal",
-	"eisenhower":"Bombardeo D-Day","kennedy":"Órbita Lunar","bolivar":"Onda Patriótica","sanmartin":"Cruce de los Andes",
-	"juarez":"Reforma Imparable","cardenas":"Expropiación","ohiggins":"Carga de Rancagua","sarmiento":"Cañón de la Educación",
-	"alfaro":"Tren Libertario","batlle":"Escudo Social","vargas":"Estado Novo","kubitschek":"Avance 50 Años",
-	"allende":"Unidad Popular","sucre":"Carga de Ayacucho","artigas":"Lanza Federal","mujica":"Arado del Pueblo",
-	"degaulle":"Cruz de Lorena","mitterrand":"Rosa de Acero","chirac":"Escudo Nuclear","masaryk":"Veto de Acero",
-	"havel":"Revolución de Terciopelo","walesa":"Martillo Solidario","pertini":"Resistencia Alpina","kekkonen":"Línea Finlandesa",
-	"robinson":"Campo Escudo","mandela":"Puño de la Libertad","sankara":"Furia del Sahel","nkrumah":"Estrella de Ghana",
-	"nyerere":"Ujamaa","ataturk":"Llama de Ankara","sunyatsen":"Tres Principios","kalam":"Misil Agni",
-	"cesar":"Gladius Voraz","alejandro":"Estocada de Caballería","aquiles":"Furia de Tesalia","lula":"Martillo del Pueblo",
-	"juana":"Estandarte de Orleans","espartaco":"Ruptura de cadenas","musashi":"Cruce de los dos cielos","policarpa":"Finta de La Pola",
-	"wallace":"Grito de Stirling","elcid":"Tizona","ricaurte":"Mecha de San Mateo","simo":"Muerte Blanca",
-	"abelardo":"Furia Llanera","petro":"Órbita de la plaza","uribe":"Seguridad Democrática","santos":"Nobel de Paz",
-	"duque":"Centro Democrático","bukele":"Doble destello","sheinbaum":"Trayectoria orbital","milei":"Motosierra",
-	"trump":"Muro Dorado","macron":"En Marche","noboa":"Mano Firme","kast":"Orden Republicano",
-	"biden":"Unión Americana","maduro":"Puño del Pueblo","putin":"Oso Siberiano","obama":"Hope Strike",
-	"napoleon":"Cañón de Austerlitz","antoinette":"Guillotina","bathory":"Baño de Sangre","xiomara":"Refundación",
-	"diazcanel":"Continuidad","ortega":"Frente Sandinista","gengis":"Horda Dorada",
 }
 
 func NewOnlineMatch(ids []string, stage int, seed uint32) (*OnlineMatch, error) {
@@ -107,21 +87,21 @@ func NewOnlineMatch(ids []string, stage int, seed uint32) (*OnlineMatch, error) 
 		for _, f := range fighterIDs { if f==id { found=true; break } }
 		if !found { return nil, fmtErr("Luchador inválido") }
 	}
-	if stage < 0 || stage >= StageCount() { stage = 0 }
-	m := &OnlineMatch{Stage: stage, Seed: seed, rng: NewRNG(seed)}
+	if stage < 0 || stage >= stagedata.StageCount() { stage = 0 }
+	m := &OnlineMatch{Stage: stage, Seed: seed, rng: rng.NewRNG(seed)}
 	m.setup(ids)
 	return m, nil
 }
 
 func (m *OnlineMatch) setup(ids []string) {
 	n := len(ids)
-	g := ArenaGeometry(m.Stage, n)
+	g := stagedata.ArenaGeometry(m.Stage, n)
 	m.main = g.Main
 	m.blast = g.Blast
 	m.plats = g.Plats
 	m.Players = make([]*Fighter, n)
 	for i, id := range ids {
-		st := GetStats(id)
+		st := roster.GetStats(id)
 		f := &Fighter{Slot:i, FighterID:id, Stats:st, Moves: buildMoves(id), W:38, H:92, Stocks:3, MaxAmmo:6, Ammo:6, SquashX:1, SquashY:1, Facing:1, AirJumps:2}
 		sp := g.Spawns[i%len(g.Spawns)]
 		f.X = sp.X - f.W/2; f.Y = sp.Y - f.H

@@ -1,4 +1,4 @@
-package sim
+package roster
 
 type Stats struct { Spd, Pwr, Wgt, Def float64 }
 
