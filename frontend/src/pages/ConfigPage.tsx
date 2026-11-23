@@ -418,7 +418,6 @@ function TouchLayoutEditor({ scale, layout, joystick, onChange, onJoystickChange
   onClose: () => void;
 }) {
   const areaRef = useRef<HTMLDivElement | null>(null);
-  const buttonsRef = useRef<HTMLDivElement | null>(null);
   const drag = useRef<{ key: TouchBtnKey | 'joystick'; id: number } | null>(null);
   const layoutRef = useRef<TouchLayout>({});
   const joystickRef = useRef<{ x: number; y: number; scale?: number }>({ x: 18, y: 22, scale: 1 });
