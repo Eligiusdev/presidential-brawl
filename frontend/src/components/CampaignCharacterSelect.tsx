@@ -51,9 +51,6 @@ export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, o
           </div>
         </div>
         <div className="ob-top-actions">
-          <button type="button" className="ob-fight" style={{ minHeight: 40, padding: '0 18px', fontSize: 13 }} onClick={() => { sound.uiConfirm(); onStart(); }}>
-            <Swords className="h-4 w-4" style={{ marginRight: 6, verticalAlign: 'middle' }} />Iniciar campaña
-          </button>
           <button type="button" data-gamepad-back onClick={() => { sound.uiClick(); onBack(); }}><ArrowLeft className="h-4 w-4" />Volver</button>
         </div>
       </header>
@@ -123,6 +120,12 @@ export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, o
                 </button>
               );
             })}
+          </div>
+          <div className="ob-roster-actions">
+            <button type="button" className="ob-fight" onClick={() => { sound.uiConfirm(); onStart(); }}>
+              <Swords className="h-4 w-4" style={{ marginRight: 6, verticalAlign: 'middle' }} />INICIAR CAMPAÑA
+            </button>
+            <p className="ob-status" role="status">7 rondas · Elige tu héroe y entra a la Cumbre Mundial</p>
           </div>
         </aside>
       </div>
