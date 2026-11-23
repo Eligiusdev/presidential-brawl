@@ -126,10 +126,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return null;
   }, []);
 
+  const mountedRef = useRef(false);
   useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
     const p = screenToPath(screen);
     if (!p) return;
-    if (location.pathname !== p) { routeSync.current = true; navigate(p, { replace: false }); }
+    if (location.pathname !== p && !location.pathname.startsWith('/room')) { routeSync.current = true; navigate(p, { replace: false }); }
   }, [screen, screenToPath, navigate, location.pathname]);
 
   useEffect(() => {
