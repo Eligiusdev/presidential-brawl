@@ -254,11 +254,8 @@
   box-shadow: 0 4px 10px #070d1ba8; pointer-events: none;
 }
 .touch-action-grid {
-  position: absolute; right: max(10px, env(safe-area-inset-right));
-  bottom: max(12px, env(safe-area-inset-bottom));
+  position: absolute; inset: 0;
   --touch-size: calc(clamp(56px, 14vw, 76px) * var(--touch-scale, 1));
-  width: calc(var(--touch-size) * 3.3);
-  height: calc(var(--touch-size) * 2.5);
   pointer-events: none;
 }
 .touch-action-grid button.touch-action {

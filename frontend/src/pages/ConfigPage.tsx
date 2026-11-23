@@ -14,6 +14,7 @@ export function ConfigPage() {
   const { config, updateConfig } = g;
   const [tab, setTab] = useState<ConfigTab>('video');
   const [listening, setListening] = useState<{ player: 'p1' | 'p2'; action: PlayerAction } | null>(null);
+  const [touchEditor, setTouchEditor] = useState(false);
   const goBack = () => { sound.uiClick(); if (window.history.length > 1) navigate(-1); else navigate('/'); };
 
   useEffect(() => {
@@ -178,13 +179,14 @@ export function ConfigPage() {
                   <div><div className="text-sm font-bold text-white">Controles táctiles en pantalla</div><div className="text-xs text-[#94a3b8]">Joystick virtual + botones de acción para móvil</div></div>
                   <div className="flex gap-2">{(['auto','on','off'] as TouchMode[]).map(tm => <button key={tm} onClick={() => updateControls('touchMode', tm)} className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase ${config.controls.touchMode===tm ? 'border-[#ffcc33] bg-[#ffcc33] text-[#0b0e17]' : 'border-[#2a344d] bg-[#101522] text-[#94a3b8]'}`}>{tm==='auto'?'Auto':tm==='on'?'Siempre ON':'OFF'}</button>)}</div>
                 </div>
-                <SliderField label="Tamaño de botones táctiles" value={config.controls.touchScale ?? 1} min={0.8} max={1.6} step={0.05} format={v=>`${Math.round(v*100)}%`} onChange={v=>updateControls('touchScale', v)} />
-                <TouchPreview
-                  scale={config.controls.touchScale ?? 1}
-                  layout={config.controls.touchLayout}
-                  onChange={(touchLayout) => updateControls('touchLayout', touchLayout)}
-                  onReset={() => updateControls('touchLayout', structuredClone(DEFAULT_CONFIG.controls.touchLayout))}
-                />
+                <SliderField label="Tamaño de botones táctiles (global)" value={config.controls.touchScale ?? 1} min={0.8} max={1.6} step={0.05} format={v=>`${Math.round(v*100)}%`} onChange={v=>updateControls('touchScale', v)} />
+                <div className="rounded-lg border border-[#2a3a55] bg-[#0d1524] p-4 flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <div className="text-sm font-semibold text-white">Editor de diseño táctil</div>
+                    <div className="text-xs text-[#94a3b8]">Abre pantalla completa para mover y cambiar tamaño de cada botón.</div>
+                  </div>
+                  <button type="button" className="console-btn console-btn-primary" onClick={() => { sound.uiConfirm(); setTouchEditor(true); }}>Editar pantalla completa</button>
+                </div>
               </div>
 
               <div className="rounded-lg border border-[#252f47] bg-[#141b2d] p-4">
@@ -228,6 +230,16 @@ export function ConfigPage() {
           </div>
         </section>
       </div>
+      {touchEditor && <TouchLayoutEditor
+        scale={config.controls.touchScale ?? 1}
+        layout={config.controls.touchLayout}
+        joystick={config.controls.touchJoystick}
+        onChange={(touchLayout) => updateControls('touchLayout', touchLayout)}
+        onJoystickChange={(j) => updateControls('touchJoystick', j)}
+        onScaleChange={(s) => updateControls('touchScale', s)}
+        onReset={() => { updateControls('touchLayout', structuredClone(DEFAULT_CONFIG.controls.touchLayout)); updateControls('touchJoystick', { x: 18, y: 22, scale: 1 }); updateControls('touchScale', 1); }}
+        onClose={() => { sound.uiClick(); setTouchEditor(false); }}
+      />}
     </section>
   );
 }
@@ -255,11 +267,11 @@ function ToggleRow({ label, desc, checked, onChange }: { label: string; desc: st
 }
 
 type TouchBtnKey = 'jump' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload';
-type TouchLayout = Partial<Record<TouchBtnKey, { x: number; y: number }>>;
+type TouchLayout = Partial<Record<TouchBtnKey, { x: number; y: number; scale?: number }>>;
 
 const DEFAULT_TOUCH_LAYOUT: Record<TouchBtnKey, { x: number; y: number }> = {
-  jump: { x: 92, y: 88 }, light: { x: 58, y: 86 }, heavy: { x: 88, y: 42 },
-  dash: { x: 24, y: 88 }, ult: { x: 56, y: 40 }, reload: { x: 22, y: 44 },
+  jump: { x: 90, y: 18 }, light: { x: 78, y: 18 }, heavy: { x: 90, y: 42 },
+  dash: { x: 66, y: 18 }, ult: { x: 78, y: 42 }, reload: { x: 66, y: 42 },
 };
 
 function TouchPreview({ scale, layout, onChange, onReset }: { scale: number; layout?: TouchLayout; onChange: (l: TouchLayout) => void; onReset: () => void }) {
@@ -389,6 +401,151 @@ function KeyboardPreview({ bindings }: { bindings: Record<PlayerAction, string[]
             <span className="inline-block h-2 w-2 rounded-full" style={{ background: ACTION_COLORS[act] }} />{ACTION_LABELS[act]}
           </span>;
         })}
+      </div>
+    </div>
+  );
+}
+
+
+function TouchLayoutEditor({ scale, layout, joystick, onChange, onJoystickChange, onScaleChange, onReset, onClose }: {
+  scale: number;
+  layout?: TouchLayout;
+  joystick?: { x: number; y: number; scale?: number };
+  onChange: (l: TouchLayout) => void;
+  onJoystickChange: (j: { x: number; y: number; scale?: number }) => void;
+  onScaleChange: (s: number) => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  const areaRef = useRef<HTMLDivElement | null>(null);
+  const buttonsRef = useRef<HTMLDivElement | null>(null);
+  const drag = useRef<{ key: TouchBtnKey | 'joystick'; id: number } | null>(null);
+  const layoutRef = useRef<TouchLayout>({});
+  const joystickRef = useRef<{ x: number; y: number; scale?: number }>({ x: 18, y: 22, scale: 1 });
+  const [selected, setSelected] = useState<TouchBtnKey | 'joystick'>('jump');
+  const merged: Record<TouchBtnKey, { x: number; y: number; scale?: number }> = { ...DEFAULT_TOUCH_LAYOUT, ...(layout || {}) } as any;
+  const joy = { x: 18, y: 22, scale: 1, ...(joystick || {}) };
+  layoutRef.current = merged;
+  joystickRef.current = joy;
+
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const d = drag.current;
+      if (!d || e.pointerId !== d.id) return;
+      if (d.key === 'joystick') {
+        const area = areaRef.current; if (!area) return;
+        const r = area.getBoundingClientRect();
+        const x = Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100));
+        const y = Math.max(0, Math.min(100, (1 - (e.clientY - r.top) / r.height) * 100));
+        onJoystickChange({ ...joystickRef.current, x: Math.round(x), y: Math.round(y) });
+      } else {
+        const box = areaRef.current; if (!box) return;
+        const r = box.getBoundingClientRect();
+        const x = Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100));
+        const y = Math.max(0, Math.min(100, (1 - (e.clientY - r.top) / r.height) * 100));
+        onChange({ ...layoutRef.current, [d.key]: { ...layoutRef.current[d.key], x: Math.round(x), y: Math.round(y) } });
+      }
+    };
+    const up = (e: PointerEvent) => { if (drag.current?.id === e.pointerId) drag.current = null; };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+  }, [onChange, onJoystickChange]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.code === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const items: Array<{ k: TouchBtnKey; label: string; icon: any }> = [
+    { k: 'jump', label: 'Saltar', icon: ArrowUp },
+    { k: 'light', label: 'Golpe', icon: Swords },
+    { k: 'heavy', label: 'Especial', icon: Crosshair },
+    { k: 'dash', label: 'Dash', icon: Zap },
+    { k: 'ult', label: 'ULT', icon: Crown },
+    { k: 'reload', label: 'Recargar', icon: RotateCcw },
+  ];
+  const selectedIsJoy = selected === 'joystick';
+  const selectedDef = selectedIsJoy ? { label: 'Joystick', icon: Gamepad2 } : items.find(i => i.k === selected)!;
+  const selectedScale = selectedIsJoy ? (joy.scale ?? 1) : (merged[selected as TouchBtnKey]?.scale ?? 1);
+
+  return (
+    <div className="fixed inset-0 z-[120] bg-[#060b14]/96 text-white flex flex-col">
+      <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[#24324a] bg-[#0c1424]">
+        <div>
+          <div className="font-display text-lg font-bold text-[#ffcc33]">Editar controles táctiles</div>
+          <div className="text-xs text-[#94a3b8]">Arrastra joystick y botones. Selecciona uno para cambiar su tamaño.</div>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" className="console-btn" onClick={onReset}><RotateCcw className="h-4 w-4" />Restablecer</button>
+          <button type="button" className="console-btn console-btn-primary" onClick={onClose}>Listo</button>
+        </div>
+      </header>
+
+      <div className="flex-1 min-h-0 grid md:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="relative min-h-0 p-3 md:p-5">
+          <div ref={areaRef} className="relative w-full h-full min-h-[320px] rounded-xl border border-[#2a3a55] bg-[radial-gradient(ellipse_at_center,#18263f_0%,#0b1220_70%)] overflow-hidden" style={{ touchAction: 'none' }}>
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#060b14] to-transparent pointer-events-none" />
+            <div className="absolute left-4 bottom-4 text-[11px] text-[#94a3b8] pointer-events-none">Área de juego (vista previa)</div>
+
+            <div
+              role="button" tabIndex={0} aria-label="Mover joystick"
+              onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); drag.current = { key: 'joystick', id: e.pointerId }; setSelected('joystick'); }}
+              className={`absolute flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing select-none ${selectedIsJoy ? 'drop-shadow-[0_0_10px_rgba(255,204,51,.45)]' : ''}`}
+              style={{ left: `${joy.x}%`, top: `${100 - joy.y}%`, transform: 'translate(-50%,-50%)' }}>
+              <div className={`rounded-full border-2 grid place-items-center ${selectedIsJoy ? 'border-[#ffcc33] bg-[#1a355dcc]' : 'border-[#bbd2f799] bg-[#172842cc]'}`} style={{ width: Math.round(96 * scale * (joy.scale ?? 1)), height: Math.round(96 * scale * (joy.scale ?? 1)) }}>
+                <div className="rounded-full bg-[#c9d7e6cc]" style={{ width: Math.round(38 * scale * (joy.scale ?? 1)), height: Math.round(38 * scale * (joy.scale ?? 1)) }} />
+              </div>
+              <span className="text-[10px] text-[#94a3b8] font-semibold">Joystick</span>
+            </div>
+
+            <div ref={buttonsRef} className="absolute right-0 bottom-0" style={{ width: 'min(58vw, 420px)', height: 'min(52vw, 320px)' }}>
+              {items.map(({ k, label, icon: Icon }) => {
+                const p = merged[k];
+                const base = k === 'jump' ? 1.12 : k === 'reload' ? 0.88 : 1;
+                const size = Math.round(64 * scale * base * (p.scale ?? 1));
+                const isSel = selected === k;
+                return (
+                  <button key={k} type="button" aria-label={label}
+                    onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); drag.current = { key: k, id: e.pointerId }; setSelected(k); }}
+                    className={`absolute flex items-center justify-center rounded-full border-2 text-white select-none ${isSel ? 'border-[#ffcc33] bg-[#355a8fe8]' : 'border-[#9bb8d4b0] bg-[#1a2f4fe0]'}`}
+                    style={{ width: size, height: size, left: `${p.x}%`, top: `${100-p.y}%`, transform: 'translate(-50%,-50%)', boxShadow: isSel ? '0 0 0 3px #ffcc3344, 0 8px 18px #000a' : '0 8px 18px #000a' }}>
+                    <Icon size={Math.max(18, Math.round(size * 0.36))} strokeWidth={2.4} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <aside className="border-t md:border-t-0 md:border-l border-[#24324a] bg-[#0c1424] p-4 space-y-4 overflow-y-auto">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-[#94a3b8] mb-2">Control seleccionado</div>
+            <div className="flex items-center gap-2 rounded-lg border border-[#2a3a55] bg-[#141b2d] p-3">
+              <selectedDef.icon size={20} className="text-[#ffcc33]" />
+              <div className="font-bold">{selectedDef.label}</div>
+            </div>
+          </div>
+          <SliderField label={`Tamaño de ${selectedDef.label}`} value={selectedScale} min={0.6} max={1.8} step={0.05} format={v=>`${Math.round(v*100)}%`}
+            onChange={v => selectedIsJoy ? onJoystickChange({ ...joy, scale: v }) : onChange({ ...merged, [selected as TouchBtnKey]: { ...merged[selected as TouchBtnKey], scale: v } })} />
+          <SliderField label="Tamaño global táctil" value={scale} min={0.8} max={1.6} step={0.05} format={v=>`${Math.round(v*100)}%`} onChange={onScaleChange} />
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-[#94a3b8] mb-2">Todos los controles</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setSelected('joystick')} className={`flex items-center gap-2 rounded border px-2 py-2 text-sm ${selectedIsJoy ? 'border-[#ffcc33] bg-[#1f2942] text-white' : 'border-[#2a3a55] bg-[#141b2d] text-[#cbd5e1]'}`}>
+                <Gamepad2 size={16} />Joystick
+              </button>
+              {items.map(({k,label,icon:Icon}) => (
+                <button key={k} type="button" onClick={() => setSelected(k)} className={`flex items-center gap-2 rounded border px-2 py-2 text-sm ${selected===k ? 'border-[#ffcc33] bg-[#1f2942] text-white' : 'border-[#2a3a55] bg-[#141b2d] text-[#cbd5e1]'}`}>
+                  <Icon size={16} />{label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-[11px] text-[#94a3b8]">Consejo: deja el joystick a la izquierda y los botones principales cerca del pulgar derecho.</p>
+        </aside>
       </div>
     </div>
   );

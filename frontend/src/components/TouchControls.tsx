@@ -15,14 +15,16 @@ const directions = ['left', 'right', 'down'] as const;
 const radius = 42;
 
 type TouchLayout = Partial<Record<'jump' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload', { x: number; y: number; scale?: number }>>;
+type TouchJoystick = { x: number; y: number; scale?: number };
 
-export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false, scale = 1, layout }: {
+export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false, scale = 1, layout, joystick }: {
   onAction: (action: PlayerAction, active: boolean) => void;
   ultReady?: boolean;
   hasGun?: boolean;
   inline?: boolean;
   scale?: number;
   layout?: TouchLayout;
+  joystick?: TouchJoystick;
 }) {
   const callback = useRef(onAction);
   callback.current = onAction;
@@ -127,8 +129,15 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     releaseButton(pointerId);
   };
 
+  const joyStyle = joystick ? {
+    left: `${joystick.x}%`, top: `${100 - joystick.y}%`, right: 'auto', bottom: 'auto',
+    transform: 'translate(-50%,-50%)',
+    width: `calc(min(41%, 190px) * ${joystick.scale ?? 1})`,
+    height: `calc(clamp(102px, 25dvh, 166px) * ${joystick.scale ?? 1})`,
+  } : undefined;
+
   return <div className={`touch-deck ${inline ? 'touch-deck-inline' : ''}`} aria-label="Controles táctiles" style={{ ['--touch-scale' as any]: scale }}>
-    <div className="touch-stick-zone" aria-label="Control de movimiento" onPointerDown={startStick}
+    <div className="touch-stick-zone" aria-label="Control de movimiento" style={joyStyle} onPointerDown={startStick}
       onPointerMove={moveStick} onPointerUp={releasePointer} onPointerCancel={releasePointer} onLostPointerCapture={releasePointer}>
       <div className={`touch-stick ${origin ? 'touch-stick-active' : ''}`}
         style={origin ? { left: origin.x, top: origin.y } : undefined}>
