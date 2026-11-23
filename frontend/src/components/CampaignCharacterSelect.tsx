@@ -122,8 +122,8 @@ export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, o
             })}
           </div>
           <div className="ob-roster-actions">
-            <button type="button" className="ob-fight" onClick={() => { sound.uiConfirm(); onStart(); }}>
-              <Swords className="h-4 w-4" style={{ marginRight: 6, verticalAlign: 'middle' }} />INICIAR CAMPAÑA
+            <button type="button" className="ob-fight" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={() => { sound.uiConfirm(); onStart(); }}>
+              <Swords className="h-4 w-4" />INICIAR CAMPAÑA
             </button>
             <p className="ob-status" role="status">7 rondas · Elige tu héroe y entra a la Cumbre Mundial</p>
           </div>
