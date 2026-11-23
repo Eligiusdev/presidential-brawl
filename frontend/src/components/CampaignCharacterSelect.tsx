@@ -15,9 +15,14 @@ interface Props {
   onSelect: (idx: number) => void;
   onStart: () => void;
   onBack: () => void;
+  title?: string;
+  subtitle?: string;
+  buttonLabel?: string;
+  statusText?: string;
+  tag?: string;
 }
 
-export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, onBack }: Props) {
+export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, onBack, title = 'Cumbre Mundial', subtitle = 'Elige tu héroe para la campaña de 7 rondas', buttonLabel = 'INICIAR CAMPAÑA', statusText = '7 rondas · Elige tu héroe y entra a la Cumbre Mundial', tag = 'Héroe de campaña' }: Props) {
   const display = useRosterDisplay();
   const { query } = display;
   const [filter, setFilter] = useState<RegionFilter>('all');
@@ -46,8 +51,8 @@ export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, o
         <div className="ob-brand">
           <Crown className="h-5 w-5 text-[#ffcc33]" aria-hidden />
           <div className="ob-brand-text">
-            <h2>Cumbre Mundial</h2>
-            <p>Elige tu héroe para la campaña de 7 rondas</p>
+            <h2>{title}</h2>
+            <p>{subtitle}</p>
           </div>
         </div>
         <div className="ob-top-actions">
@@ -69,7 +74,7 @@ export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, o
             </div>
             <div className="ob-char-info" style={{ background: 'linear-gradient(180deg,rgba(8,13,24,.62) 0%,rgba(8,13,24,.88) 24%,rgba(8,13,24,.95) 100%)' }}>
               <div className="ob-hero-tags" style={{ flexWrap: 'wrap' }}>
-                <span className="ob-tag">Héroe de campaña</span>
+                <span className="ob-tag">{tag}</span>
                 <span className="ob-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Crown className="h-3 w-3" />{info.era}</span>
               </div>
               <div className="ob-hero-name">
@@ -123,9 +128,9 @@ export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, o
           </div>
           <div className="ob-roster-actions">
             <button type="button" className="ob-fight" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={() => { sound.uiConfirm(); onStart(); }}>
-              <Swords className="h-4 w-4" />INICIAR CAMPAÑA
+              <Swords className="h-4 w-4" />{buttonLabel}
             </button>
-            <p className="ob-status" role="status">7 rondas · Elige tu héroe y entra a la Cumbre Mundial</p>
+            <p className="ob-status" role="status">{statusText}</p>
           </div>
         </aside>
       </div>

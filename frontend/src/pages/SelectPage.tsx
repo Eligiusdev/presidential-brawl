@@ -6,7 +6,7 @@ import { useGame } from '../game/GameContext';
 export function SelectPage() {
   const g = useGame();
   const navigate = useNavigate();
-  const onBack = () => { g.engineRef.current?.startAttractScene(); navigate('/combat'); };
+  const onBack = () => { g.setTrainingSelection(null); g.engineRef.current?.startAttractScene(); navigate('/combat'); };
 
   if (g.campaignSelection) {
     return (
@@ -16,6 +16,24 @@ export function SelectPage() {
         onSelect={(idx) => g.setSel([idx, g.sel[1]])}
         onStart={g.startCampaign}
         onBack={onBack}
+      />
+    );
+  }
+
+  if (g.trainingSelection) {
+    const isTutorial = g.trainingSelection === 'tutorial';
+    return (
+      <CampaignCharacterSelect
+        roster={g.roster}
+        selected={g.sel[0]}
+        onSelect={(idx) => g.setSel([idx, g.sel[1]])}
+        onStart={() => { g.setTrainingSelection(null); g.startTraining(isTutorial); }}
+        onBack={onBack}
+        title={isTutorial ? 'Tutorial' : 'Entrenamiento'}
+        subtitle={isTutorial ? 'Elige tu personaje para aprender a pelear' : 'Elige tu personaje para practicar'}
+        buttonLabel={isTutorial ? 'INICIAR TUTORIAL' : 'INICIAR ENTRENAMIENTO'}
+        statusText={isTutorial ? 'Aprende los controles básicos paso a paso' : 'Practica libremente contra un oponente'}
+        tag={isTutorial ? 'Personaje de tutorial' : 'Personaje de entrenamiento'}
       />
     );
   }

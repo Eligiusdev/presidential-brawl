@@ -21,6 +21,7 @@ export interface GameCtx {
   lastReplay: MatchReplayData | null;
   screen: Screen; setScreen: SetState<Screen>;
   campaignSelection: boolean; setCampaignSelection: SetState<boolean>;
+  trainingSelection: 'training' | 'tutorial' | null; setTrainingSelection: SetState<'training' | 'tutorial' | null>;
   mode: GameMode; sel: [number, number]; setSel: SetState<[number, number]>;
   stageSel: number; setStageSel: (n: number) => void;
   vsAI: boolean; setVsAI: SetState<boolean>;
@@ -66,6 +67,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [screen, setScreen] = useState<GameScreenState>('TITLE');
   const [replayReturn, setReplayReturn] = useState<'TITLE' | 'SELECT' | 'GAME_OVER' | 'CENSURE' | 'CHAMPION'>('GAME_OVER');
   const [campaignSelection, setCampaignSelection] = useState(false);
+  const [trainingSelection, setTrainingSelection] = useState<'training' | 'tutorial' | null>(null);
   const [mode, setMode] = useState<GameMode>('versus');
   const [sel, setSel] = useState<[number, number]>(() => {
     const i1 = PRESIDENTS_DATA.findIndex((p) => p.id === 'bolivar');
@@ -347,6 +349,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [startWithArt]);
 
   const startCampaign = useCallback(() => {
+    setTrainingSelection(null);
     const hero = Math.min(sel[0], roster.length - 1);
     const pool = roster.map((_, idx) => idx).filter((idx) => idx !== hero);
     for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
@@ -355,6 +358,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [sel, roster, launchCampaignRound]);
 
   const startVersus = useCallback(() => {
+    setTrainingSelection(null);
     const engine = engineRef.current; if (!engine) return;
     engine.campaign = null; setCampaign(null); setSummary(null); setMode('versus');
     void startWithArt(sel[0], sel[1], () => { engine.startMatch(sel[0], sel[1], stageSel, vsAI, 'versus'); setScreen('PLAYING'); });
@@ -530,6 +534,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value: GameCtx = {
     config, updateConfig, roster, lastReplay, screen, setScreen,
     campaignSelection, setCampaignSelection,
+    trainingSelection, setTrainingSelection,
     mode, sel, setSel, stageSel, setStageSel, vsAI, setVsAI, configOpen, setConfigOpen,
     hud, campaign, summary, replayPaused, setReplayPaused, replaySpeed, setReplaySpeed,
     replayEnded, replayFrame, netOpenSignal, setNetOpenSignal, loadingArt, lesson,
