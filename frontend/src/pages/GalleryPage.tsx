@@ -1,77 +1,118 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Crown } from 'lucide-react';
+import { ArrowLeft, Crown, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { FighterPreview } from '../components/FighterPreview';
-import { PortraitCanvas } from '../components/PortraitCanvas';
 import { movesFor } from '../combat/roster.js';
 import { ultimateText } from '../engine/presidentUltimates';
-import { fighterArtPath } from '../engine/fighterSprites';
 import { sound } from '../audio/soundEngine';
+import { RosterDisplay, REGION_TABS, matchesFilter, matchesSearch, useRosterDisplay, type RegionFilter } from '../components/CharacterSelect';
 
 export function GalleryPage() {
   const navigate = useNavigate();
+  const display = useRosterDisplay();
+  const { query } = display;
+  const [filter, setFilter] = useState<RegionFilter>('all');
   const [idx, setIdx] = useState(0);
-  const p = PRESIDENTS_DATA[idx] ?? PRESIDENTS_DATA[0];
-  const moves = useMemo(() => movesFor(p), [p]);
-  const ultimate = useMemo(() => ultimateText(p), [p]);
-  const artPath = fighterArtPath(p);
+  const roster = PRESIDENTS_DATA;
+  const filteredRoster = useMemo(() => {
+    const list = roster.filter(d => matchesFilter(d, filter) && matchesSearch(d, query));
+    if (filter === 'current' || filter === 'former') list.sort((a, b) => (b.termStart ?? 0) - (a.termStart ?? 0));
+    return list;
+  }, [filter, query]);
+  const info = roster[idx] ?? roster[0];
+  const moves = useMemo(() => movesFor(info), [info]);
+  const ultimate = useMemo(() => ultimateText(info), [info]);
+  const statBars = useMemo(() => ([
+    { name: 'Velocidad', val: (info.stats.speed / 6.5) * 100, color: '#38bdf8' },
+    { name: 'Peso', val: (info.stats.weight / 1.6) * 100, color: '#f97316' },
+    { name: 'Salto', val: (info.stats.jumpForce / 14.5) * 100, color: '#4ade80' },
+    { name: 'Potencia', val: (info.stats.power / 1.3) * 100, color: '#f43f5e' },
+  ]), [info]);
+  const moveRows = useMemo(() => moves
+    ? [['Ligero', moves.neutralAttack().name], ['Especial', moves.specialNeutral().name], ['↑ Esp.', moves.specialUp().name], ['↓ Esp.', moves.specialDown().name]] as const
+    : [['Signature', info.sigName]] as const, [moves, info]);
 
   return (
-    <div className="apex-menu apex-selector absolute inset-0 z-20 flex flex-col p-3 sm:p-6 overflow-y-auto arcade-scroll">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#222d4a]">
-        <div className="flex items-center gap-3">
-          <button onClick={() => { sound.uiClick(); navigate('/'); }} className="flex h-10 items-center gap-1.5 rounded-lg border border-[#2a344d] bg-[#131929] px-3 text-xs font-semibold text-[#cbd5e1] hover:text-white whitespace-nowrap shrink-0">
-            <ArrowLeft className="h-4 w-4" /> Volver
-          </button>
-          <h2 className="font-display text-lg font-bold uppercase tracking-wide text-white sm:text-2xl">Visualizar personajes</h2>
+    <section className="ob-lobby ob-gallery" aria-label="Visualizar personajes" style={{ position: 'absolute', zIndex: 20 }}>
+      <header className="ob-topbar">
+        <div className="ob-brand">
+          <Eye className="h-5 w-5 text-[#ffcc33]" aria-hidden />
+          <div className="ob-brand-text">
+            <h2>Visualizar personajes</h2>
+            <p>Explora el roster completo</p>
+          </div>
         </div>
-        <div className="text-xs text-[#94a3b8]">{idx + 1} / {PRESIDENTS_DATA.length}</div>
-      </div>
+        <div className="ob-top-actions">
+          <button type="button" data-gamepad-back onClick={() => { sound.uiClick(); navigate('/'); }}><ArrowLeft className="h-4 w-4" />Volver</button>
+        </div>
+      </header>
 
-      <div className="mx-auto my-4 grid w-full max-w-6xl flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-        <section className="rounded-xl border border-[#232c44] bg-[#101524] p-4 flex flex-col gap-3">
-          <div className="rounded-lg border border-[#2a344d] bg-[#0d1322] overflow-hidden" style={{ aspectRatio: '4/3' }}>
-            {artPath ? <FighterPreview president={p} selected large /> : <PortraitCanvas president={p} className="h-full w-full" animate />}
-          </div>
-          <div>
-            <h3 className="font-display text-2xl font-bold text-white">{p.name}</h3>
-            <p className="text-sm text-[#ffcc33]">{p.title}</p>
-            <p className="text-xs text-[#94a3b8] mt-1">{p.role} · {p.era}</p>
-          </div>
-          <p className="text-sm text-[#cbd5e1] italic">“{p.taunt}”</p>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {([['Velocidad', p.stats.speed, 6.5], ['Peso', p.stats.weight, 1.6], ['Salto', p.stats.jumpForce, 14.5], ['Potencia', p.stats.power, 1.3]] as const).map(([name, val, max]) => (
-              <div key={name} className="rounded border border-[#25304d] bg-[#11182c] p-2">
-                <div className="flex justify-between text-[#94a3b8]"><span>{name}</span><span className="text-white">{val}</span></div>
-                <div className="mt-1 h-1.5 rounded bg-[#1e293b]"><div className="h-full rounded bg-[#38bdf8]" style={{ width: `${Math.min(100, (val / max) * 100)}%` }} /></div>
+      <div className="ob-main">
+        <section className="ob-preview" aria-label="Vista previa del personaje">
+          <div className="ob-character-card" style={{ ['--accent' as any]: info.palette.accent.base }}>
+            <div className="ob-card-bg" aria-hidden>
+              <div className="ob-bg-color" style={{ background: `radial-gradient(120% 90% at 78% 30%, color-mix(in srgb, ${info.palette.accent.base} 24%, transparent), transparent 58%), linear-gradient(90deg, rgba(8,13,24,.18) 0%, rgba(8,13,24,.04) 45%, rgba(8,13,24,.22) 100%)` }} />
+            </div>
+            <div className="ob-hero-art">
+              <div className="ob-hero-fighter me solo">
+                <FighterPreview president={info} selected large />
               </div>
-            ))}
-          </div>
-          <div className="rounded-lg border border-[#25304d] bg-[#11182c] p-3 text-xs space-y-1">
-            <div className="font-bold text-[#ffcc33] flex items-center gap-1"><Crown size={14} /> {ultimate.name}</div>
-            <p className="text-[#cbd5e1]">{ultimate.ultDesc}</p>
-            {moves && <p className="text-[#94a3b8]"><span className="text-white">Especiales:</span> ↑ {moves.specialUp().name} · ↓ {moves.specialDown().name}</p>}
+            </div>
+            <div className="ob-char-info">
+              <div className="ob-hero-tags">
+                <span className="ob-tag">{info.role}</span>
+                <span className="ob-tag"><Crown className="h-3 w-3" />{info.era}</span>
+              </div>
+              <div className="ob-hero-name">
+                <h3>{info.name}</h3>
+                <p>{info.title}</p>
+              </div>
+              <div className="ob-quote">«{info.taunt}»</div>
+              <div className="ob-info-grid">
+                <div className="ob-bars">
+                  {statBars.map(s => <div key={s.name} className="ob-bar-row">
+                    <span className="ob-bar-label">{s.name}</span>
+                    <div className="ob-bar-track"><div className="ob-bar-fill" style={{ width: `${Math.min(100, Math.round(s.val))}%`, background: s.color }} /></div>
+                    <span className="ob-bar-val">{Math.round(s.val)}</span>
+                  </div>)}
+                </div>
+                <div className="ob-moves">
+                  {moveRows.map(([k, v]) => <div key={k} className="ob-move"><span className="ob-move-key">{k}</span><span className="ob-move-name">{v}</span></div>)}
+                  <div className="ob-move ult"><span className="ob-move-key">Ultimate</span><span className="ob-move-name">{ultimate.name}</span></div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#232c44] bg-[#101524] p-3">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-            {PRESIDENTS_DATA.map((d, i) => {
-              const selected = i === idx;
+        <aside className="ob-roster" aria-label="Personajes">
+          <div className="ob-roster-head">
+            <h3>Personajes</h3>
+            <RosterDisplay display={display} />
+            <div className="ob-filters" aria-label="Filtros de personajes" onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
+              {REGION_TABS.map(rt => {
+                const count = roster.filter(fighter => matchesFilter(fighter, rt.id)).length;
+                return <button key={rt.id} type="button" aria-pressed={filter === rt.id} onClick={() => { sound.uiClick(); setFilter(rt.id); }}>
+                  {rt.label} <span className="ob-filter-count">{count}</span>
+                </button>;
+              })}
+            </div>
+          </div>
+          <div className="ob-roster-grid">
+            {filteredRoster.map(d => {
+              const realIdx = roster.indexOf(d);
+              const selected = realIdx === idx;
               return (
-                <button key={d.id} type="button" onClick={() => { sound.uiClick(); setIdx(i); }}
-                  className={`rounded-lg border p-2 text-left transition-all ${selected ? 'border-[#ffcc33] bg-[#212026] shadow-[0_0_16px_rgba(255,204,51,0.24)]' : 'border-[#25304d] bg-[#11182c] hover:border-[#4b5f94]'}`}>
-                  <div className="mb-1.5 overflow-hidden rounded border border-[#2a344d]">
-                    <FighterPreview president={d} selected={selected} />
-                  </div>
-                  <div className="font-display text-[11px] font-bold text-white leading-tight truncate">{d.name}</div>
+                <button key={d.id} type="button" className={`ob-roster-card ${selected ? 'selected' : ''}`} onClick={() => { sound.uiClick(); setIdx(realIdx); }} aria-label={d.name} aria-pressed={selected}>
+                  <div className="ob-roster-portrait"><FighterPreview president={d} selected={selected} /></div>
+                  <span className="ob-roster-name">{d.name}</span>
                 </button>
               );
             })}
           </div>
-        </section>
+        </aside>
       </div>
-    </div>
+    </section>
   );
 }
