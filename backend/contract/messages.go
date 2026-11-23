@@ -25,6 +25,8 @@ type ClientMessage struct {
 	Type       ClientType `json:"type"`
 	Protocol   int        `json:"protocol,omitempty"`
 	MaxPlayers int        `json:"maxPlayers,omitempty"`
+	Mode       string     `json:"mode,omitempty"`
+	TeamSize   int        `json:"teamSize,omitempty"`
 	Code       string     `json:"code,omitempty"`
 	Token      string     `json:"token,omitempty"`
 	Seq        int        `json:"seq,omitempty"`
@@ -44,14 +46,18 @@ type RoomPlayer struct {
 }
 
 type RoomState struct {
-	Type       string        `json:"type"`
-	Code       string        `json:"code"`
-	HostSlot   int           `json:"hostSlot"`
-	Stage      int           `json:"stage"`
-	MaxPlayers int           `json:"maxPlayers"`
-	Playing    bool          `json:"playing"`
-	Standings  []int         `json:"standings"`
-	Players    []*RoomPlayer `json:"players"`
+	Type         string        `json:"type"`
+	Code         string        `json:"code"`
+	HostSlot     int           `json:"hostSlot"`
+	Stage        int           `json:"stage"`
+	MaxPlayers   int           `json:"maxPlayers"`
+	Mode         string        `json:"mode"`
+	TeamSize     int           `json:"teamSize"`
+	Playing      bool          `json:"playing"`
+	Standings    []int         `json:"standings"`
+	ChampionNext int           `json:"championNext,omitempty"`
+	ChampionSize int           `json:"championSize,omitempty"`
+	Players      []*RoomPlayer `json:"players"`
 }
 
 type SeatMessage struct {

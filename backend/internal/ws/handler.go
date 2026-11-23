@@ -150,11 +150,23 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 				failure(c, "CAPACITY", "Elige 2, 4, 6 u 8 jugadores.")
 				return
 			}
+			mode := msg.Mode
+			if mode != "champion" && mode != "tournament" { mode = "ffa" }
+			ts := msg.TeamSize
+			if ts <= 0 { ts = 1 }
+			if ts != 1 && ts != 2 && ts != 3 && ts != 4 {
+				failure(c, "FORMAT", "Formato de equipo inválido.")
+				return
+			}
+			if msg.MaxPlayers%ts != 0 {
+				failure(c, "FORMAT", "El formato no coincide con la cantidad de jugadores.")
+				return
+			}
 			if s.Reg.Count() >= 100 {
 				failure(c, "LIMIT", "El servidor ya tiene demasiadas salas.")
 				return
 			}
-			room = s.Reg.Create(msg.MaxPlayers)
+			room = s.Reg.Create(msg.MaxPlayers, mode, ts)
 		} else if msg.Type == contract.CJoin || msg.Type == contract.CResume {
 			room = s.Reg.Get(msg.Code)
 			if room == nil {
@@ -340,13 +352,13 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 			return
 		}
 		allReady := true
-		ids := make([]string, len(room.Players))
+		activeSlots := []int{}
 		for i, p := range room.Players {
 			if p == nil || p.WS == nil || !p.Ready || p.FighterID == "" {
 				allReady = false
 				break
 			}
-			ids[i] = p.FighterID
+			activeSlots = append(activeSlots, i)
 		}
 		if !allReady {
 			room.Mu().Unlock()
@@ -354,10 +366,31 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 			return
 		}
 		room.Standings = nil
-		stage := room.Stage
-		room.Match = s.CreateMatch(ids, stage, func(standings []int) {
-			room.Standings = standings
-		})
+		room.ChampionSlot = -1
+		room.ChampionNext = 0
+		room.ChampionSize = 0
+		if room.Mode == "champion" && len(activeSlots) >= 2 {
+			room.ChampionSize = len(activeSlots)
+			room.ChampionSlot = activeSlots[0]
+			room.ChampionNext = 1
+			s.startChampionMatchLocked(room, activeSlots)
+		} else {
+			ids := make([]string, len(activeSlots))
+			room.MatchSlots = make([]int, len(activeSlots))
+			for i, si := range activeSlots {
+				ids[i] = room.Players[si].FighterID
+				room.MatchSlots[i] = si
+			}
+			stage := room.Stage
+			mslots := append([]int(nil), room.MatchSlots...)
+			room.Match = s.CreateMatch(ids, stage, func(standings []int) {
+				remapped := make([]int, len(standings))
+				for i, st := range standings {
+					if st >= 0 && st < len(mslots) { remapped[i] = mslots[st] } else { remapped[i] = st }
+				}
+				room.Standings = remapped
+			})
+		}
 		room.Mu().Unlock()
 		s.publish(room)
 
@@ -367,8 +400,26 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 			room.Mu().Unlock()
 			return
 		}
+		if room.Mode == "champion" {
+			activeSlots := []int{}
+			for i, p := range room.Players {
+				if p != nil && p.WS != nil && p.FighterID != "" { activeSlots = append(activeSlots, i) }
+			}
+			if room.ChampionNext > 0 && room.ChampionNext < len(activeSlots) {
+				room.Standings = nil
+				room.Match = nil
+				s.startChampionMatchLocked(room, activeSlots)
+				room.Mu().Unlock()
+				s.publish(room)
+				return
+			}
+		}
 		room.Match = nil
+		room.MatchSlots = nil
 		room.Standings = nil
+		room.ChampionSlot = -1
+		room.ChampionNext = 0
+		room.ChampionSize = 0
 		for _, p := range room.Players {
 			if p != nil {
 				p.Ready = false
@@ -383,4 +434,33 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 		s.remove(room, player, false)
 		c.Close(websocket.StatusNormalClosure, "leave")
 	}
+}
+
+func (s *Server) startChampionMatchLocked(room *rooms.Room, activeSlots []int) {
+	if room.ChampionNext >= len(activeSlots) || room.ChampionNext < 1 {
+		return
+	}
+	champSlot := room.ChampionSlot
+	challengerSlot := activeSlots[room.ChampionNext]
+	matchSlots := []int{champSlot, challengerSlot}
+	ids := []string{room.Players[champSlot].FighterID, room.Players[challengerSlot].FighterID}
+	room.MatchSlots = append([]int(nil), matchSlots...)
+	stage := room.Stage
+	mslots := append([]int(nil), matchSlots...)
+	nextIdx := room.ChampionNext
+	total := len(activeSlots)
+	room.Match = s.CreateMatch(ids, stage, func(standings []int) {
+		remapped := make([]int, len(standings))
+		for i, st := range standings {
+			if st >= 0 && st < len(mslots) { remapped[i] = mslots[st] } else { remapped[i] = st }
+		}
+		room.Standings = remapped
+		if len(remapped) > 0 {
+			room.ChampionSlot = remapped[0]
+		}
+		room.ChampionNext = nextIdx + 1
+		if room.ChampionNext >= total {
+			room.ChampionNext = total // marks finished
+		}
+	})
 }

@@ -17,8 +17,12 @@ export interface RoomState {
   hostSlot: number;
   stage: number;
   maxPlayers: RoomCapacity;
+  mode?: 'ffa' | 'champion' | 'tournament';
+  teamSize?: number;
   playing: boolean;
   standings: number[] | null;
+  championNext?: number;
+  championSize?: number;
   players: Array<RoomPlayer | null>;
 }
 type WireFighter = Omit<RenderFighterState, 'd' | 'afterimages' | 'cx' | 'pi' | 'face' | 'pct' | 'vote'> & {

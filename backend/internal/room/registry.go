@@ -39,15 +39,21 @@ type Player struct {
 }
 
 type Room struct {
-	Code      string
-	Players   []*Player
-	HostSlot  int
-	Stage     int
-	Match     sim.Match
-	Standings []int
-	ClockMS   float64
-	Updated   time.Time
-	mu        sync.Mutex
+	Code          string
+	Players       []*Player
+	HostSlot      int
+	Stage         int
+	Mode          string
+	TeamSize      int
+	Match         sim.Match
+	MatchSlots    []int
+	Standings     []int
+	ChampionSlot  int
+	ChampionNext  int
+	ChampionSize  int
+	ClockMS       float64
+	Updated       time.Time
+	mu            sync.Mutex
 }
 
 func (r *Room) MaxPlayers() int { return len(r.Players) }
@@ -70,9 +76,15 @@ func (r *Room) State() contract.RoomState {
 			Ready: p.Ready, Connected: p.WS != nil, Ping: p.Ping,
 		}
 	}
+	mode := r.Mode
+	if mode == "" { mode = "ffa" }
+	teamSize := r.TeamSize
+	if teamSize <= 0 { teamSize = 1 }
 	return contract.RoomState{
 		Type: "room", Code: r.Code, HostSlot: r.HostSlot, Stage: r.Stage,
-		MaxPlayers: r.MaxPlayers(), Playing: r.Match != nil, Standings: r.Standings,
+		MaxPlayers: r.MaxPlayers(), Mode: mode, TeamSize: teamSize,
+		Playing: r.Match != nil, Standings: r.Standings,
+		ChampionNext: r.ChampionNext, ChampionSize: r.ChampionSize,
 		Players: players,
 	}
 }
@@ -154,7 +166,9 @@ func (reg *Registry) Count() int {
 	return len(reg.rooms)
 }
 
-func (reg *Registry) Create(maxPlayers int) *Room {
+func (reg *Registry) Create(maxPlayers int, mode string, teamSize int) *Room {
+	if mode != "champion" && mode != "tournament" { mode = "ffa" }
+	if teamSize <= 0 { teamSize = 1 }
 	reg.mu.Lock()
 	defer reg.mu.Unlock()
 	for {
@@ -179,7 +193,7 @@ func (reg *Registry) Create(maxPlayers int) *Room {
 		}
 		r := &Room{
 			Code: code, Players: make([]*Player, maxPlayers), HostSlot: 0,
-			Stage: 0, Updated: time.Now(),
+			Stage: 0, Mode: mode, TeamSize: teamSize, Updated: time.Now(),
 		}
 		reg.rooms[code] = r
 		return r

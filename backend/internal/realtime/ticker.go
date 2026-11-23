@@ -109,14 +109,18 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 		snapshotDue := false
 		for room.ClockMS >= stepMS && room.Standings == nil {
 			room.ClockMS -= stepMS
-			inputs := make([][]string, len(room.Players))
-			for i, p := range room.Players {
+			matchSlots := room.MatchSlots
+			if len(matchSlots) == 0 {
+				matchSlots = make([]int, len(room.Players))
+				for i := range room.Players { matchSlots[i] = i }
+			}
+			inputs := make([][]string, len(matchSlots))
+			for mi, si := range matchSlots {
+				if si < 0 || si >= len(room.Players) { inputs[mi] = []string{}; continue }
+				p := room.Players[si]
 				if p == nil || p.WS == nil || now.Sub(p.InputAt) >= 500*time.Millisecond {
-					if p != nil {
-						p.Input = nil
-						p.Pending = nil
-					}
-					inputs[i] = []string{}
+					if p != nil { p.Input = nil; p.Pending = nil }
+					inputs[mi] = []string{}
 					continue
 				}
 				if len(p.Pending) > 0 {
@@ -127,7 +131,7 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 				}
 				inp := make([]string, len(p.Input))
 				copy(inp, p.Input)
-				inputs[i] = inp
+				inputs[mi] = inp
 			}
 			step := room.Match.Step(inputs)
 			if step%2 == 0 || room.Standings != nil {
@@ -139,6 +143,24 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 			continue
 		}
 		snap := room.Match.Snapshot()
+		matchSlots := append([]int(nil), room.MatchSlots...)
+		if len(matchSlots) > 0 {
+			if m, ok := snap.(map[string]any); ok {
+				if players, ok := m["players"].([]map[string]any); ok {
+					for _, pl := range players {
+						if sl, ok := pl["slot"].(int); ok && sl >= 0 && sl < len(matchSlots) {
+							pl["slot"] = matchSlots[sl]
+							pl["id"] = matchSlots[sl]
+						}
+					}
+				}
+				if standings, ok := m["standings"].([]int); ok {
+					for i, st := range standings {
+						if st >= 0 && st < len(matchSlots) { standings[i] = matchSlots[st] }
+					}
+				}
+			}
+		}
 		ack := make([]int, len(room.Players))
 		for i, p := range room.Players {
 			if p != nil {

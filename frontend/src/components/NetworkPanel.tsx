@@ -67,6 +67,8 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
     if (next && roomCodePattern.test(next)) setCode(next);
   }, [openSignal]);
   const [capacity, setCapacity] = useState<RoomCapacity>(2);
+  const [roomMode, setRoomMode] = useState<'ffa' | 'champion' | 'tournament'>('ffa');
+  const [teamSize, setTeamSize] = useState(1);
   const [room, setRoom] = useState<RoomState | null>(null);
   const [seat, setSeat] = useState<Seat | null>(null);
   const [status, setStatus] = useState('');
@@ -91,7 +93,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
   }, [fighterIds]);
   const pressed = useRef(new Map<string, PlayerAction>());
   const touch = useRef(new Set<PlayerAction>());
-  const enter = useRef<(request: { type: 'create'; maxPlayers: RoomCapacity } | { type: 'join'; code: string } | { type: 'resume'; code: string; token: string }) => void>(() => {});
+  const enter = useRef<(request: { type: 'create'; maxPlayers: RoomCapacity; mode?: 'ffa' | 'champion' | 'tournament'; teamSize?: number } | { type: 'join'; code: string } | { type: 'resume'; code: string; token: string }) => void>(() => {});
   const autoJoined = useRef(false);
   const onActiveRef = useRef(onActive);
   onActiveRef.current = onActive;
@@ -394,12 +396,15 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
     location.replace(url);
   };
   const reloadButton = incompatible && <button type="button" className="console-btn" onClick={reload}>Recargar el juego</button>;
-  const roomModes: Array<{ value: RoomCapacity; label: string; desc: string; icon: typeof Swords }> = [
-    { value: 2, label: 'Duelo', desc: '1 vs 1', icon: Swords },
-    { value: 4, label: 'Campal', desc: '4 jugadores', icon: Users },
-    { value: 6, label: 'Campal', desc: '6 jugadores', icon: Crown },
-    { value: 8, label: 'Gran Campal', desc: '8 jugadores', icon: Globe },
+  const gameModes: Array<{ value: 'ffa' | 'tournament' | 'champion'; label: string; desc: string; icon: typeof Swords }> = [
+    { value: 'ffa', label: 'Todos contra todos', desc: 'Cada jugador pelea por su cuenta', icon: Globe },
+    { value: 'tournament', label: 'Equipos', desc: 'Lucha en equipos 2v2, 3v3 o 4v4', icon: Users },
+    { value: 'champion', label: 'Champion', desc: 'El ganador avanza en la competencia', icon: Crown },
   ];
+  const formatOptions = roomMode === 'tournament'
+    ? [{ key: '2v2', maxPlayers: 4 as RoomCapacity, teamSize: 2, label: '2 vs 2' }, { key: '3v3', maxPlayers: 6 as RoomCapacity, teamSize: 3, label: '3 vs 3' }, { key: '4v4', maxPlayers: 8 as RoomCapacity, teamSize: 4, label: '4 vs 4' }]
+    : [{ key: '2', maxPlayers: 2 as RoomCapacity, teamSize: 1, label: '2 jugadores' }, { key: '4', maxPlayers: 4 as RoomCapacity, teamSize: 1, label: '4 jugadores' }, { key: '6', maxPlayers: 6 as RoomCapacity, teamSize: 1, label: '6 jugadores' }, { key: '8', maxPlayers: 8 as RoomCapacity, teamSize: 1, label: '8 jugadores' }];
+  const selectedFormat = formatOptions.find(f => f.maxPlayers === capacity && f.teamSize === teamSize) || formatOptions[0];
   if (!open) return null;
   if (room && seat && !room.playing) return <>
     <OnlineLobby room={room} slot={seat.slot} send={recovering || incompatible ? () => {} : send} leave={leave} />
@@ -424,13 +429,25 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
         }
       }} /></div>}
       {room.standings && <section className="online-results" aria-label="Posiciones">
-        <h2>Posiciones</h2>
+        <h2>{room.mode === 'champion' ? ((room.championNext ?? 0) < (room.championSize ?? 0) ? 'Resultado del duelo' : 'Campeón') : room.mode === 'tournament' ? 'Resultados por equipos' : 'Posiciones'}</h2>
         {champion && <VictoryShowcase key={champion.id} fighter={champion} />}
-        <ol>{room.standings.map(slot => {
-          const fighter = PRESIDENTS_DATA.find(d => d.id === hud[slot]?.fighterId);
+        {room.mode === 'tournament' ? (() => {
+          const ts = room.teamSize || 1;
+          const teams = new Map<number, { team: number; slots: number[]; best: number }>();
+          room.standings!.forEach((slot, place) => {
+            const team = Math.floor(slot / ts);
+            const t = teams.get(team) || { team, slots: [], best: place };
+            t.slots.push(slot); t.best = Math.min(t.best, place); teams.set(team, t);
+          });
+          return <ol>{[...teams.values()].sort((a,b)=>a.best-b.best).map(t => <li key={t.team}>
+            <strong>Equipo {String.fromCharCode(65+t.team)}</strong>
+            <div style={{ fontSize: 12, opacity: .8 }}>{t.slots.map(s => { const hp = hud.find(h => h.slot === s); const f = PRESIDENTS_DATA.find(d => d.id === hp?.fighterId); return `J${s+1}${f?` · ${f.name}`:''}`; }).join(' · ')}</div>
+          </li>)}</ol>;
+        })() : <ol>{room.standings.map(slot => {
+          const hp = hud.find(h => h.slot === slot); const fighter = PRESIDENTS_DATA.find(d => d.id === hp?.fighterId);
           return <li key={slot}>J{slot + 1}{fighter ? ` · ${fighter.name}` : ''}</li>;
-        })}</ol>
-        {room.hostSlot === seat.slot && <button onClick={() => send({ type: 'lobby' })}>Volver a la sala</button>}
+        })}</ol>}
+        {room.hostSlot === seat.slot && <button onClick={() => send({ type: 'lobby' })}>{room.mode === 'champion' && (room.championNext ?? 0) > 0 && (room.championNext ?? 0) < (room.championSize ?? 0) ? 'Siguiente duelo' : 'Volver a la sala'}</button>}
       </section>}
     </div>
     <footer><span role="status">{status || `J${seat.slot + 1} · WASD · J/K/L · C: definitiva`}</span>{reloadButton}<button data-gamepad-back onClick={leave}>Salir</button></footer>
@@ -454,12 +471,12 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
         <section className="room-modal-section" aria-label="Crear sala">
           <div className="room-modal-section-head">
             <span className="room-modal-section-kicker"><Swords className="h-3.5 w-3.5" />Crear sala</span>
-            <span className="room-modal-section-note">Elige el modo antes de abrir la sala</span>
+            <span className="room-modal-section-note">Elige modo y cantidad de personas</span>
           </div>
-          <div className="room-mode-grid" role="radiogroup" aria-label="Modo de sala">
-            {roomModes.map(mode => {
+          <div className="room-mode-grid" role="radiogroup" aria-label="Modo de juego">
+            {gameModes.map(mode => {
               const Icon = mode.icon;
-              const selected = capacity === mode.value;
+              const selected = roomMode === mode.value;
               return <button
                 key={mode.value}
                 type="button"
@@ -467,7 +484,12 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
                 aria-checked={selected}
                 className={`room-mode-card ${selected ? 'is-selected' : ''}`}
                 disabled={incompatible || busy}
-                onClick={() => { sound.uiClick(); setCapacity(mode.value); }}
+                onClick={() => {
+                  sound.uiClick();
+                  setRoomMode(mode.value);
+                  if (mode.value === 'tournament') { setCapacity(4); setTeamSize(2); }
+                  else { setCapacity(c => c < 2 ? 2 : c); setTeamSize(1); }
+                }}
               >
                 <span className="room-mode-icon" aria-hidden><Icon className="h-4 w-4" /></span>
                 <span className="room-mode-text">
@@ -478,8 +500,22 @@ export function NetworkPanel({ config, onActive, openSignal = 0 }: {
               </button>;
             })}
           </div>
-          <button type="button" data-gamepad-initial className="console-btn console-btn-primary room-modal-create" disabled={incompatible || busy} onClick={() => enter.current({ type: 'create', maxPlayers: capacity })}>
-            <Swords className="h-4 w-4" />Crear sala {capacity === 2 ? 'duelo' : capacity === 8 ? 'gran campal' : 'campal'}
+          <div className="room-modal-section-head" style={{ marginTop: 8 }}>
+            <span className="room-modal-section-kicker"><Users className="h-3.5 w-3.5" />{roomMode === 'tournament' ? 'Formato' : 'Jugadores'}</span>
+          </div>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={roomMode === 'tournament' ? 'Formato de equipos' : 'Cantidad de jugadores'}>
+            {formatOptions.map(f => {
+              const selected = selectedFormat.key === f.key;
+              return <button key={f.key} type="button" role="radio" aria-checked={selected}
+                className={`console-btn ${selected ? 'console-btn-primary' : ''}`}
+                disabled={incompatible || busy}
+                onClick={() => { sound.uiClick(); setCapacity(f.maxPlayers); setTeamSize(f.teamSize); }}>
+                {f.label}
+              </button>;
+            })}
+          </div>
+          <button type="button" data-gamepad-initial className="console-btn console-btn-primary room-modal-create" disabled={incompatible || busy} onClick={() => enter.current({ type: 'create', maxPlayers: selectedFormat.maxPlayers, mode: roomMode, teamSize: selectedFormat.teamSize })}>
+            <Swords className="h-4 w-4" />Crear sala
           </button>
         </section>
 

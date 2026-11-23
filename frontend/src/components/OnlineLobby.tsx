@@ -113,6 +113,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
             <div className="ob-slot-info">
               <div className="ob-slot-head">
                 <b style={{ color: accent }}>J{i + 1}</b>
+                {room.mode === 'tournament' && <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', marginLeft: 4 }}>Eq {String.fromCharCode(65 + Math.floor(i / (room.teamSize || 1)))}</span>}
                 {room.hostSlot === i && <Crown className="h-3.5 w-3.5 text-[#ffcc33]" />}
                 {i === slot && <em>Tú</em>}
                 <span className="spacer" />
@@ -134,8 +135,8 @@ export function OnlineLobby({ room, slot, send, leave }: {
       <div className="ob-brand">
         <Swords className="h-5 w-5 text-[#ffcc33]" aria-hidden />
         <div className="ob-brand-text">
-          <h2>{room.maxPlayers === 2 ? 'Duelo' : room.maxPlayers === 8 ? 'Gran Campal' : 'Campal'} en línea</h2>
-          <p><span style={{ color: self?.color }}>J{slot + 1}</span>{host ? ' · Anfitrión' : ''}</p>
+          <h2>{room.mode === 'tournament' ? `Equipos ${room.teamSize || 1}v${room.teamSize || 1}` : room.mode === 'champion' ? 'Champion' : 'Todos contra todos'} en línea</h2>
+          <p><span style={{ color: self?.color }}>J{slot + 1}</span>{host ? ' · Anfitrión' : ''}{room.maxPlayers ? ` · ${room.maxPlayers} jugadores` : ''}</p>
         </div>
       </div>
       <div className="ob-room-code" aria-label={`Código de sala ${room.code}`}>
