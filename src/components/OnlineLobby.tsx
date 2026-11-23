@@ -101,10 +101,12 @@ export function OnlineLobby({ room, slot, send, leave }: {
           const fighter = roster.find(f => f.id === p?.fighterId) || null;
           const art = fighter ? fighterArtPath(fighter) : null;
           const accent = p?.color || '#425675';
-          return <div key={i} className={`ob-slot ${i === slot ? 'me' : ''} ${p?.ready ? 'ready' : ''} ${art ? 'has-art' : ''}`}
+          return <div key={i} className={`ob-slot ${i === slot ? 'me' : ''} ${p?.ready ? 'ready' : ''} ${fighter ? 'has-fighter' : ''}`}
             style={{
               ['--pc' as any]: accent,
-              ...(art ? { backgroundImage: `linear-gradient(90deg, rgba(10,16,28,.93) 0%, rgba(10,16,28,.78) 45%, rgba(10,16,28,.35) 100%), url("${fighterAsset(art, 'selection.webp')}")` } : {}),
+              ...(fighter ? {
+                backgroundImage: `radial-gradient(120% 90% at 85% 20%, color-mix(in srgb, ${accent} 28%, transparent), transparent 62%), linear-gradient(135deg, color-mix(in srgb, ${accent} 16%, #141f33) 0%, #0f1828 55%, #0b1220 100%)`,
+              } : {}),
             }}>
             <div className="ob-slot-port">
               {fighter ? <PortraitCanvas president={fighter} className="h-full w-full" /> : <span className="ob-slot-q">?</span>}
@@ -171,8 +173,8 @@ export function OnlineLobby({ room, slot, send, leave }: {
 
         <div className="ob-character-card" style={{ ['--accent' as any]: info.palette.accent.base }}>
           <div className="ob-card-bg" aria-hidden>
-            <div className={`ob-bg-stage${infoArt ? ' blend' : ''}`} style={{ backgroundImage: `url("${stageArt}")` }} />
-            {infoArt && <div className="ob-bg-char" style={{ backgroundImage: `url("${fighterAsset(infoArt, 'selection.webp')}")` }} />}
+            <div className="ob-bg-stage" style={{ backgroundImage: `url("${stageArt}")` }} />
+            <div className="ob-bg-color" style={{ background: `radial-gradient(120% 90% at 78% 30%, color-mix(in srgb, ${info.palette.accent.base} 24%, transparent), transparent 58%), linear-gradient(90deg, rgba(8,13,24,.18) 0%, rgba(8,13,24,.04) 45%, rgba(8,13,24,.22) 100%)` }} />
           </div>
           <div className="ob-hero-art">
             <div className="ob-hero-fighter me solo">
