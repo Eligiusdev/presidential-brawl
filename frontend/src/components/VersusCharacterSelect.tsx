@@ -39,6 +39,8 @@ export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel
   const ultimate = useMemo(() => ultimateText(info), [info]);
   const stage = STAGES_DATA[stageSel] || STAGES_DATA[0];
   const stageArt = stageArtUrl(stage.id, 'day');
+  const stageCount = STAGES_DATA.length;
+  const setStage = (idx: number) => { sound.uiClick(); onChangeStage(((idx % stageCount) + stageCount) % stageCount); };
   const statBars = useMemo(() => ([
     { name: 'Velocidad', val: (info.stats.speed / 6.5) * 100, color: '#38bdf8' },
     { name: 'Peso', val: (info.stats.weight / 1.6) * 100, color: '#f97316' },
@@ -72,6 +74,21 @@ export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel
 
       <div className="ob-main">
         <section className="ob-preview" aria-label="Vista previa">
+          <div className="ob-stage-carousel" aria-label="Escenario">
+            <button type="button" className="ob-stage-nav" aria-label="Escenario anterior" onClick={() => setStage(stageSel - 1)}><ChevronLeft className="h-4 w-4" /></button>
+            <div className="ob-stage-slide">
+              <img src={stageArt} alt="" draggable={false} />
+              <div className="ob-stage-slide-meta">
+                <b>{stage.name}</b>
+                <small>{stage.city} · {stageSel + 1}/{stageCount}</small>
+              </div>
+            </div>
+            <button type="button" className="ob-stage-nav" aria-label="Siguiente escenario" onClick={() => setStage(stageSel + 1)}><ChevronRight className="h-4 w-4" /></button>
+            <div className="ob-stage-dots" aria-hidden>
+              {STAGES_DATA.map((_, i) => <span key={i} className={`ob-stage-dot ${i === stageSel ? 'on' : ''}`} />)}
+            </div>
+          </div>
+
           <div className="ob-character-card" style={{ ['--accent' as any]: info.palette.accent.base }}>
             <div className="ob-card-bg" aria-hidden>
               <div className="ob-bg-stage" style={{ backgroundImage: `url("${stageArt}")` }} />
@@ -154,14 +171,7 @@ export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel
                 <Bot className="h-3.5 w-3.5" />VS IA
               </button>
             </div>
-            <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
-              {STAGES_DATA.map((st, i) => (
-                <button key={st.id} type="button" onClick={() => { sound.uiClick(); onChangeStage(i); }}
-                  className={`shrink-0 rounded-md border px-2 py-1 text-[10px] font-bold ${i === stageSel ? 'border-[#ffcc33] text-[#ffcc33] bg-[#212026]' : 'border-[#2f3b57] text-[#94a3b8] bg-[#161e31]'}`}>
-                  {st.name}
-                </button>
-              ))}
-            </div>
+
             <button type="button" className="ob-fight" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={() => { sound.uiConfirm(); onStart(); }}>
               <Swords className="h-4 w-4" />¡PELEAR!
             </button>
