@@ -1,4 +1,4 @@
-package net
+package httpapi
 
 import (
 	"net/http"

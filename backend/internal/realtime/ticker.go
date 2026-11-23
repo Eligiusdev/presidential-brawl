@@ -1,4 +1,4 @@
-package net
+package realtime
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/presidential-brawl/server/rooms"
+	"github.com/presidential-brawl/server/internal/room"
 )
 
 const stepMS = 1000.0 / 60.0

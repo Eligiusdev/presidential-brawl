@@ -1,4 +1,4 @@
-package net
+package ws
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/presidential-brawl/server/contract"
-	"github.com/presidential-brawl/server/rooms"
+	"github.com/presidential-brawl/server/internal/room"
 	"github.com/presidential-brawl/engine"
 )
 

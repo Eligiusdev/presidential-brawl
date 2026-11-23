@@ -1,4 +1,4 @@
-package net
+package realtime
 
 import (
 	"encoding/json"
