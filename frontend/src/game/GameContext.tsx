@@ -137,7 +137,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (routeSync.current) { routeSync.current = false; return; }
-    const p = location.pathname;
+    const p = (location.pathname.replace(/\/+$/, '') || '/');
     if (p.startsWith('/room')) {
       setNetOpenSignal(n => n + 1);
       if (screenRef.current !== 'TITLE' && screenRef.current !== 'SELECT') setScreen('TITLE');
@@ -181,7 +181,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     params.set('ai', vsAI ? '1' : '0');
     params.set('mode', campaignSelection ? 'campaign' : 'versus');
     const search = `?${params.toString()}`;
-    if (location.pathname === '/select' && location.search !== search) {
+    if (location.pathname.replace(/\/+$/, '') === '/select' && location.search !== search) {
       routeSync.current = true;
       navigate({ pathname: '/select', search }, { replace: true });
     }
@@ -189,7 +189,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Read select params from URL on navigation to /select
   useEffect(() => {
-    if (location.pathname !== '/select') return;
+    if (location.pathname.replace(/\/+$/, '') !== '/select') return;
     if (routeSync.current) { routeSync.current = false; return; }
     const params = new URLSearchParams(location.search);
     const p1 = params.get('p1'); const p2 = params.get('p2');

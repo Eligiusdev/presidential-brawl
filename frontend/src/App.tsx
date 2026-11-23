@@ -12,14 +12,14 @@ export default function App() {
   return (
     <GameProvider>
       <Routes>
-        <Route element={<GameLayout />}>
-          <Route path="/" element={<TitlePage />} />
-          <Route path="/select" element={<SelectPage />} />
-          <Route path="/customize" element={<CustomizePage />} />
-          <Route path="/play" element={<PlayPage />} />
-          <Route path="/replay" element={<ReplayPage />} />
-          <Route path="/result/:kind" element={<ResultPage />} />
-          <Route path="/room/*" element={<TitlePage />} />
+        <Route path="/" element={<GameLayout />}>
+          <Route index element={<TitlePage />} />
+          <Route path="select" element={<SelectPage />} />
+          <Route path="customize" element={<CustomizePage />} />
+          <Route path="play" element={<PlayPage />} />
+          <Route path="replay" element={<ReplayPage />} />
+          <Route path="result/:kind" element={<ResultPage />} />
+          <Route path="room/*" element={<TitlePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
