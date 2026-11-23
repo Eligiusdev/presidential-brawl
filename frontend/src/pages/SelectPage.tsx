@@ -19,8 +19,6 @@ export function SelectPage() {
       onStartCampaign={g.startCampaign}
       onStartTraining={g.startTraining}
       onWatchLastReplay={() => g.startReplay('SELECT')}
-      onOpenCustomizer={(editTarget) => g.openCustomizer('SELECT', editTarget)}
-      onDeleteCustom={g.handleDeleteCustom}
       onOpenConfig={() => g.setConfigOpen(true)}
       onBack={() => { g.engineRef.current?.startAttractScene(); g.setScreen('TITLE'); }}
     />

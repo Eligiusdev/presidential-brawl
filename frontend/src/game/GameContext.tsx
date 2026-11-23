@@ -2,12 +2,10 @@ import { AdaptiveRenderQuality } from '../engine/renderPerformance';
 import { preloadMatchArt } from '../engine/matchArt';
 import { clearPerformanceSamples, performanceMetricsEnabled, samplePerformance } from '../engine/performanceMetrics';
 import { useMenuGamepad } from '../input/useMenuGamepad';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { sound } from '../audio/soundEngine';
-import {
-  loadConfig, loadCustomPresidents, loadLastReplay, saveConfig, saveCustomPresidents, saveLastReplay,
-} from '../config/defaultConfig';
+import { loadConfig, loadLastReplay, saveConfig, saveLastReplay } from '../config/defaultConfig';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
 import { GameEngine } from '../engine/gameEngine';
@@ -19,10 +17,9 @@ type SetState<T> = React.Dispatch<React.SetStateAction<T>>;
 
 export interface GameCtx {
   config: GameConfig; updateConfig: (c: GameConfig) => void;
-  customPresidents: PresidentData[]; roster: PresidentData[];
+  roster: PresidentData[];
   lastReplay: MatchReplayData | null;
   screen: Screen; setScreen: SetState<Screen>;
-  customizerReturn: 'TITLE' | 'SELECT'; customizerBase: PresidentData | undefined;
   campaignSelection: boolean; setCampaignSelection: SetState<boolean>;
   mode: GameMode; sel: [number, number]; setSel: SetState<[number, number]>;
   stageSel: number; setStageSel: (n: number) => void;
@@ -39,9 +36,6 @@ export interface GameCtx {
   arenaBackdropRef: RefObject<HTMLDivElement | null>;
   appRef: RefObject<HTMLElement | null>;
   onlineActive: RefObject<boolean>;
-  openCustomizer: (from: 'TITLE' | 'SELECT', editTarget?: PresidentData) => void;
-  handleSaveCustom: (fighter: PresidentData) => void;
-  handleDeleteCustom: (id: string) => void;
   startCampaign: () => void;
   startVersus: () => void;
   startTraining: (guided?: boolean) => void;
@@ -68,12 +62,9 @@ export function useGame() {
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<GameConfig>(() => loadConfig());
-  const [customPresidents, setCustomPresidents] = useState<PresidentData[]>(() => loadCustomPresidents());
   const [lastReplay, setLastReplay] = useState<MatchReplayData | null>(() => loadLastReplay());
   const [screen, setScreen] = useState<GameScreenState>('TITLE');
-  const [customizerReturn, setCustomizerReturn] = useState<'TITLE' | 'SELECT'>('TITLE');
   const [replayReturn, setReplayReturn] = useState<'TITLE' | 'SELECT' | 'GAME_OVER' | 'CENSURE' | 'CHAMPION'>('GAME_OVER');
-  const [customizerBase, setCustomizerBase] = useState<PresidentData | undefined>(undefined);
   const [campaignSelection, setCampaignSelection] = useState(false);
   const [mode, setMode] = useState<GameMode>('versus');
   const [sel, setSel] = useState<[number, number]>(() => {
@@ -97,7 +88,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const routeSync = useRef(false);
 
-  const roster = useMemo(() => [...PRESIDENTS_DATA, ...customPresidents], [customPresidents]);
+  const roster = PRESIDENTS_DATA;
 
   const arenaBackdropRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -117,7 +108,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const screenToPath = useCallback((s: GameScreenState) => {
     if (s === 'TITLE') return '/';
     if (s === 'SELECT') return '/select';
-    if (s === 'CUSTOMIZE') return '/customize';
     if (s === 'REPLAY') return '/replay';
     if (s === 'GAME_OVER') return '/result/defeat';
     if (s === 'CENSURE') return '/result/censure';
@@ -151,7 +141,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return;
     }
     const pathToScreen: Record<string, GameScreenState> = {
-      '/': 'TITLE', '/select': 'SELECT', '/customize': 'CUSTOMIZE', '/replay': 'REPLAY',
+      '/': 'TITLE', '/select': 'SELECT', '/replay': 'REPLAY',
     };
     if (p === '/play') {
       const cur = screenRef.current;
@@ -211,35 +201,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const updateConfig = useCallback((next: GameConfig) => {
     setConfig(next); saveConfig(next); engineRef.current?.updateConfig(next);
-  }, []);
-
-  const openCustomizer = useCallback((from: 'TITLE' | 'SELECT', editTarget?: PresidentData) => {
-    setCustomizerReturn(from); setCustomizerBase(editTarget); setScreen('CUSTOMIZE');
-  }, []);
-
-  const handleSaveCustom = useCallback((fighter: PresidentData) => {
-    setCustomPresidents((prev) => {
-      const idx = prev.findIndex((p) => p.id === fighter.id);
-      const next = idx >= 0 ? prev.map((p, i) => (i === idx ? fighter : p)) : [...prev, fighter];
-      saveCustomPresidents(next);
-      const nextRoster = [...PRESIDENTS_DATA, ...next];
-      engineRef.current?.setRoster(nextRoster);
-      const savedIdx = nextRoster.findIndex((p) => p.id === fighter.id);
-      if (savedIdx >= 0) setSel((cur) => [savedIdx, cur[1] < nextRoster.length ? cur[1] : 0]);
-      return next;
-    });
-    setScreen('SELECT');
-  }, []);
-
-  const handleDeleteCustom = useCallback((id: string) => {
-    setCustomPresidents((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      saveCustomPresidents(next);
-      const maxIdx = PRESIDENTS_DATA.length + next.length - 1;
-      setSel((cur) => [Math.min(cur[0], maxIdx), Math.min(cur[1], maxIdx)]);
-      return next;
-    });
-    setScreen('SELECT');
   }, []);
 
   const touchAt = useRef<number | null>(null);
@@ -469,13 +430,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useMenuGamepad(appRef, screen, configOpen, togglePause);
 
   const value: GameCtx = {
-    config, updateConfig, customPresidents, roster, lastReplay, screen, setScreen,
-    customizerReturn, customizerBase, campaignSelection, setCampaignSelection,
+    config, updateConfig, roster, lastReplay, screen, setScreen,
+    campaignSelection, setCampaignSelection,
     mode, sel, setSel, stageSel, setStageSel, vsAI, setVsAI, configOpen, setConfigOpen,
     hud, campaign, summary, replayPaused, setReplayPaused, replaySpeed, setReplaySpeed,
     replayEnded, replayFrame, netOpenSignal, setNetOpenSignal, loadingArt, lesson,
     engineRef, canvasRef, arenaBackdropRef, appRef, onlineActive,
-    openCustomizer, handleSaveCustom, handleDeleteCustom,
     startCampaign, startVersus, startTraining, togglePause,
     startReplay, restartReplay, exitReplay, downloadReplayJson,
     handleToggleMute, handleTouchAction, onContinueCampaign, onRestartMatch, onExitToSelect, onSwitchStageLive, crtClass,

@@ -82,7 +82,6 @@ export const ACTION_LABELS: Record<PlayerAction, string> = {
 };
 
 const STORAGE_KEY = 'presidential_brawl_apex_config_v2';
-const CUSTOM_ROSTER_KEY = 'presidential_brawl_custom_fighters_v1';
 const LAST_REPLAY_KEY = 'presidential_brawl_last_replay_v1';
 
 export function loadConfig(): GameConfig {
@@ -109,25 +108,6 @@ export function loadConfig(): GameConfig {
 export function saveConfig(cfg: GameConfig): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
-  } catch {
-    // ignore storage quota errors
-  }
-}
-
-export function loadCustomPresidents(): PresidentData[] {
-  try {
-    const raw = localStorage.getItem(CUSTOM_ROSTER_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveCustomPresidents(list: PresidentData[]): void {
-  try {
-    localStorage.setItem(CUSTOM_ROSTER_KEY, JSON.stringify(list));
   } catch {
     // ignore storage quota errors
   }

@@ -114,7 +114,6 @@ export class MultiplayerClient {
       type: 'create_room',
       playerName: opts.playerName,
       fighterId: opts.fighter.id,
-      customFighter: opts.fighter.isCustom ? opts.fighter : undefined,
       stageIdx: opts.stageIdx,
       stocks: opts.stocks,
     });
@@ -131,7 +130,6 @@ export class MultiplayerClient {
       roomCode: opts.roomCode.trim().toUpperCase(),
       playerName: opts.playerName,
       fighterId: opts.fighter.id,
-      customFighter: opts.fighter.isCustom ? opts.fighter : undefined,
     });
   }
 
@@ -146,7 +144,6 @@ export class MultiplayerClient {
       type: 'update_lobby',
       playerName: opts.playerName,
       fighterId: opts.fighter?.id,
-      customFighter: opts.fighter?.isCustom ? opts.fighter : undefined,
       stageIdx: opts.stageIdx,
       stocks: opts.stocks,
       ready: opts.ready,

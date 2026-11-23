@@ -19,7 +19,7 @@ export function VictoryShowcase({ fighter }: { fighter: PresidentData }) {
     let disposed = false;
     let celebration: HTMLImageElement | undefined;
     const path = fighterArtPath(fighter);
-    if (path && customCelebrations.has(fighter.isCustom ? fighter.spriteSourceId ?? '' : fighter.id)) {
+    if (path && customCelebrations.has(fighter.id)) {
       const image = new Image();
       image.src = fighterAsset(path, 'victory.webp');
       void image.decode().then(() => {
@@ -98,9 +98,6 @@ export function VictoryShowcase({ fighter }: { fighter: PresidentData }) {
     return () => { disposed = true; cancelAnimationFrame(frame); };
   }, [fighter]);
 
-  if (fighter.isCustom && !fighter.spriteSourceId) {
-    return <PortraitCanvas president={fighter} className="mx-auto h-24 w-24" animate />;
-  }
   return <canvas ref={ref} width={360} height={132} className="victory-showcase"
     aria-label={`Celebración de ${fighter.name}`} />;
 }

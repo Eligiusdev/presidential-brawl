@@ -146,7 +146,7 @@ function withTempo(spec: UltimateSpec, profile: Profile, fighterId: string): Pro
 
 export function ultimateFor(data: PresidentData, sweeping = true, paced = true) {
   const candidate = PRESIDENT_ULTIMATES[data.id];
-  const spec = !data.isCustom && candidate && (!data.ultimateId || candidate.id === data.ultimateId) ? candidate : undefined;
+  const spec = candidate && (!data.ultimateId || candidate.id === data.ultimateId) ? candidate : undefined;
   const profile = profiles[data.id];
   if (!spec || !profile) return undefined;
   const redesign = sweeping ? sweepingUltimates[data.id] : undefined;

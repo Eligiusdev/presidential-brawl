@@ -11,7 +11,6 @@ export function TitlePage() {
       onStartTutorial={() => g.startTraining(true)}
       onStartTraining={() => g.startTraining()}
       onWatchLastReplay={() => g.startReplay('TITLE')}
-      onOpenCustomizer={() => g.openCustomizer('TITLE')}
       onOpenConfig={() => g.setConfigOpen(true)}
       onOpenOnline={() => g.setNetOpenSignal(n => n + 1)}
     />

@@ -230,7 +230,7 @@ class FighterSim implements RenderFighterState {
 
   constructor(pi: number, d: PresidentData, isAI: boolean, matchCfg: GameConfig['match'], competitive = true) {
     this.moves = movesFor(d, false, false, competitive);
-    this.balance = competitive && !d.isCustom ? combatBalance(d.id) : undefined;
+    this.balance = competitive ? combatBalance(d.id) : undefined;
     this.pi = pi;
     this.d = d;
     this.S = { ...d.stats };

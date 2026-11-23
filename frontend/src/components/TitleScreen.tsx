@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Crown, Crosshair, Film, Globe, Settings, Swords, UserPlus } from 'lucide-react';
+import { Crown, Crosshair, Film, Globe, Settings, Swords } from 'lucide-react';
 import { stageArtUrl } from '../engine/stageAtmosphere';
 import { sound } from '../audio/soundEngine';
 
@@ -10,7 +10,6 @@ interface TitleScreenProps {
   onStartTutorial: () => void;
   onStartTraining: () => void;
   onWatchLastReplay: () => void;
-  onOpenCustomizer: () => void;
   onOpenConfig: () => void;
   onOpenOnline: () => void;
 }
@@ -31,7 +30,6 @@ export function TitleScreen({
   onStartTraining,
   onStartTutorial,
   onWatchLastReplay,
-  onOpenCustomizer,
   onOpenConfig,
   onOpenOnline,
 }: TitleScreenProps) {
@@ -45,14 +43,13 @@ export function TitleScreen({
       { id: 'online', label: 'Multijugador en línea', sub: 'Salas y duelos online', icon: Globe, action: onOpenOnline },
       { id: 'tutorial', label: 'Tutorial', sub: 'Aprende a moverte y atacar', icon: Crosshair, action: onStartTutorial },
       { id: 'training', label: 'Entrenamiento', sub: 'Practica tus movimientos', icon: Crosshair, action: onStartTraining },
-      { id: 'custom', label: 'Personalizar luchador', sub: 'Crea y edita combatientes', icon: UserPlus, action: onOpenCustomizer },
     ];
     if (hasReplay) {
       list.push({ id: 'replay', label: 'Ver repetición', sub: 'Último combate guardado', icon: Film, action: onWatchLastReplay });
     }
     list.push({ id: 'config', label: 'Configuración', sub: 'Controles, video y audio', icon: Settings, action: onOpenConfig });
     return list;
-  }, [hasReplay, onQuickSelect, onStartCampaign, onOpenOnline, onStartTutorial, onStartTraining, onOpenCustomizer, onWatchLastReplay, onOpenConfig]);
+  }, [hasReplay, onQuickSelect, onStartCampaign, onOpenOnline, onStartTutorial, onStartTraining, onWatchLastReplay, onOpenConfig]);
 
   useEffect(() => {
     btnRefs.current[0]?.focus();

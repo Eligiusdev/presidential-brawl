@@ -640,7 +640,7 @@ export function GameHUD({
                     <p className="text-[#cbd5e1]">
                       {moves && <><strong className="text-white">Ligero</strong> · {moves.neutralAttack().name}<br /></>}
                       <strong className="text-white">{moves?.specialNeutral().name ?? d.sigName}</strong>
-                      {d.isCustom ? ' · '+d.ult.sigDesc : ' · ↑ '+moves?.specialUp().name+' · ↓ '+moves?.specialDown().name}
+                      {' · ↑ '+(moves?.specialUp().name ?? '')+' · ↓ '+(moves?.specialDown().name ?? '')}
                     </p>
                     <p className="text-[#cbd5e1]">
                       <strong className="text-white">Ultimate ({ultimate.name}):</strong> {ultimate.ultDesc}

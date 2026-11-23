@@ -217,7 +217,6 @@ function withNames(book, names, data, balanced) {
 }
 
 export function movesFor(data, legacySignatures = false, legacyNames = legacySignatures, balanced = !legacyNames) {
-  if (data.isCustom) return null; // El editor mantiene sus ataques configurados.
   const names = legacyNames ? undefined : MOVE_NAMES[data.id];
   if (featured[data.id]) return withNames(featured[data.id], names, data, balanced);
   const phrases = repertoire[data.id];

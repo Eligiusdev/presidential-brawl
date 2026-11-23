@@ -1,7 +1,7 @@
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { ultimateText } from '../engine/presidentUltimates';
-import {movesFor} from '../combat/roster.js';
-import { ArrowLeft, Crown, Film, Pencil, Play, Search, Settings, Shield, Shuffle, Trash2, UserPlus, Users } from 'lucide-react';
+import { movesFor } from '../combat/roster.js';
+import { ArrowLeft, Crown, Film, Play, Search, Settings, Shield, Shuffle, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { sound } from '../audio/soundEngine';
 import { stageArtUrl } from '../engine/stageAtmosphere';
@@ -27,8 +27,6 @@ export function matchesSearch(fighter: PresidentData, query: string) {
 export function matchesFilter(fighter: PresidentData, filter: RegionFilter) {
   if (filter === 'new') return NEW_FIGHTERS.has(fighter.id);
   if (filter === 'all') return true;
-  if (filter === 'custom') return Boolean(fighter.isCustom);
-  if (fighter.isCustom) return false;
   if (filter === 'current' || filter === 'former' || filter === 'mythic') return fighter.rosterGroup === filter;
   return fighter.rosterGroup !== 'mythic' && fighter.region === filter;
 }
@@ -43,7 +41,6 @@ export const REGION_TABS: Array<{ id: RegionFilter; label: string }> = [
   { id: 'na', label: 'Norteamérica' },
   { id: 'eu', label: 'Europa' },
   { id: 'af_as', label: 'África y Asia' },
-  { id: 'custom', label: 'Propios' },
 ];
 
 export function useRosterDisplay() {
@@ -84,8 +81,6 @@ interface CharacterSelectProps {
   onStartCampaign: () => void;
   onStartTraining: () => void;
   onWatchLastReplay: () => void;
-  onOpenCustomizer: (editTarget?: PresidentData) => void;
-  onDeleteCustom: (id: string) => void;
   onOpenConfig: () => void;
   onBack: () => void;
 }
@@ -107,8 +102,6 @@ export function CharacterSelect({
   onStartCampaign,
   onStartTraining,
   onWatchLastReplay,
-  onOpenCustomizer,
-  onDeleteCustom,
   onOpenConfig,
   onBack,
 }: CharacterSelectProps) {
@@ -176,16 +169,6 @@ export function CharacterSelect({
           <button
             onClick={() => {
               sound.uiClick();
-              onOpenCustomizer();
-            }}
-            className="flex h-10 items-center gap-2 rounded-lg border border-[#38bdf8]/50 bg-[#102033] px-3.5 text-xs font-bold text-[#7dd3fc] hover:border-[#38bdf8] hover:text-white whitespace-nowrap shrink-0"
-          >
-            <UserPlus className="h-4 w-4 text-[#38bdf8]" />
-            Crear Luchador
-          </button>
-          <button
-            onClick={() => {
-              sound.uiClick();
               if (!remoteOpponent) onToggleVsAI();
             }}
             className="flex h-10 items-center gap-2 rounded-lg border border-[#2f3b57] bg-[#161e31] px-3.5 text-xs font-bold text-white hover:border-[#ffcc33] whitespace-nowrap shrink-0"
@@ -215,10 +198,6 @@ export function CharacterSelect({
             <h3>{activeFighter.name}</h3>
             <p>{activeFighter.title} · {activeFighter.role}</p>
             <div className="fighter-showcase-ultimate"><Crown size={15} aria-hidden="true" />{ultimateText(activeFighter).name}</div>
-            <button type="button" className="selector-mobile-customize"
-              onClick={() => onOpenCustomizer(activeFighter)}>
-              <Pencil size={14} /> Personalizar
-            </button>
           </div>
         </section>
       )}
@@ -235,10 +214,6 @@ export function CharacterSelect({
             onFocus={() => {
               sound.uiClick();
               setActiveSlot(0);
-            }}
-            onCustomize={() => {
-              sound.uiClick();
-              onOpenCustomizer(p1);
             }}
           />
         </div>
@@ -343,41 +318,12 @@ export function CharacterSelect({
                           : 'border-[#25304d] bg-[#11182c] hover:border-[#4b5f94]'
                   }`}
                 >
-                  {d.isCustom && (
-                    <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
-                      <button
-                        type="button"
-                        title="Editar luchador"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          sound.uiClick();
-                          onOpenCustomizer(d);
-                        }}
-                        className="rounded border border-[#2c3752] bg-[#0e1422] p-1 text-[#7dd3fc] hover:border-[#38bdf8] hover:text-white"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Eliminar luchador"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          sound.uiClick();
-                          onDeleteCustom(d.id);
-                        }}
-                        className="rounded border border-[#451d24] bg-[#1f0e13] p-1 text-[#fca5a5] hover:border-[#ef4444] hover:text-white"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-
                   <div className="mb-2 overflow-hidden rounded border border-[#2a344d]">
                     <FighterPreview president={d} selected={isP1 || isP2} />
                   </div>
                   <div className="font-display text-xs font-bold text-white leading-tight truncate w-full">{d.name}</div>
                   <div className="mt-0.5 text-[10px] text-[#94a3b8] truncate w-full">
-                    {d.isCustom ? 'Personalizado' : d.role}
+                    {d.role}
                   </div>
                   {(isP1 || isP2) && (
                     <div className="mt-1 font-mono-num text-[10px] font-bold">
@@ -389,20 +335,6 @@ export function CharacterSelect({
                 </div>
               );
             })}
-
-            {/* Add Custom Fighter Tile */}
-            <button
-              type="button"
-              onClick={() => {
-                sound.uiClick();
-                onOpenCustomizer();
-              }}
-              className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#38bdf8]/45 bg-[#0e1726] p-2.5 text-center text-[#7dd3fc] transition-colors hover:border-[#38bdf8] hover:bg-[#132238] hover:text-white min-h-[116px]"
-            >
-              <UserPlus className="mb-1.5 h-6 w-6" />
-              <span className="font-display text-xs font-bold uppercase">Nuevo</span>
-              <span className="mt-0.5 text-[10px] text-[#94a3b8]">Personalizar</span>
-            </button>
           </SelectionRail>
 
           {/* Stage Selector (12 Presidential Palaces) */}
@@ -467,10 +399,6 @@ export function CharacterSelect({
               sound.uiClick();
               if (!remoteOpponent) setActiveSlot(1);
             }}
-            onCustomize={() => {
-              sound.uiClick();
-              onOpenCustomizer(p2);
-            }}
           />
         </div>}
       </div>
@@ -523,7 +451,6 @@ export function FighterPreviewCard({
   president,
   isActive,
   onFocus,
-  onCustomize,
   readonly = false,
 }: {
   slot: 0 | 1 | 'online';
@@ -531,7 +458,6 @@ export function FighterPreviewCard({
   president: PresidentData;
   isActive: boolean;
   onFocus: () => void;
-  onCustomize: () => void;
   readonly?: boolean;
 }) {
   const accentCol = slot === 0 ? '#ffcc33' : '#38bdf8';
@@ -607,17 +533,6 @@ export function FighterPreviewCard({
           <div className="font-semibold text-[#38bdf8]">Ultimate: {ultimate.name}</div>
           <div className="text-[11px] text-[#94a3b8] leading-snug">{ultimate.ultDesc}</div>
         </div>
-        {!readonly && <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCustomize();
-          }}
-          className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#2a344d] bg-[#161e31] py-1.5 text-[11px] font-semibold text-[#7dd3fc] hover:border-[#38bdf8] hover:text-white"
-        >
-          <Pencil className="h-3 w-3" />
-          {president.isCustom ? 'Editar Luchador' : 'Clonar y Personalizar'}
-        </button>}
       </div>
     </div>
   );

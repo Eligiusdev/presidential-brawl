@@ -1,7 +1,6 @@
 export type GameScreenState =
   | 'TITLE'
   | 'SELECT'
-  | 'CUSTOMIZE'
   | 'VS'
   | 'PLAYING'
   | 'PAUSED'
@@ -179,12 +178,10 @@ export interface SignatureSpec {
   sp: ProjectileSpawnSpec[];
 }
 
-export type PresidentRegion = 'na' | 'latam' | 'eu' | 'af_as' | 'custom';
+export type PresidentRegion = 'na' | 'latam' | 'eu' | 'af_as';
 
 export interface PresidentData {
   id: string;
-  isCustom?: boolean;
-  spriteSourceId?: string;
   rosterGroup?: 'mythic' | 'current' | 'former';
   termStart?: number;
   ultimateId?: string;
