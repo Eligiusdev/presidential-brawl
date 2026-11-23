@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { CharacterSelect } from '../components/CharacterSelect';
 import { CampaignCharacterSelect } from '../components/CampaignCharacterSelect';
+import { VersusCharacterSelect } from '../components/VersusCharacterSelect';
 import { useGame } from '../game/GameContext';
 
 export function SelectPage() {
@@ -39,22 +39,16 @@ export function SelectPage() {
   }
 
   return (
-    <CharacterSelect
-      campaignSelection={g.campaignSelection}
+    <VersusCharacterSelect
       roster={g.roster}
       sel={g.sel}
       stageSel={g.stageSel}
       vsAI={g.vsAI}
       config={g.config}
-      hasReplay={Boolean(g.lastReplay)}
       onChangeSel={g.setSel}
       onChangeStage={g.setStageSel}
       onToggleVsAI={() => g.setVsAI(v => !v)}
-      onStartVersus={g.startVersus}
-      onStartCampaign={g.startCampaign}
-      onStartTraining={g.startTraining}
-      onWatchLastReplay={() => g.startReplay('SELECT')}
-      onOpenConfig={() => g.setConfigOpen(true)}
+      onStart={g.startVersus}
       onBack={onBack}
     />
   );
