@@ -57,7 +57,7 @@ export function GalleryPage() {
               <div className="ob-bg-stage" style={{ backgroundImage: `url("${stageArt}")` }} />
               <div className="ob-bg-color" style={{ background: `radial-gradient(120% 90% at 78% 30%, color-mix(in srgb, ${info.palette.accent.base} 24%, transparent), transparent 58%), linear-gradient(90deg, rgba(8,13,24,.18) 0%, rgba(8,13,24,.04) 45%, rgba(8,13,24,.22) 100%)` }} />
             </div>
-            <div className="ob-hero-art">
+            <div className="ob-hero-art" style={{ paddingTop: 24 }}>
               <div className="ob-hero-fighter me solo">
                 <FighterPreview president={info} selected large />
               </div>
@@ -69,7 +69,7 @@ export function GalleryPage() {
               </div>
               <div className="ob-hero-name">
                 <h3>{info.name}</h3>
-                <p>{info.title}</p>
+                <p>{info.title} · {info.role}</p>
               </div>
               <div className="ob-quote">«{info.taunt}»</div>
               <div className="ob-info-grid">
@@ -83,6 +83,14 @@ export function GalleryPage() {
                 <div className="ob-moves">
                   {moveRows.map(([k, v]) => <div key={k} className="ob-move"><span className="ob-move-key">{k}</span><span className="ob-move-name">{v}</span></div>)}
                   <div className="ob-move ult"><span className="ob-move-key">Ultimate</span><span className="ob-move-name">{ultimate.name}</span></div>
+                  <div className="ob-move" style={{ gridColumn: '1 / -1' }}>
+                    <span className="ob-move-key">Descripción</span>
+                    <span className="ob-move-name" style={{ whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }}>{ultimate.ultDesc}</span>
+                  </div>
+                  <div className="ob-move" style={{ gridColumn: '1 / -1' }}>
+                    <span className="ob-move-key">Cómo esquivarlo</span>
+                    <span className="ob-move-name" style={{ whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', color: '#93c5fd' }}>{ultimate.dodgeTip}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -102,6 +110,7 @@ export function GalleryPage() {
               })}
             </div>
           </div>
+          {!filteredRoster.length && <p role="status" style={{ padding: 12, color: '#9ab2d1', fontSize: 12 }}>No se encontraron luchadores.</p>}
           <div className="ob-grid" aria-label="Personajes">
             {filteredRoster.map(d => {
               const realIdx = roster.indexOf(d);
