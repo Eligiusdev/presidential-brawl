@@ -126,9 +126,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return null;
   }, []);
 
-  const mountedRef = useRef(false);
+  const prevScreenRef = useRef<GameScreenState>(screen);
   useEffect(() => {
-    if (!mountedRef.current) { mountedRef.current = true; return; }
+    if (prevScreenRef.current === screen) return;
+    prevScreenRef.current = screen;
     const p = screenToPath(screen);
     if (!p) return;
     if (location.pathname !== p && !location.pathname.startsWith('/room')) { routeSync.current = true; navigate(p, { replace: false }); }
