@@ -98,19 +98,30 @@ export function ConfigPage() {
           <div className="ob-character-card" style={{ padding: 24, display: 'block' }}>
             {tab === 'video' && <div className="space-y-6">
               <SectionTitle>Pixelación y video</SectionTitle>
-              <label className="block text-sm font-semibold text-[#cbd5e1]">Iluminación del escenario
-                <select value={config.video.stageTime ?? 'cycle'} onChange={e => updateVideo('stageTime', e.target.value as GameConfig['video']['stageTime'])}
-                  className="mt-2 block w-full rounded-lg border border-[#283652] bg-[#121a2b] px-3 py-2 text-white">
-                  <option value="cycle">Inicio al azar · cambio cada 2 minutos</option>
-                  <option value="day">Siempre de día</option><option value="night">Siempre de noche</option>
-                </select>
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[#cbd5e1]"><input type="checkbox" checked={config.video.adaptiveQuality !== false} onChange={e => updateVideo('adaptiveQuality', e.target.checked)} />Calidad gráfica adaptativa</label>
-              <label className="block text-sm text-[#cbd5e1]">Densidad máxima en línea
-                <select className="ml-2 rounded bg-[#121a2b] p-1 text-white" value={config.video.maxDpr ?? 1.5} onChange={e => updateVideo('maxDpr', Number(e.target.value) as 1 | 1.5 | 2)}>
-                  <option value="1">1×</option><option value="1.5">1,5×</option><option value="2">2×</option>
-                </select>
-              </label>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-semibold text-[#cbd5e1]">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#cbd5e1]">Iluminación del escenario</span>
+                  <div className="relative">
+                    <select value={config.video.stageTime ?? 'cycle'} onChange={e => updateVideo('stageTime', e.target.value as GameConfig['video']['stageTime'])}
+                      className="w-full appearance-none rounded-lg border border-[#2f3f5f] bg-[#141d31] px-3 py-2.5 pr-10 text-sm text-white outline-none transition-colors hover:border-[#4b648f] focus:border-[#ffcc33]">
+                      <option value="cycle">Inicio al azar · cambio cada 2 minutos</option>
+                      <option value="day">Siempre de día</option><option value="night">Siempre de noche</option>
+                    </select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#94a3b8]">▾</span>
+                  </div>
+                </label>
+                <label className="block text-sm font-semibold text-[#cbd5e1]">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#cbd5e1]">Densidad máxima en línea</span>
+                  <div className="relative">
+                    <select className="w-full appearance-none rounded-lg border border-[#2f3f5f] bg-[#141d31] px-3 py-2.5 pr-10 text-sm text-white outline-none transition-colors hover:border-[#4b648f] focus:border-[#ffcc33]"
+                      value={config.video.maxDpr ?? 1.5} onChange={e => updateVideo('maxDpr', Number(e.target.value) as 1 | 1.5 | 2)}>
+                      <option value="1">1×</option><option value="1.5">1,5×</option><option value="2">2×</option>
+                    </select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#94a3b8]">▾</span>
+                  </div>
+                </label>
+              </div>
+              <ToggleRow label="Calidad gráfica adaptativa" desc="Ajusta la resolución automáticamente para mantener fluidez" checked={config.video.adaptiveQuality !== false} onChange={v => updateVideo('adaptiveQuality', v)} />
               <div>
                 <h3 className="font-display text-sm font-bold uppercase tracking-wider text-[#cbd5e1] mb-3">Resolución nativa del búfer pixelado</h3>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -179,7 +190,7 @@ export function ConfigPage() {
                   <div><div className="text-sm font-bold text-white">Controles táctiles en pantalla</div><div className="text-xs text-[#94a3b8]">Joystick virtual + botones de acción para móvil</div></div>
                   <div className="flex gap-2">{(['auto','on','off'] as TouchMode[]).map(tm => <button key={tm} onClick={() => updateControls('touchMode', tm)} className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase ${config.controls.touchMode===tm ? 'border-[#ffcc33] bg-[#ffcc33] text-[#0b0e17]' : 'border-[#2a344d] bg-[#101522] text-[#94a3b8]'}`}>{tm==='auto'?'Auto':tm==='on'?'Siempre ON':'OFF'}</button>)}</div>
                 </div>
-                <SliderField label="Tamaño de botones táctiles (global)" value={config.controls.touchScale ?? 1} min={0.8} max={1.6} step={0.05} format={v=>`${Math.round(v*100)}%`} onChange={v=>updateControls('touchScale', v)} />
+                <SliderField label="Tamaño de botones táctiles (global)" value={config.controls.touchScale ?? 1} min={0.5} max={4} step={0.05} format={v=>`${Math.round(v*100)}%`} onChange={v=>updateControls('touchScale', v)} />
                 <div className="rounded-lg border border-[#2a3a55] bg-[#0d1524] p-4 flex items-center justify-between gap-4 flex-wrap">
                   <div>
                     <div className="text-sm font-semibold text-white">Editor de diseño táctil</div>
@@ -500,7 +511,7 @@ function TouchLayoutEditor({ scale, layout, joystick, onChange, onJoystickChange
               <span className="text-[10px] text-[#94a3b8] font-semibold">Joystick</span>
             </div>
 
-            <div ref={buttonsRef} className="absolute right-0 bottom-0" style={{ width: 'min(58vw, 420px)', height: 'min(52vw, 320px)' }}>
+            <div className="absolute inset-0 pointer-events-none">
               {items.map(({ k, label, icon: Icon }) => {
                 const p = merged[k];
                 const base = k === 'jump' ? 1.12 : k === 'reload' ? 0.88 : 1;
@@ -509,7 +520,7 @@ function TouchLayoutEditor({ scale, layout, joystick, onChange, onJoystickChange
                 return (
                   <button key={k} type="button" aria-label={label}
                     onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); drag.current = { key: k, id: e.pointerId }; setSelected(k); }}
-                    className={`absolute flex items-center justify-center rounded-full border-2 text-white select-none ${isSel ? 'border-[#ffcc33] bg-[#355a8fe8]' : 'border-[#9bb8d4b0] bg-[#1a2f4fe0]'}`}
+                    className={`absolute pointer-events-auto flex items-center justify-center rounded-full border-2 text-white select-none ${isSel ? 'border-[#ffcc33] bg-[#355a8fe8]' : 'border-[#9bb8d4b0] bg-[#1a2f4fe0]'}`}
                     style={{ width: size, height: size, left: `${p.x}%`, top: `${100-p.y}%`, transform: 'translate(-50%,-50%)', boxShadow: isSel ? '0 0 0 3px #ffcc3344, 0 8px 18px #000a' : '0 8px 18px #000a' }}>
                     <Icon size={Math.max(18, Math.round(size * 0.36))} strokeWidth={2.4} />
                   </button>
@@ -527,9 +538,9 @@ function TouchLayoutEditor({ scale, layout, joystick, onChange, onJoystickChange
               <div className="font-bold">{selectedDef.label}</div>
             </div>
           </div>
-          <SliderField label={`Tamaño de ${selectedDef.label}`} value={selectedScale} min={0.6} max={1.8} step={0.05} format={v=>`${Math.round(v*100)}%`}
+          <SliderField label={`Tamaño de ${selectedDef.label}`} value={selectedScale} min={0.5} max={4} step={0.05} format={v=>`${Math.round(v*100)}%`}
             onChange={v => selectedIsJoy ? onJoystickChange({ ...joy, scale: v }) : onChange({ ...merged, [selected as TouchBtnKey]: { ...merged[selected as TouchBtnKey], scale: v } })} />
-          <SliderField label="Tamaño global táctil" value={scale} min={0.8} max={1.6} step={0.05} format={v=>`${Math.round(v*100)}%`} onChange={onScaleChange} />
+          <SliderField label="Tamaño global táctil" value={scale} min={0.5} max={4} step={0.05} format={v=>`${Math.round(v*100)}%`} onChange={onScaleChange} />
           <div>
             <div className="text-xs font-semibold uppercase tracking-wider text-[#94a3b8] mb-2">Todos los controles</div>
             <div className="grid grid-cols-2 gap-2">
