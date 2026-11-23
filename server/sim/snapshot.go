@@ -16,7 +16,7 @@ func (m *OnlineMatch) Snapshot() any {
 			"combo": f.Combo, "jabStep": 0, "floating": false, "fastFall": f.FastFall,
 			"winning": f.Winning, "winT": f.WinT, "moveKind": f.MoveKind, "pickupT": 0,
 			"wpn": "", "wk": false, "ammo": f.Ammo, "maxAmmo": f.MaxAmmo, "reloadT": f.ReloadT, "reloadDur": f.ReloadDur,
-			"shootRecoil": 0, "landT": 0, "crouch": f.Crouch, "boss": false, "hitFlash": f.HitFlash,
+			"shootRecoil": 0, "landT": 0, "crouch": f.Crouch, "boss": false, "hitFlash": f.HitFlash > 0,
 			"squashX": 1.0, "squashY": 1.0, "atk": nil, "field": nil, "rage": 0.0,
 		})
 	}
