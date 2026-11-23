@@ -24,7 +24,7 @@ export interface GameCtx {
   mode: GameMode; sel: [number, number]; setSel: SetState<[number, number]>;
   stageSel: number; setStageSel: (n: number) => void;
   vsAI: boolean; setVsAI: SetState<boolean>;
-  configOpen: boolean; setConfigOpen: SetState<boolean>;
+  configOpen: boolean; setConfigOpen: (open: boolean) => void;
   hud: HudSnapshot | null; campaign: CampaignState | null; summary: MatchSummary | null;
   replayPaused: boolean; setReplayPaused: SetState<boolean>;
   replaySpeed: 0.5 | 1 | 2; setReplaySpeed: SetState<0.5 | 1 | 2>;
@@ -75,7 +75,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const onlineActive = useRef(false);
   const [stageSel, setStageSelState] = useState<number>(0);
   const [vsAI, setVsAI] = useState<boolean>(true);
-  const [configOpen, setConfigOpen] = useState<boolean>(false);
   const [hud, setHud] = useState<HudSnapshot | null>(null);
   const [campaign, setCampaign] = useState<CampaignState | null>(null);
   const [summary, setSummary] = useState<MatchSummary | null>(null);
@@ -86,7 +85,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [netOpenSignal, setNetOpenSignal] = useState<number>(0);
   const navigate = useNavigate();
   const location = useLocation();
-  const routeSync = useRef(false);
+  const locationRef = useRef(location);
+  locationRef.current = location;
+  const lastRoomSignal = useRef('');
+  const normPath = (p: string) => (p.replace(/\/+$/, '') || '/');
+  const configReturnPath = useRef('/');
+  const configOpen = normPath(location.pathname) === '/config';
+  const setConfigOpen = useCallback((open: boolean) => {
+    const cur = `${normPath(locationRef.current.pathname)}${locationRef.current.search}`;
+    if (open) {
+      if (normPath(locationRef.current.pathname) !== '/config') configReturnPath.current = cur || '/';
+      navigate('/config');
+    } else {
+      navigate(configReturnPath.current || '/', { replace: true });
+    }
+  }, [navigate]);
 
   const roster = PRESIDENTS_DATA;
 
@@ -105,99 +118,177 @@ export function GameProvider({ children }: { children: ReactNode }) {
   replayPausedRef.current = replayPaused;
   replaySpeedRef.current = replaySpeed;
 
-  const screenToPath = useCallback((s: GameScreenState) => {
-    if (s === 'TITLE') return '/';
-    if (s === 'SELECT') return '/select';
-    if (s === 'REPLAY') return '/replay';
-    if (s === 'GAME_OVER') return '/result/defeat';
-    if (s === 'CENSURE') return '/result/censure';
-    if (s === 'CHAMPION') return '/result/champion';
-    if (s === 'PLAYING' || s === 'PAUSED' || s === 'VS') return '/play';
-    return null;
-  }, []);
+  const expectedUrl = useRef('');
+  const prevScreenForUrl = useRef<GameScreenState>(screen);
 
-  const prevScreenRef = useRef<GameScreenState>(screen);
-  useEffect(() => {
-    if (prevScreenRef.current === screen) return;
-    prevScreenRef.current = screen;
-    const p = screenToPath(screen);
-    if (!p) return;
-    const menuPaths = ['/combat', '/visualizar'];
-    if (location.pathname !== p && !location.pathname.startsWith('/room') && !(p === '/' && menuPaths.includes(location.pathname.replace(/\/+$/, '')))) {
-      routeSync.current = true; navigate(p, { replace: false });
+  const screenToLocation = useCallback((s: GameScreenState, search: URLSearchParams) => {
+    if (s === 'SELECT') {
+      const params = new URLSearchParams();
+      params.set('stage', String(stageSel));
+      const p1 = roster[sel[0]]?.id; const p2 = roster[sel[1]]?.id;
+      if (p1) params.set('p1', p1);
+      if (p2) params.set('p2', p2);
+      params.set('ai', vsAI ? '1' : '0');
+      params.set('mode', campaignSelection ? 'campaign' : 'versus');
+      return { pathname: '/select', search: `?${params.toString()}` };
     }
-  }, [screen, screenToPath, navigate, location.pathname]);
+    if (s === 'REPLAY') return { pathname: '/replay', search: '' };
+    if (s === 'GAME_OVER') return { pathname: '/result', search: '?kind=defeat' };
+    if (s === 'CENSURE') return { pathname: '/result', search: '?kind=censure' };
+    if (s === 'CHAMPION') return { pathname: '/result', search: '?kind=champion' };
+    if (s === 'PLAYING' || s === 'PAUSED' || s === 'VS') return { pathname: '/play', search: '' };
+    const room = search.get('room');
+    const roomSearch = room ? `?room=${encodeURIComponent(room)}` : '';
+    return { pathname: '/', search: roomSearch };
+  }, [stageSel, sel, vsAI, campaignSelection, roster]);
 
+  // URL -> state: normalize legacy routes and sync screen/params from URL
   useEffect(() => {
-    if (routeSync.current) { routeSync.current = false; return; }
-    const p = (location.pathname.replace(/\/+$/, '') || '/');
-    if (p.startsWith('/room')) {
+    const rawPath = normPath(location.pathname);
+    const search = new URLSearchParams(location.search);
+
+    const roomPath = rawPath.match(/^\/room\/([A-Za-z0-9]+)$/);
+    if (roomPath) {
+      const code = roomPath[1].toUpperCase();
+      if (code !== lastRoomSignal.current) {
+        lastRoomSignal.current = code;
+        setNetOpenSignal(n => n + 1);
+      }
+      const next = `/?room=${encodeURIComponent(code)}`;
+      expectedUrl.current = next;
+      navigate(next, { replace: true });
+      return;
+    }
+
+    const resultPath = rawPath.match(/^\/result\/(defeat|censure|champion)$/);
+    if (resultPath) {
+      const next = `/result?kind=${resultPath[1]}`;
+      expectedUrl.current = next;
+      navigate(next, { replace: true });
+      return;
+    }
+
+    const url = `${rawPath}${location.search}`;
+    if (expectedUrl.current === url) { expectedUrl.current = ''; return; }
+
+    const roomCode = search.get('room');
+    if (roomCode && roomCode !== lastRoomSignal.current) {
+      lastRoomSignal.current = roomCode;
       setNetOpenSignal(n => n + 1);
-      if (screenRef.current !== 'TITLE' && screenRef.current !== 'SELECT') setScreen('TITLE');
+    } else if (!roomCode) {
+      lastRoomSignal.current = '';
+    }
+
+    if (rawPath === '/config') return;
+
+    if (rawPath === '/combat' || rawPath === '/gallery') {
+      const cur = screenRef.current;
+      if (cur !== 'TITLE') {
+        if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
+          engineRef.current?.clearAllInputs();
+          engineRef.current?.startAttractScene();
+        }
+        setScreen('TITLE');
+      }
       return;
     }
-    if (p === '/combat' || p === '/visualizar') {
-      if (screenRef.current !== 'TITLE') setScreen('TITLE');
-      return;
-    }
-    if (p.startsWith('/result/')) {
-      const kind = p.split('/')[2];
+
+    if (rawPath === '/result') {
+      const kind = search.get('kind');
       const map: Record<string, GameScreenState> = { defeat: 'GAME_OVER', censure: 'CENSURE', champion: 'CHAMPION' };
-      const next = map[kind];
-      if (next && next !== screenRef.current) setScreen(next);
+      const next = kind ? map[kind] : undefined;
+      if (next && next !== screenRef.current) {
+        const cur = screenRef.current;
+        if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
+          engineRef.current?.clearAllInputs();
+          engineRef.current?.startAttractScene();
+        }
+        setScreen(next);
+      }
       return;
     }
-    const pathToScreen: Record<string, GameScreenState> = {
-      '/': 'TITLE', '/select': 'SELECT', '/replay': 'REPLAY',
-    };
-    if (p === '/play') {
+
+    if (rawPath === '/play') {
       const cur = screenRef.current;
       if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') return;
-      // no active match - redirect to select
-      routeSync.current = true; navigate('/select', { replace: true });
+      expectedUrl.current = '/select';
+      navigate('/select', { replace: true });
       return;
     }
-    const next = pathToScreen[p];
-    if (!next || next === screenRef.current) return;
-    const cur = screenRef.current;
-    if ((cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') && next !== 'PLAYING') {
-      engineRef.current?.clearAllInputs();
-      engineRef.current?.startAttractScene();
-    }
-    setScreen(next);
-  }, [location.pathname, navigate]);
 
-  // Sync select params to URL
-  useEffect(() => {
-    if (screen !== 'SELECT') return;
-    const params = new URLSearchParams();
-    params.set('stage', String(stageSel));
-    const p1 = roster[sel[0]]?.id; const p2 = roster[sel[1]]?.id;
-    if (p1) params.set('p1', p1);
-    if (p2) params.set('p2', p2);
-    params.set('ai', vsAI ? '1' : '0');
-    params.set('mode', campaignSelection ? 'campaign' : 'versus');
-    const search = `?${params.toString()}`;
-    if (location.pathname.replace(/\/+$/, '') === '/select' && location.search !== search) {
-      routeSync.current = true;
-      navigate({ pathname: '/select', search }, { replace: true });
+    if (rawPath === '/select') {
+      const p1 = search.get('p1'); const p2 = search.get('p2');
+      const stage = search.get('stage'); const ai = search.get('ai'); const modeP = search.get('mode');
+      if (p1) { const i = roster.findIndex(r => r.id === p1); if (i >= 0) setSel(cur => cur[0] === i ? cur : [i, cur[1]]); }
+      if (p2) { const i = roster.findIndex(r => r.id === p2); if (i >= 0) setSel(cur => cur[1] === i ? cur : [cur[0], i]); }
+      if (stage != null && !Number.isNaN(Number(stage))) { const n = Math.max(0, Math.min(STAGES_DATA.length - 1, Number(stage))); setStageSelState(cur => cur === n ? cur : n); }
+      if (ai != null) { const v = ai === '1'; setVsAI(cur => cur === v ? cur : v); }
+      if (modeP === 'campaign') setCampaignSelection(cur => cur ? cur : true);
+      else if (modeP === 'versus') setCampaignSelection(cur => !cur ? cur : false);
+      if (screenRef.current !== 'SELECT') {
+        const cur = screenRef.current;
+        if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
+          engineRef.current?.clearAllInputs();
+          engineRef.current?.startAttractScene();
+        }
+        setScreen('SELECT');
+      }
+      return;
     }
-  }, [screen, stageSel, sel, vsAI, campaignSelection, roster, location.pathname, location.search, navigate]);
 
-  // Read select params from URL on navigation to /select
+    if (rawPath === '/replay') {
+      if (screenRef.current !== 'REPLAY') {
+        const cur = screenRef.current;
+        if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
+          engineRef.current?.clearAllInputs();
+          engineRef.current?.startAttractScene();
+        }
+        setScreen('REPLAY');
+      }
+      return;
+    }
+
+    if (rawPath === '/') {
+      const cur = screenRef.current;
+      if (cur !== 'TITLE') {
+        if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
+          engineRef.current?.clearAllInputs();
+          engineRef.current?.startAttractScene();
+        }
+        setScreen('TITLE');
+      }
+      return;
+    }
+
+    expectedUrl.current = '/';
+    navigate('/', { replace: true });
+  }, [location.pathname, location.search, navigate, roster]);
+
+  // State -> URL: keep URL in sync with screen and select params
   useEffect(() => {
-    if (location.pathname.replace(/\/+$/, '') !== '/select') return;
-    if (routeSync.current) { routeSync.current = false; return; }
-    const params = new URLSearchParams(location.search);
-    const p1 = params.get('p1'); const p2 = params.get('p2');
-    const stage = params.get('stage'); const ai = params.get('ai'); const modeP = params.get('mode');
-    if (p1) { const i = roster.findIndex(r => r.id === p1); if (i >= 0) setSel(cur => cur[0] === i ? cur : [i, cur[1]]); }
-    if (p2) { const i = roster.findIndex(r => r.id === p2); if (i >= 0) setSel(cur => cur[1] === i ? cur : [cur[0], i]); }
-    if (stage != null && !Number.isNaN(Number(stage))) { const n = Math.max(0, Math.min(STAGES_DATA.length - 1, Number(stage))); setStageSelState(cur => cur === n ? cur : n); }
-    if (ai != null) setVsAI(cur => { const v = ai === '1'; return cur === v ? cur : v; });
-    if (modeP === 'campaign') setCampaignSelection(cur => cur ? cur : true);
-    else if (modeP === 'versus') setCampaignSelection(cur => !cur ? cur : false);
-  }, [location.pathname, location.search, roster]);
+    const screenChanged = prevScreenForUrl.current !== screen;
+    prevScreenForUrl.current = screen;
+    const loc = locationRef.current;
+    const curPath = normPath(loc.pathname);
+    if (curPath === '/config') return;
+    const menuPaths = ['/', '/combat', '/gallery'];
+    const viewPaths = ['/select', '/play', '/replay', '/result'];
+    const legacyPath = curPath === '/visualizar' || curPath.startsWith('/room/') || /^\/result\/(defeat|censure|champion)$/.test(curPath);
+    if (!screenChanged && screen === 'TITLE' && (viewPaths.includes(curPath) || legacyPath)) return;
+    if (screen === 'TITLE' && menuPaths.includes(curPath)) {
+      const search = new URLSearchParams(loc.search);
+      const room = search.get('room');
+      const clean = room ? `?room=${encodeURIComponent(room)}` : '';
+      const url = `${curPath}${clean}`;
+      const current = `${curPath}${loc.search}`;
+      if (current !== url) { expectedUrl.current = url; navigate(url, { replace: true }); }
+      return;
+    }
+    const target = screenToLocation(screen, new URLSearchParams(loc.search));
+    const url = `${target.pathname}${target.search}`;
+    const current = `${curPath}${loc.search}`;
+    if (current !== url) { expectedUrl.current = url; navigate(url, { replace: screen === 'SELECT' }); }
+  }, [screen, screenToLocation, navigate]);
 
   if (!engineRef.current) {
     engineRef.current = new GameEngine(config);

@@ -14,11 +14,12 @@ const actions = [
 const directions = ['left', 'right', 'down'] as const;
 const radius = 42;
 
-export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false }: {
+export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false, scale = 1 }: {
   onAction: (action: PlayerAction, active: boolean) => void;
   ultReady?: boolean;
   hasGun?: boolean;
   inline?: boolean;
+  scale?: number;
 }) {
   const callback = useRef(onAction);
   callback.current = onAction;
@@ -123,7 +124,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     releaseButton(pointerId);
   };
 
-  return <div className={`touch-deck ${inline ? 'touch-deck-inline' : ''}`} aria-label="Controles táctiles">
+  return <div className={`touch-deck ${inline ? 'touch-deck-inline' : ''}`} aria-label="Controles táctiles" style={{ ['--touch-scale' as any]: scale }}>
     <div className="touch-stick-zone" aria-label="Control de movimiento" onPointerDown={startStick}
       onPointerMove={moveStick} onPointerUp={releasePointer} onPointerCancel={releasePointer} onLostPointerCapture={releasePointer}>
       <div className={`touch-stick ${origin ? 'touch-stick-active' : ''}`}

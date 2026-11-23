@@ -241,31 +241,31 @@
   left: max(6px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom));
 }
 .touch-stick {
-  position: absolute; top: 54%; left: 39%; width: clamp(65px, 13vw, 94px); aspect-ratio: 1;
+  position: absolute; top: 54%; left: 39%; width: clamp(82px, 18vw, 118px); aspect-ratio: 1;
   display: grid; place-items: center; transform: translate(-50%, -50%);
-  background: radial-gradient(circle, #a7c9f21e, #172842b0);
-  border: 1px solid #bbd2f77a; border-radius: 50%; pointer-events: none;
-  box-shadow: 0 7px 20px #020713a6, inset 0 0 0 4px #15263c80;
+  background: radial-gradient(circle, #a7c9f233, #172842cc);
+  border: 2px solid #bbd2f799; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 8px 24px #020713b8, inset 0 0 0 5px #15263c99;
 }
-.touch-stick-active { border-color: #f1d187; }
+.touch-stick-active { border-color: #ffd86b; box-shadow: 0 8px 24px #020713b8, 0 0 0 2px #ffd86b55, inset 0 0 0 5px #15263c99; }
 .touch-knob {
   width: 44%; aspect-ratio: 1; border-radius: 50%;
-  background: linear-gradient(145deg,#e8eef2dc,#7c98b7ce);
-  box-shadow: 0 3px 8px #070d1b9c; pointer-events: none;
+  background: linear-gradient(145deg,#f0f4f8e8,#8ea8c4d8);
+  box-shadow: 0 4px 10px #070d1ba8; pointer-events: none;
 }
 .touch-action-grid {
   position: absolute; right: max(10px, env(safe-area-inset-right));
   bottom: max(12px, env(safe-area-inset-bottom)); display: grid;
   grid-template-columns: repeat(3, var(--touch-size)); grid-template-rows: repeat(2, var(--touch-size));
-  --touch-size: clamp(43px, 10vw, 62px); gap: clamp(3px, 1.1vw, 8px);
+  --touch-size: calc(clamp(56px, 14vw, 76px) * var(--touch-scale, 1)); gap: clamp(6px, 1.4vw, 10px);
 }
 .touch-action-grid button.touch-action {
   pointer-events: auto; touch-action: none; padding: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   width: var(--touch-size); height: var(--touch-size); border-radius: 50%;
-  color: #f5f7ff; font-size: clamp(7px, 1vw, 10px); font-weight: 700;
-  background: linear-gradient(150deg, #203858da, #101b30ed);
-  border: 1px solid #92aac6b8; box-shadow: 0 4px 10px #070c18a0;
+  color: #f5f7ff; font-size: clamp(9px, 1.5vw, 11px); font-weight: 700; letter-spacing: .01em;
+  background: linear-gradient(160deg, #243d62e8, #101b30f0);
+  border: 2px solid #9bb8d4b0; box-shadow: 0 6px 14px #070c18b0, inset 0 1px 0 #ffffff18;
 }
 .touch-action-grid button.touch-action[aria-pressed="true"] { transform: scale(.9); background: #375980; }
 .touch-jump { grid-column: 3; grid-row: 2; }
@@ -294,7 +294,7 @@
   .selector-launch button { padding-inline: .6rem; }
 }
 @media (orientation: landscape) and (max-height: 530px) {
-  .touch-action-grid { --touch-size: clamp(43px, 12dvh, 55px); }
+  .touch-action-grid { --touch-size: calc(clamp(52px, 14dvh, 68px) * var(--touch-scale, 1)); }
   .apex-title { padding-top: .75rem; padding-bottom: .75rem; }
 }
 
@@ -394,7 +394,7 @@
   .match-fighter-card .match-fighter-badges { overflow: hidden; max-height: 18px; }
   .match-toolbar > :nth-child(2) > div { font-size: .65rem; padding: 2px 5px; }
   .apex-frame-combat .touch-stick-zone { height: min(100%, 124px); width: min(26%, 166px); }
-  .apex-frame-combat .touch-action-grid { --touch-size: clamp(40px, 11dvh, 51px); }
+  .apex-frame-combat .touch-action-grid { --touch-size: calc(clamp(50px, 13dvh, 64px) * var(--touch-scale, 1)); }
 
 }
 

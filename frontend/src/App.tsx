@@ -8,6 +8,7 @@ import { GalleryPage } from './pages/GalleryPage';
 import { PlayPage } from './pages/PlayPage';
 import { ReplayPage } from './pages/ReplayPage';
 import { ResultPage } from './pages/ResultPage';
+import { ConfigPage } from './pages/ConfigPage';
 
 export default function App() {
   return (
@@ -16,12 +17,15 @@ export default function App() {
         <Route path="/" element={<GameLayout />}>
           <Route index element={<TitlePage />} />
           <Route path="combat" element={<CombatMenuPage />} />
-          <Route path="visualizar" element={<GalleryPage />} />
+          <Route path="gallery" element={<GalleryPage />} />
+          <Route path="visualizar" element={<Navigate to="/gallery" replace />} />
           <Route path="select" element={<SelectPage />} />
           <Route path="play" element={<PlayPage />} />
           <Route path="replay" element={<ReplayPage />} />
+          <Route path="config" element={<ConfigPage />} />
+          <Route path="result" element={<ResultPage />} />
           <Route path="result/:kind" element={<ResultPage />} />
-          <Route path="room/*" element={<TitlePage />} />
+          <Route path="room/:code" element={<TitlePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

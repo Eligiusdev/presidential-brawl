@@ -8,7 +8,7 @@ export function TitlePage() {
   return (
     <TitleScreen
       onOpenCombat={() => navigate('/combat')}
-      onOpenGallery={() => navigate('/visualizar')}
+      onOpenGallery={() => navigate('/gallery')}
       onOpenConfig={() => g.setConfigOpen(true)}
     />
   );
