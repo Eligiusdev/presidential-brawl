@@ -3,7 +3,7 @@ services:
     name: presidential-brawl-api
     runtime: go
     plan: free
-    buildCommand: cd server && go build -o ../server-bin ./cmd/server
+    buildCommand: cd backend && go build -o ../server-bin ./cmd/server
     startCommand: ./server-bin
     healthCheckPath: /health
     envVars:
