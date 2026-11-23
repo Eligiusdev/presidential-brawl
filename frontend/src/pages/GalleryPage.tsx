@@ -65,7 +65,7 @@ export function GalleryPage() {
             <div className="ob-char-info" style={{ background: 'linear-gradient(180deg,rgba(8,13,24,.62) 0%,rgba(8,13,24,.88) 24%,rgba(8,13,24,.95) 100%)' }}>
               <div className="ob-hero-tags" style={{ flexWrap: 'wrap' }}>
                 <span className="ob-tag">{info.role}</span>
-                <span className="ob-tag"><Crown className="h-3 w-3" />{info.era}</span>
+                <span className="ob-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Crown className="h-3 w-3" />{info.era}</span>
               </div>
               <div className="ob-hero-name">
                 <h3>{info.name}</h3>
