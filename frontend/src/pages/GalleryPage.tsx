@@ -6,6 +6,7 @@ import { FighterPreview } from '../components/FighterPreview';
 import { movesFor } from '../combat/roster.js';
 import { ultimateText } from '../engine/presidentUltimates';
 import { sound } from '../audio/soundEngine';
+import { stageArtUrl } from '../engine/stageAtmosphere';
 import { RosterDisplay, REGION_TABS, matchesFilter, matchesSearch, useRosterDisplay, type RegionFilter } from '../components/CharacterSelect';
 
 export function GalleryPage() {
@@ -23,6 +24,7 @@ export function GalleryPage() {
   const info = roster[idx] ?? roster[0];
   const moves = useMemo(() => movesFor(info), [info]);
   const ultimate = useMemo(() => ultimateText(info), [info]);
+  const stageArt = stageArtUrl('narino', 'day');
   const statBars = useMemo(() => ([
     { name: 'Velocidad', val: (info.stats.speed / 6.5) * 100, color: '#38bdf8' },
     { name: 'Peso', val: (info.stats.weight / 1.6) * 100, color: '#f97316' },
@@ -52,6 +54,7 @@ export function GalleryPage() {
         <section className="ob-preview" aria-label="Vista previa del personaje">
           <div className="ob-character-card" style={{ ['--accent' as any]: info.palette.accent.base }}>
             <div className="ob-card-bg" aria-hidden>
+              <div className="ob-bg-stage" style={{ backgroundImage: `url("${stageArt}")` }} />
               <div className="ob-bg-color" style={{ background: `radial-gradient(120% 90% at 78% 30%, color-mix(in srgb, ${info.palette.accent.base} 24%, transparent), transparent 58%), linear-gradient(90deg, rgba(8,13,24,.18) 0%, rgba(8,13,24,.04) 45%, rgba(8,13,24,.22) 100%)` }} />
             </div>
             <div className="ob-hero-art">
@@ -99,14 +102,18 @@ export function GalleryPage() {
               })}
             </div>
           </div>
-          <div className="ob-roster-grid">
+          <div className="ob-grid" aria-label="Personajes">
             {filteredRoster.map(d => {
               const realIdx = roster.indexOf(d);
               const selected = realIdx === idx;
               return (
-                <button key={d.id} type="button" className={`ob-roster-card ${selected ? 'selected' : ''}`} onClick={() => { sound.uiClick(); setIdx(realIdx); }} aria-label={d.name} aria-pressed={selected}>
-                  <div className="ob-roster-portrait"><FighterPreview president={d} selected={selected} /></div>
-                  <span className="ob-roster-name">{d.name}</span>
+                <button key={d.id} type="button" aria-pressed={selected} className={`ob-tile ${selected ? 'mine' : ''}`}
+                  style={selected ? { ['--ring' as any]: '#ffcc33' } : undefined}
+                  onClick={() => { sound.uiClick(); setIdx(realIdx); }}>
+                  <span className="ob-tile-art">
+                    <FighterPreview president={d} selected={selected} />
+                  </span>
+                  <span className="ob-tile-name">{d.name}</span>
                 </button>
               );
             })}
