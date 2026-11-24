@@ -1,14 +1,12 @@
 services:
   - type: web
     name: presidential-brawl-api
-    runtime: go
+    runtime: docker
     plan: free
-    buildCommand: cd backend && go build -o ../server-bin ./cmd/server
-    startCommand: ./server-bin
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /health
     envVars:
-      - key: GO_VERSION
-        value: 1.26.8
       - key: NODE_ENV
         value: production
       - key: ALLOWED_ORIGINS

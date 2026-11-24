@@ -28,6 +28,8 @@ Todos pueden usar **WASD**, **J/K/L**, **C o Espacio** y **R**, las flechas con 
 
 Para Internet, despliega `presidential-brawl-api` en Render y publica el frontend de la misma revisión en GitHub Pages. Configura la variable `ROOM_API_BASE_URL` de GitHub Actions con la URL HTTPS de Render y `ALLOWED_ORIGINS` en el backend con el origen de Pages. La ruta del WebSocket es `/api/rooms/ws`. El servidor emite snapshots a 30 Hz y simula a 60 Hz. Cada navegador interpola y dibuja el combate en su propio canvas.
 
+Render usa el `Dockerfile` de la raíz, que aporta Node.js 24 y Go 1.26.8 durante la compilación. El `Build Command`/`Start Command` no se configuran por separado: Render ejecuta `npm run build` desde el Dockerfile, que instala los lockfiles de raíz y `frontend` con `--include=dev` antes de compilar. El runtime Docker publica el backend y también sirve `frontend/dist`. Si configuras el servicio manualmente, selecciona **Docker** y deja el comando Docker vacío para usar el `CMD` de la imagen; no uses el runtime nativo Go para este build porque no garantiza Node/Vite.
+
 Las salas se mantienen en memoria y caducan tras 30 minutos sin actividad.
 
 ## Desarrollo

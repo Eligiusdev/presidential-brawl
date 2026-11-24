@@ -1,0 +1,11 @@
+.git
+.github
+node_modules
+frontend/node_modules
+dist
+frontend/dist
+server-bin
+frontend/public/sim/sim.wasm
+frontend/public/sim/wasm_exec.js
+.env
+.env.*
