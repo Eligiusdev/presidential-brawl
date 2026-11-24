@@ -1,14 +1,14 @@
 services:
   - type: web
     name: presidential-brawl-api
-    runtime: node
+    runtime: go
     plan: free
-    buildCommand: npm ci --include=dev && npm run build
-    startCommand: npm start
+    buildCommand: cd backend && go build -o ../server-bin ./cmd/server
+    startCommand: ./server-bin
     healthCheckPath: /health
     envVars:
-      - key: NODE_VERSION
-        value: 24.0.0
+      - key: GO_VERSION
+        value: 1.26.8
       - key: NODE_ENV
         value: production
       - key: ALLOWED_ORIGINS

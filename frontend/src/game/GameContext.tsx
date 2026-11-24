@@ -1,0 +1,562 @@
+import { AdaptiveRenderQuality } from '../engine/renderPerformance';
+import { preloadMatchArt } from '../engine/matchArt';
+import { clearPerformanceSamples, performanceMetricsEnabled, samplePerformance } from '../engine/performanceMetrics';
+import { useMenuGamepad } from '../input/useMenuGamepad';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { sound } from '../audio/soundEngine';
+import { loadConfig, loadLastReplay, saveConfig, saveLastReplay } from '../config/defaultConfig';
+import { PRESIDENTS_DATA } from '../data/presidents';
+import { STAGES_DATA } from '../data/stages';
+import { GameEngine } from '../engine/gameEngine';
+import { stageArtUrl, stageNightMix } from '../engine/stageAtmosphere';
+import type { CampaignState, GameConfig, GameMode, GameScreenState, HudSnapshot, MatchReplayData, MatchSummary, PlayerAction, PresidentData } from '../types/game';
+import type { OnlineIntent } from '../network/roomClient';
+
+type Screen = GameScreenState;
+type SetState<T> = React.Dispatch<React.SetStateAction<T>>;
+
+export interface GameCtx {
+  config: GameConfig; updateConfig: (c: GameConfig) => void;
+  roster: PresidentData[];
+  lastReplay: MatchReplayData | null;
+  screen: Screen; setScreen: SetState<Screen>;
+  campaignSelection: boolean; setCampaignSelection: SetState<boolean>;
+  trainingSelection: 'training' | 'tutorial' | null; setTrainingSelection: SetState<'training' | 'tutorial' | null>;
+  mode: GameMode; sel: [number, number]; setSel: SetState<[number, number]>;
+  stageSel: number; setStageSel: (n: number) => void;
+  vsAI: boolean; setVsAI: SetState<boolean>;
+  configOpen: boolean; setConfigOpen: (open: boolean) => void;
+  matchConfigOpen: boolean; setMatchConfigOpen: (open: boolean) => void;
+  hud: HudSnapshot | null; campaign: CampaignState | null; summary: MatchSummary | null;
+  replayPaused: boolean; setReplayPaused: SetState<boolean>;
+  replaySpeed: 0.5 | 1 | 2; setReplaySpeed: SetState<0.5 | 1 | 2>;
+  replayEnded: boolean; replayFrame: number;
+  netOpenSignal: number; setNetOpenSignal: SetState<number>;
+  onlineIntent: OnlineIntent | null; requestOnline: (intent: OnlineIntent) => void; clearOnlineIntent: () => void;
+  loadingArt: boolean; lesson: number | null;
+  engineRef: RefObject<GameEngine | null>;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  arenaBackdropRef: RefObject<HTMLDivElement | null>;
+  appRef: RefObject<HTMLElement | null>;
+  onlineActive: RefObject<boolean>;
+  startCampaign: () => void;
+  startVersus: () => void;
+  startTraining: (guided?: boolean) => void;
+  togglePause: () => void;
+  startReplay: (from: 'TITLE' | 'SELECT' | 'GAME_OVER' | 'CENSURE' | 'CHAMPION', replayObj?: MatchReplayData | null) => void;
+  restartReplay: () => void;
+  exitReplay: () => void;
+  downloadReplayJson: () => void;
+  handleToggleMute: () => void;
+  handleTouchAction: (action: PlayerAction, active: boolean) => void;
+  onContinueCampaign: () => void;
+  onRestartMatch: () => void;
+  onExitToSelect: () => void;
+  onSwitchStageLive: (idx: number) => void;
+  crtClass: string;
+}
+
+const Ctx = createContext<GameCtx | null>(null);
+export function useGame() {
+  const v = useContext(Ctx);
+  if (!v) throw new Error('useGame outside GameProvider');
+  return v;
+}
+
+export function GameProvider({ children }: { children: ReactNode }) {
+  const [config, setConfig] = useState<GameConfig>(() => loadConfig());
+  const [lastReplay, setLastReplay] = useState<MatchReplayData | null>(() => loadLastReplay());
+  const [screen, setScreen] = useState<GameScreenState>('TITLE');
+  const [replayReturn, setReplayReturn] = useState<'TITLE' | 'SELECT' | 'GAME_OVER' | 'CENSURE' | 'CHAMPION'>('GAME_OVER');
+  const [campaignSelection, setCampaignSelection] = useState(false);
+  const [trainingSelection, setTrainingSelection] = useState<'training' | 'tutorial' | null>(null);
+  const [mode, setMode] = useState<GameMode>('versus');
+  const [sel, setSel] = useState<[number, number]>(() => {
+    const i1 = PRESIDENTS_DATA.findIndex((p) => p.id === 'bolivar');
+    const i2 = PRESIDENTS_DATA.findIndex((p) => p.id === 'robinson');
+    return [i1 >= 0 ? i1 : 0, i2 >= 0 ? i2 : 3];
+  });
+  const onlineActive = useRef(false);
+  const [stageSel, setStageSelState] = useState<number>(0);
+  const [vsAI, setVsAI] = useState<boolean>(true);
+  const [hud, setHud] = useState<HudSnapshot | null>(null);
+  const [campaign, setCampaign] = useState<CampaignState | null>(null);
+  const [summary, setSummary] = useState<MatchSummary | null>(null);
+  const [replayPaused, setReplayPaused] = useState<boolean>(false);
+  const [replaySpeed, setReplaySpeed] = useState<0.5 | 1 | 2>(1);
+  const [replayEnded, setReplayEnded] = useState<boolean>(false);
+  const [replayFrame, setReplayFrame] = useState<number>(0);
+  const [netOpenSignal, setNetOpenSignal] = useState<number>(0);
+  const [onlineIntent, setOnlineIntent] = useState<OnlineIntent | null>(null);
+  const [matchConfigOpen, setMatchConfigOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const locationRef = useRef(location);
+  locationRef.current = location;
+  const lastRoomSignal = useRef('');
+  const normPath = (p: string) => (p.replace(/\/+$/, '') || '/');
+  const configReturnPath = useRef('/');
+  const configOpen = normPath(location.pathname) === '/config';
+  const setConfigOpen = useCallback((open: boolean) => {
+    const cur = `${normPath(locationRef.current.pathname)}${locationRef.current.search}`;
+    if (open) {
+      if (normPath(locationRef.current.pathname) !== '/config') configReturnPath.current = cur || '/';
+      navigate('/config');
+    } else {
+      navigate(configReturnPath.current || '/', { replace: true });
+    }
+  }, [navigate]);
+
+  const roster = PRESIDENTS_DATA;
+
+  const arenaBackdropRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const engineRef = useRef<GameEngine | null>(null);
+  const screenRef = useRef<GameScreenState>(screen);
+  const configOpenRef = useRef<boolean>(configOpen);
+  const matchConfigOpenRef = useRef<boolean>(matchConfigOpen);
+  const replayPausedRef = useRef<boolean>(replayPaused);
+  const replaySpeedRef = useRef<0.5 | 1 | 2>(replaySpeed);
+  const campaignTimerRef = useRef<number | null>(null);
+  const appRef = useRef<HTMLElement>(null);
+
+  screenRef.current = screen;
+  configOpenRef.current = configOpen;
+  matchConfigOpenRef.current = matchConfigOpen;
+  replayPausedRef.current = replayPaused;
+  replaySpeedRef.current = replaySpeed;
+
+  const expectedUrl = useRef('');
+  const prevScreenForUrl = useRef<GameScreenState>(screen);
+
+  const screenToLocation = useCallback((s: GameScreenState, search: URLSearchParams) => {
+    if (s === 'SELECT') {
+      const params = new URLSearchParams();
+      params.set('stage', String(stageSel));
+      const p1 = roster[sel[0]]?.id; const p2 = roster[sel[1]]?.id;
+      if (p1) params.set('p1', p1);
+      if (p2) params.set('p2', p2);
+      params.set('ai', vsAI ? '1' : '0');
+      params.set('mode', campaignSelection ? 'campaign' : 'versus');
+      return { pathname: '/select', search: `?${params.toString()}` };
+    }
+    if (s === 'REPLAY') return { pathname: '/replay', search: '' };
+    if (s === 'GAME_OVER') return { pathname: '/result', search: '?kind=defeat' };
+    if (s === 'CENSURE') return { pathname: '/result', search: '?kind=censure' };
+    if (s === 'CHAMPION') return { pathname: '/result', search: '?kind=champion' };
+    if (s === 'PLAYING' || s === 'PAUSED' || s === 'VS') return { pathname: '/play', search: '' };
+    const room = search.get('room');
+    const roomSearch = room ? `?room=${encodeURIComponent(room)}` : '';
+    return { pathname: '/', search: roomSearch };
+  }, [stageSel, sel, vsAI, campaignSelection, roster]);
+
+  // URL -> state: normalize legacy routes and sync screen/params from URL
+  useEffect(() => {
+    const rawPath = normPath(location.pathname);
+    const search = new URLSearchParams(location.search);
+
+    const roomPath = rawPath.match(/^\/room\/([A-Za-z0-9]+)$/);
+    if (roomPath) {
+      const code = roomPath[1].toUpperCase();
+      if (code !== lastRoomSignal.current) {
+        lastRoomSignal.current = code;
+        setNetOpenSignal(n => n + 1);
+      }
+      const next = `/?room=${encodeURIComponent(code)}`;
+      expectedUrl.current = next;
+      navigate(next, { replace: true });
+      return;
+    }
+
+    const resultPath = rawPath.match(/^\/result\/(defeat|censure|champion)$/);
+    if (resultPath) {
+      const next = `/result?kind=${resultPath[1]}`;
+      expectedUrl.current = next;
+      navigate(next, { replace: true });
+      return;
+    }
+
+    const url = `${rawPath}${location.search}`;
+    if (expectedUrl.current === url) { expectedUrl.current = ''; return; }
+
+    const roomCode = search.get('room');
+    if (roomCode && roomCode !== lastRoomSignal.current) {
+      lastRoomSignal.current = roomCode;
+      setNetOpenSignal(n => n + 1);
+    } else if (!roomCode) {
+      lastRoomSignal.current = '';
+    }
+
+    if (rawPath === '/config') return;
+
+    if (rawPath === '/combat' || rawPath === '/gallery' || rawPath === '/online') {
+      const cur = screenRef.current;
+      if (cur !== 'TITLE') {
+        if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
+          engineRef.current?.clearAllInputs();
+          engineRef.current?.startAttractScene();
+        }
+        setScreen('TITLE');
+      }
+      return;
+    }
+
+    if (rawPath === '/result') {
+      const kind = search.get('kind');
+      const map: Record<string, GameScreenState> = { defeat: 'GAME_OVER', censure: 'CENSURE', champion: 'CHAMPION' };
+      const next = kind ? map[kind] : undefined;
+      if (next && next !== screenRef.current) {
+        const cur = screenRef.current;
+        if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
+          engineRef.current?.clearAllInputs();
+          engineRef.current?.startAttractScene();
+        }
+        setScreen(next);
+      }
+      return;
+    }
+
+    if (rawPath === '/play') {
+      const cur = screenRef.current;
+      if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') return;
+      expectedUrl.current = '/select';
+      navigate('/select', { replace: true });
+      return;
+    }
+
+    if (rawPath === '/select') {
+      const p1 = search.get('p1'); const p2 = search.get('p2');
+      const stage = search.get('stage'); const ai = search.get('ai'); const modeP = search.get('mode');
+      if (p1) { const i = roster.findIndex(r => r.id === p1); if (i >= 0) setSel(cur => cur[0] === i ? cur : [i, cur[1]]); }
+      if (p2) { const i = roster.findIndex(r => r.id === p2); if (i >= 0) setSel(cur => cur[1] === i ? cur : [cur[0], i]); }
+      if (stage != null && !Number.isNaN(Number(stage))) { const n = Math.max(0, Math.min(STAGES_DATA.length - 1, Number(stage))); setStageSelState(cur => cur === n ? cur : n); }
+      if (ai != null) { const v = ai === '1'; setVsAI(cur => cur === v ? cur : v); }
+      if (modeP === 'campaign') setCampaignSelection(cur => cur ? cur : true);
+      else if (modeP === 'versus') setCampaignSelection(cur => !cur ? cur : false);
+      if (screenRef.current !== 'SELECT') {
+        const cur = screenRef.current;
+        if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
+          engineRef.current?.clearAllInputs();
+          engineRef.current?.startAttractScene();
+        }
+        setScreen('SELECT');
+      }
+      return;
+    }
+
+    if (rawPath === '/replay') {
+      if (screenRef.current !== 'REPLAY') {
+        const cur = screenRef.current;
+        if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
+          engineRef.current?.clearAllInputs();
+          engineRef.current?.startAttractScene();
+        }
+        setScreen('REPLAY');
+      }
+      return;
+    }
+
+    if (rawPath === '/') {
+      const cur = screenRef.current;
+      if (cur !== 'TITLE') {
+        if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
+          engineRef.current?.clearAllInputs();
+          engineRef.current?.startAttractScene();
+        }
+        setScreen('TITLE');
+      }
+      return;
+    }
+
+    expectedUrl.current = '/';
+    navigate('/', { replace: true });
+  }, [location.pathname, location.search, navigate, roster]);
+
+  // State -> URL: keep URL in sync with screen and select params
+  useEffect(() => {
+    const screenChanged = prevScreenForUrl.current !== screen;
+    prevScreenForUrl.current = screen;
+    const loc = locationRef.current;
+    const curPath = normPath(loc.pathname);
+    if (curPath === '/config') return;
+    const menuPaths = ['/', '/combat', '/gallery', '/online'];
+    const viewPaths = ['/select', '/play', '/replay', '/result'];
+    const legacyPath = curPath === '/visualizar' || curPath.startsWith('/room/') || /^\/result\/(defeat|censure|champion)$/.test(curPath);
+    if (!screenChanged && screen === 'TITLE' && (viewPaths.includes(curPath) || legacyPath)) return;
+    if (screen === 'TITLE' && menuPaths.includes(curPath)) {
+      const search = new URLSearchParams(loc.search);
+      const room = search.get('room');
+      const clean = room ? `?room=${encodeURIComponent(room)}` : '';
+      const url = `${curPath}${clean}`;
+      const current = `${curPath}${loc.search}`;
+      if (current !== url) { expectedUrl.current = url; navigate(url, { replace: true }); }
+      return;
+    }
+    const target = screenToLocation(screen, new URLSearchParams(loc.search));
+    const url = `${target.pathname}${target.search}`;
+    const current = `${curPath}${loc.search}`;
+    if (current !== url) { expectedUrl.current = url; navigate(url, { replace: screen === 'SELECT' }); }
+  }, [screen, screenToLocation, navigate]);
+
+  if (!engineRef.current) {
+    engineRef.current = new GameEngine(config);
+    engineRef.current.setRoster(roster);
+  }
+
+  useEffect(() => { engineRef.current?.setRoster(roster); }, [roster]);
+
+  const updateConfig = useCallback((next: GameConfig) => {
+    setConfig(next); saveConfig(next); engineRef.current?.updateConfig(next);
+  }, []);
+
+  const requestOnline = useCallback((intent: OnlineIntent) => {
+    sound.init(); sound.uiConfirm();
+    setOnlineIntent(intent);
+  }, []);
+  const clearOnlineIntent = useCallback(() => setOnlineIntent(null), []);
+
+  const touchAt = useRef<number | null>(null);
+  const matchLoading = useRef(false);
+  const [loadingArt, setLoadingArt] = useState(false);
+  const videoRef = useRef(config.video);
+  videoRef.current = config.video;
+
+  useEffect(() => {
+    if (screen === 'SELECT') void preloadMatchArt([roster[sel[0]], roster[sel[1]]].filter(Boolean));
+  }, [screen, roster, sel]);
+
+  const startWithArt = useCallback(async (first: number, second: number, start: () => void) => {
+    const engine = engineRef.current;
+    if (!engine || matchLoading.current) return;
+    const from = screenRef.current;
+    matchLoading.current = true;
+    setLoadingArt(true);
+    let deadline = 0;
+    try {
+      await Promise.race([
+        preloadMatchArt([engine.roster[first], engine.roster[second]].filter(Boolean)),
+        new Promise<void>(resolve => { deadline = window.setTimeout(resolve, 1400); }),
+      ]);
+      if (from === screenRef.current && !onlineActive.current) {
+        touchAt.current = null; clearPerformanceSamples(); start();
+      }
+    } finally {
+      window.clearTimeout(deadline); matchLoading.current = false; setLoadingArt(false);
+    }
+  }, []);
+
+  const launchCampaignRound = useCallback((camp: CampaignState) => {
+    const engine = engineRef.current; if (!engine) return;
+    engine.campaign = camp; setCampaign({ ...camp }); setMode('campaign'); setScreen('VS');
+    void preloadMatchArt([engine.roster[camp.hero], engine.roster[camp.ladder[camp.round]]].filter(Boolean));
+    sound.tone(200, 0.28, 'square', 200, 0.08);
+    if (campaignTimerRef.current) window.clearTimeout(campaignTimerRef.current);
+    campaignTimerRef.current = window.setTimeout(() => {
+      if (screenRef.current !== 'VS') return;
+      void startWithArt(camp.hero, camp.ladder[camp.round], () => {
+        engine.startMatch(camp.hero, camp.ladder[camp.round], camp.round % STAGES_DATA.length, true, 'campaign', camp.round);
+        setScreen('PLAYING');
+      });
+    }, 2400);
+  }, [startWithArt]);
+
+  const startCampaign = useCallback(() => {
+    setTrainingSelection(null);
+    const hero = Math.min(sel[0], roster.length - 1);
+    const pool = roster.map((_, idx) => idx).filter((idx) => idx !== hero);
+    for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
+    const ladder = pool.slice(0, 7);
+    launchCampaignRound({ hero, ladder, round: 0, score: 0, kos: 0, timeFrames: 0, continues: 0, lastRoundScore: 0 });
+  }, [sel, roster, launchCampaignRound]);
+
+  const startVersus = useCallback(() => {
+    setTrainingSelection(null);
+    const engine = engineRef.current; if (!engine) return;
+    engine.campaign = null; setCampaign(null); setSummary(null); setMode('versus');
+    void startWithArt(sel[0], sel[1], () => { engine.startMatch(sel[0], sel[1], stageSel, vsAI, 'versus'); setScreen('PLAYING'); });
+  }, [sel, stageSel, vsAI, startWithArt]);
+
+  const guide = useRef<{ step: number; origin: number; direction: number; jumpTick: number; damage: number } | null>(null);
+  const [lesson, setLesson] = useState<number | null>(null);
+  const startTraining = useCallback((guided = false) => {
+    const engine = engineRef.current; if (!engine) return;
+    engine.campaign = null; setCampaign(null); setSummary(null); setMode('training');
+    void startWithArt(sel[0], sel[1], () => {
+      engine.startMatch(sel[0], sel[1], stageSel, false, 'training');
+      const hero = engine.fighters[0];
+      guide.current = guided === true ? { step: 0, origin: hero.x, direction: Math.sign(engine.fighters[1].x - hero.x), jumpTick: hero.jumpTick, damage: hero.damageDealt } : null;
+      setLesson(guide.current?.step ?? null);
+      setScreen('PLAYING');
+    });
+  }, [sel, stageSel, startWithArt]);
+
+  const togglePause = useCallback(() => {
+    if (screenRef.current === 'PLAYING') { setScreen('PAUSED'); engineRef.current?.clearAllInputs(); }
+    else if (screenRef.current === 'PAUSED') setScreen('PLAYING');
+  }, []);
+
+  const startReplay = useCallback((from: 'TITLE' | 'SELECT' | 'GAME_OVER' | 'CENSURE' | 'CHAMPION', replayObj?: MatchReplayData | null) => {
+    const target = replayObj ?? lastReplay; const engine = engineRef.current;
+    if (!engine || !target) return;
+    setReplayReturn(from); setReplayPaused(false); setReplaySpeed(1); setReplayEnded(false); setReplayFrame(0);
+    engine.clearAllInputs(); engine.startReplay(target); setHud(engine.getHudSnapshot()); setScreen('REPLAY');
+  }, [lastReplay]);
+
+  const restartReplay = useCallback(() => {
+    const engine = engineRef.current; if (!engine || !lastReplay) return;
+    setReplayPaused(false); setReplayEnded(false); setReplayFrame(0);
+    engine.startReplay(lastReplay); setHud(engine.getHudSnapshot());
+  }, [lastReplay]);
+
+  const exitReplay = useCallback(() => {
+    const engine = engineRef.current; if (!engine) return;
+    if (replayReturn === 'TITLE' || replayReturn === 'SELECT') engine.startAttractScene();
+    setScreen(replayReturn);
+  }, [replayReturn]);
+
+  const downloadReplayJson = useCallback(() => {
+    if (!lastReplay) return;
+    const json = JSON.stringify(lastReplay, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `presidential-brawl-replay-${lastReplay.p1Id}-vs-${lastReplay.p2Id}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  }, [lastReplay]);
+
+  useEffect(() => {
+    const engine = engineRef.current; if (!engine) return;
+    engine.setCallbacks({
+      onPauseToggle: () => { if (!configOpenRef.current) togglePause(); },
+      onReplaySaved: (replay) => { saveLastReplay(replay); setLastReplay(replay); },
+      onReplayEnd: () => { setReplayEnded(true); },
+      onMatchEnd: (matchSummary) => {
+        if (engine.campaign) {
+          const camp = engine.campaign; camp.timeFrames += engine.T;
+          if (matchSummary.winnerPi === 0) {
+            const sec = matchSummary.durationSec; const stocksLeft = engine.fighters[0]?.stocks || 1;
+            const pts = Math.round((1000 + Math.max(0, 150 - sec) * 15 + stocksLeft * 700) * (1 + camp.round * 0.15));
+            camp.score += pts; camp.lastRoundScore = pts;
+            if (camp.round === 6) { setCampaign({ ...camp }); setScreen('CHAMPION'); sound.win(); }
+            else { camp.round++; launchCampaignRound(camp); }
+          } else { setCampaign({ ...camp }); setScreen('CENSURE'); }
+        } else { setSummary(matchSummary); setScreen('GAME_OVER'); }
+      },
+    });
+  }, [togglePause, launchCampaignRound]);
+
+  useEffect(() => {
+    const engine = engineRef.current!;
+    engine.updateConfig(config);
+    engine.startAttractScene();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (onlineActive.current || configOpenRef.current || matchConfigOpenRef.current || screenRef.current === 'CUSTOMIZE') return;
+      if (screenRef.current === 'REPLAY') {
+        if (!e.repeat && (e.code === 'Space' || e.code === 'KeyP')) { e.preventDefault(); setReplayPaused((p) => !p); }
+        else if (!e.repeat && e.code === 'Escape') { e.preventDefault(); setReplayPaused((p) => !p); }
+        return;
+      }
+      if (screenRef.current === 'PLAYING' && !e.repeat && e.code === 'F2') { e.preventDefault(); const next = (engine.stageIdx + 1) % STAGES_DATA.length; engine.switchStageLive(next); setHud(engine.getHudSnapshot()); return; }
+      if (/^Arrow|Space/.test(e.code) || (e.code === 'Enter' && screenRef.current === 'PLAYING')) e.preventDefault();
+      engine.handleKeyDown(e.code, e.repeat);
+    };
+    const onKeyUp = (e: KeyboardEvent) => { engine.handleKeyUp(e.code); };
+    const onBlur = () => { engine.clearAllInputs(); };
+    window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp); window.addEventListener('blur', onBlur);
+    let raf = 0, last = performance.now(), acc = 0, hudTick = 0, halfSpeedToggle = 0;
+    let adaptive = videoRef.current.adaptiveQuality !== false;
+    const mobile = window.matchMedia('(pointer: coarse)').matches;
+    let quality = new AdaptiveRenderQuality(adaptive, mobile);
+    let lastPaint = 0, nextPaintAt = 0, lastScreen = '', backdropStage = '', backdropNight = -1;
+    const frame = (now: number) => {
+      raf = requestAnimationFrame(frame);
+      const rawDt = now - last; last = now; if (onlineActive.current) return;
+      acc += Math.min(50, Math.max(0, rawDt));
+      const curScreen = screenRef.current;
+      const isAttract = curScreen === 'TITLE' || curScreen === 'SELECT';
+      const settingsOpen = configOpenRef.current || matchConfigOpenRef.current;
+      const shouldStepLive = !settingsOpen && (curScreen === 'PLAYING' || isAttract);
+      const shouldStepReplay = !settingsOpen && curScreen === 'REPLAY' && !replayPausedRef.current && !engine.replayEnded;
+      if (curScreen !== 'PLAYING') touchAt.current = null;
+      const startedSimulation = performanceMetricsEnabled ? performance.now() : 0;
+      let stepped = false;
+      while (acc >= 16.667) {
+        acc -= 16.667;
+        if (shouldStepLive) {
+          engine.step(isAttract);
+          const task = guide.current; const hero = engine.fighters[0];
+          if (!isAttract && task && hero && curScreen === 'PLAYING') {
+            const walkingTowardRival = task.direction > 0 ? hero.curIn.right : hero.curIn.left;
+            const complete = task.step === 0 ? walkingTowardRival && (hero.x - task.origin) * task.direction >= 48 : task.step === 1 ? hero.jumpTick > task.jumpTick : hero.damageDealt > task.damage;
+            if (complete) { task.step++; task.jumpTick = hero.jumpTick; task.damage = hero.damageDealt; setLesson(task.step); if (task.step === 3) guide.current = null; }
+          }
+          stepped = true;
+        } else if (shouldStepReplay) {
+          const spd = replaySpeedRef.current;
+          if (spd === 0.5) { halfSpeedToggle ^= 1; if (halfSpeedToggle === 1) engine.step(false); }
+          else if (spd === 2) { engine.step(false); if (!engine.replayEnded) engine.step(false); }
+          else engine.step(false);
+        }
+      }
+      const simulationCost = startedSimulation ? performance.now() - startedSimulation : 0;
+      const backdrop = arenaBackdropRef.current;
+      if (backdrop) {
+        const stageId = engine.stage.id;
+        const night = stageNightMix(engine.config.video.stageTime, engine.T, engine.stageNightStart);
+        if (stageId !== backdropStage) { backdropStage = stageId; backdrop.style.setProperty('--arena-day', `url("${stageArtUrl(stageId, 'day')}")`); backdrop.style.setProperty('--arena-night', `url("${stageArtUrl(stageId, 'night')}")`); }
+        if (night !== backdropNight) { backdropNight = night; backdrop.style.setProperty('--arena-night-mix', String(night)); }
+      }
+      const fighting = curScreen === 'PLAYING' || curScreen === 'REPLAY';
+      if (lastScreen !== curScreen) { lastPaint = 0; nextPaintAt = now; lastScreen = curScreen; }
+      const nextAdaptive = videoRef.current.adaptiveQuality !== false;
+      if (nextAdaptive !== adaptive) { adaptive = nextAdaptive; quality = new AdaptiveRenderQuality(adaptive, mobile); }
+      if (canvasRef.current && curScreen !== 'CUSTOMIZE' && (now + .3 >= nextPaintAt)) {
+        const start = performance.now();
+        const period = 1000 / 60; nextPaintAt += Math.max(1, Math.floor((now - nextPaintAt) / period) + 1) * period;
+        if (fighting && startedSimulation) samplePerformance('simulation', simulationCost);
+        engine.render(canvasRef.current, quality.quality);
+        const end = performance.now();
+        if (fighting && lastPaint) { quality.record(now - lastPaint, end - start); samplePerformance('frame', now - lastPaint); samplePerformance('render', end - start); }
+        if (stepped && curScreen === 'PLAYING' && touchAt.current !== null) { samplePerformance('touch', end - touchAt.current); touchAt.current = null; }
+        lastPaint = now;
+      }
+      if (curScreen === 'PLAYING' || curScreen === 'PAUSED' || curScreen === 'REPLAY') {
+        hudTick++; if (hudTick % 3 === 0) { setHud(engine.getHudSnapshot()); if (curScreen === 'REPLAY') setReplayFrame(engine.T); }
+      }
+    };
+    raf = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); window.removeEventListener('blur', onBlur); if (campaignTimerRef.current) window.clearTimeout(campaignTimerRef.current); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleToggleMute = () => { sound.init(); updateConfig({ ...config, audio: { ...config.audio, muted: !config.audio.muted } }); };
+  const handleTouchAction = (action: PlayerAction, active: boolean) => { if (performanceMetricsEnabled && active && touchAt.current === null) touchAt.current = performance.now(); engineRef.current?.setTouchAction(action, active); };
+  const setStageSel = (idx: number) => { setStageSelState(idx); if (idx < STAGES_DATA.length) engineRef.current?.setStage(idx); };
+
+  const onContinueCampaign = () => { if (!campaign) return; launchCampaignRound({ ...campaign, continues: campaign.continues + 1 }); };
+  const onRestartMatch = () => {
+    if (campaign) { engineRef.current?.startMatch(campaign.hero, campaign.ladder[campaign.round], campaign.round % STAGES_DATA.length, true, 'campaign', campaign.round); setScreen('PLAYING'); }
+    else if (mode === 'training') startTraining(lesson !== null);
+    else startVersus();
+  };
+  const onExitToSelect = () => { guide.current = null; setLesson(null); if (campaignTimerRef.current) window.clearTimeout(campaignTimerRef.current); engineRef.current?.startAttractScene(); setScreen('SELECT'); };
+  const onSwitchStageLive = (idx: number) => { engineRef.current?.switchStageLive(idx); setHud(engineRef.current?.getHudSnapshot() ?? null); };
+
+  const crtClass = config.video.crtFilter === 'scanlines' ? 'crt-scanlines' : config.video.crtFilter === 'pvm' ? 'crt-pvm' : '';
+  useMenuGamepad(appRef, screen, configOpen, togglePause);
+
+  const value: GameCtx = {
+    config, updateConfig, roster, lastReplay, screen, setScreen,
+    campaignSelection, setCampaignSelection,
+    trainingSelection, setTrainingSelection,
+    mode, sel, setSel, stageSel, setStageSel, vsAI, setVsAI, configOpen, setConfigOpen, matchConfigOpen, setMatchConfigOpen,
+    hud, campaign, summary, replayPaused, setReplayPaused, replaySpeed, setReplaySpeed,
+    replayEnded, replayFrame, netOpenSignal, setNetOpenSignal, onlineIntent, requestOnline, clearOnlineIntent, loadingArt, lesson,
+    engineRef, canvasRef, arenaBackdropRef, appRef, onlineActive,
+    startCampaign, startVersus, startTraining, togglePause,
+    startReplay, restartReplay, exitReplay, downloadReplayJson,
+    handleToggleMute, handleTouchAction, onContinueCampaign, onRestartMatch, onExitToSelect, onSwitchStageLive, crtClass,
+  };
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}

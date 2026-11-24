@@ -26,7 +26,6 @@ Con Node.js 24, descomprime el paquete y ejecuta `npm ci` y `npm start`. El serv
 | `src/engine/fighterSprites.ts` | Registro, caché de seis atlas, temporización, orientación y elección de animaciones. |
 | `src/engine/gameEngine.ts`, `src/engine/pixelRenderer.ts` | Identificación visual del especial bajo. La máscara histórica de colisión es independiente de la imagen. |
 | `src/components/FighterPreview.tsx` | Miniaturas a color en la cuadrícula y guardia animada en la vista ampliada. |
-| `tests/roster-art.mjs`, `tests/sprite-atlas.mjs` | Decodificación de archivos, límites, pies, temporización, caché y controles de regresión. |
 | `docs/capturas/roster/` | Galería de los 40, muestra animada de ocho personajes y capturas de selección y combate en escritorio y móvil emulado. |
 
 ## Añadir otro luchador
