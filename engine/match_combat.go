@@ -194,8 +194,9 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 	} else { f.Floating = false }
 
 	// drop-through / crouch / fast-fall
-	if just.Down && !(f.Moves() != nil && just.Heavy) && f.On && f.Y+f.H < m.Main.Y-1 {
-		f.DropT, f.Y, f.On = 14, f.Y+2, false
+	if (in.Down || (in.Down && just.Jump)) && !(f.Moves() != nil && just.Heavy) &&
+		f.On && f.Y+f.H < m.Main.Y-1 {
+		f.DropT, f.Y, f.On, f.Pl = 14, f.Y+2, false, nil
 	}
 	f.Crouch = f.On && in.Down && f.Y+f.H >= m.Main.Y-1 && f.Atk == nil
 	if !(f.Moves() != nil && just.Heavy) && !f.On && !f.Floating && f.Atk == nil && f.VY > -1 && (just.Down || (in.Down && f.FastFall)) {
@@ -219,7 +220,7 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 	f.X += f.VX
 	// Una plataforma móvil arrastra al luchador solo mientras siga sobre ella;
 	// al salir se suelta y cae por gravedad.
-	if f.Pl != nil {
+	if f.On && f.Pl != nil {
 		if f.X+f.W > f.Pl.X && f.X < f.Pl.X+f.Pl.W && math.Abs(f.Y+f.H-f.Pl.Y) < 24 {
 			f.Y = f.Pl.Y - f.H
 		} else {
@@ -460,7 +461,7 @@ func (m *Match) advanceAttack(f *Fighter) {
 	}
 	a.Armor = false
 	for _, p := range sp.Ph { if p.Armor && t >= p.A[0] && t <= p.A[1] { a.Armor = true } }
-	if sp.Hop != nil && t == sp.Hop.T { f.VY = sp.Hop.VY; f.On = false }
+	if sp.Hop != nil && t == sp.Hop.T { f.VY = sp.Hop.VY; f.On = false; f.Pl = nil }
 	for _, s := range sp.Sp {
 		if s.T != t { continue }
 		if sp.Balanced && sp.K == "h" && sp.MoveKind == "sig" && !sp.DownSpecial { f.ProjectileCD = Data().Limits.ProjectileCooldown }
@@ -608,7 +609,7 @@ func (m *Match) hurt(f, o *Fighter, d damageSpec, dir int, source string, contac
 	f.Stun = int(clamp(math.Round(10+kb*1.85), 10, 58))
 	f.MaxStun = f.Stun
 	f.Face = -dir
-	if vy < 0 { f.On = false }
+	if vy < 0 { f.On = false; f.Pl = nil }
 	if d.Hold {
 		f.Stun = 30
 		f.MaxStun = f.Stun
@@ -631,13 +632,15 @@ func (m *Match) triggerKO(f *Fighter, attacker int) {
 	m.burst(f.CX(), f.Y+f.H*.48, "#fff", 56, 10, 30, "")
 	m.sound("ko")
 	m.crowdReaction("win", f.CX(), 38, 96)
-	m.banner("KO!", 48)
 	m.Shake = 22
 	if m.Cfg.Hitstop { m.Freeze = 6 }
 	if m.Mode != "training" {
 		f.Stocks--
 		if f.Stocks <= 0 && m.Capacity > 2 { m.Eliminated = append(m.Eliminated, f.Slot) }
 	} else { f.Stocks = 99 }
+	// El renderer ya dibuja el "KO!" definitivo cuando hay ganador; el banner
+	// solo se usa para KOs parciales (evita texto duplicado).
+	if f.Stocks > 0 { m.banner("KO!", 48) }
 	if attacker >= 0 && attacker < len(m.Fighters) { m.Fighters[attacker].KOsDelivered++ }
 	f.Field, f.Rage, f.SpeedTime = nil, 0, 0
 	f.KOVisual = &KOVis{X: clamp(f.CX(), m.Main.X+50, m.Main.X+m.Main.W-50), Tick: int(m.Tick)}

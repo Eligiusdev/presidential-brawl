@@ -4,7 +4,10 @@ import "math"
 
 func (m *Match) burst(x, y float64, col string, count int, speed, size float64, shape string) {
 	if count <= 0 { return }
-	density := 1.0
+	// Todas las coordenadas son de mundo (las mismas que usa el renderer con sx/sy).
+	x = clamp(x, -200, Data().World.W+200)
+	y = clamp(y, -200, Data().World.H+200)
+	if size < 3 { size = 3 }
 	for i := 0; i < count; i++ {
 		ang := m.VisRNG.Float() * math.Pi * 2
 		sp := speed * (.3 + m.VisRNG.Float()*.7)
@@ -15,7 +18,6 @@ func (m *Match) burst(x, y float64, col string, count int, speed, size float64, 
 			Phase: m.VisRNG.Float() * math.Pi * 2, Spin: (m.VisRNG.Float()-.5)*.4,
 		})
 	}
-	_ = density
 }
 
 func (m *Match) pushFloat(text string, x, y float64, life int) {

@@ -439,6 +439,12 @@ func (m *Match) Step(inputs [][]string) uint32 {
 				if f.Slot != dead { m.WinnerPi = &f.Slot; break }
 			}
 			m.EndT = 135
+			if m.StandingsList == nil {
+				loser := dead
+				order := []int{*m.WinnerPi, loser}
+				m.StandingsList = order
+				if m.OnEnd != nil { m.OnEnd(order) }
+			}
 			m.sound("win")
 			m.crowdReaction("win", m.Main.X+m.Main.W/2, 46, 120)
 		}
@@ -459,9 +465,29 @@ func (m *Match) Step(inputs [][]string) uint32 {
 }
 
 func (m *Match) Leave(slot int) {
-	if slot >= 0 && slot < len(m.Fighters) {
-		f := m.Fighters[slot]
-		if f.Stocks > 0 { f.Stocks = 0; f.Dead = 9999; f.Atk = nil; m.Eliminated = append(m.Eliminated, slot) }
+	if slot < 0 || slot >= len(m.Fighters) { return }
+	f := m.Fighters[slot]
+	if f.Stocks > 0 {
+		f.Stocks = 0
+		f.Dead = 9999
+		f.Atk = nil
+		f.Pl = nil
+		m.Eliminated = append(m.Eliminated, slot)
+	}
+	// Un jugador que abandona a media partida debe dar por terminado el combate
+	// y publicar la clasificación, igual que un KO normal.
+	if m.WinnerPi == nil {
+		winner := -1
+		for _, other := range m.Fighters {
+			if other.Slot != slot && other.Stocks > 0 { winner = other.Slot; break }
+		}
+		if winner >= 0 {
+			m.WinnerPi = &winner
+			order := []int{winner}
+			for _, other := range m.Fighters { if other.Slot != winner { order = append(order, other.Slot) } }
+			m.StandingsList = order
+			if m.OnEnd != nil { m.OnEnd(order) }
+		}
 	}
 }
 

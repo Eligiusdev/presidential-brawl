@@ -1,4 +1,4 @@
-import { Landmark, Radio, Trophy, Zap } from 'lucide-react';
+import { Landmark, Radio, Zap } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
 import type { MatchSnapshot, RoomState } from '../network/matchState';
@@ -19,9 +19,8 @@ export function OnlineMatchHUD({ snap, room, localSlot, crtClass }: {
   const hazardName = stage.hazardName ?? '';
   const warning = w.hzPhase === 1 ? `⚠ ${hazardName || 'PELIGRO'}` : null;
   const active = w.hzPhase === 2 ? (stage.hazardMsg || hazardName || 'PELIGRO ACTIVO') : null;
-  const banner = w.bannerMsg?.l > 0 ? w.bannerMsg.t : null;
-  const winnerPi = (snap as any)?.winnerPi ?? w.winnerPi ?? null;
   const ping = room.players[localSlot]?.ping ?? 0;
+  const leftSlots = room.players.map((p, i) => (p ? -1 : i)).filter(i => i >= 0);
 
   return <div className={`match-hud pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-3 sm:p-4 ${crtClass ?? ''}`}>
     <div className="match-toolbar flex items-start justify-between gap-2 sm:gap-3">
@@ -42,7 +41,12 @@ export function OnlineMatchHUD({ snap, room, localSlot, crtClass }: {
         </div>
       </div>
 
-      <div className="flex-1 flex justify-center">
+      <div className="flex-1 flex flex-col items-center gap-1">
+        {leftSlots.length > 0 && (
+          <div className="rounded-md border border-[#f59e0b]/70 bg-[#0b0f1b]/92 px-4 py-1 font-display text-xs font-bold uppercase tracking-wider text-[#fcd34d]">
+            {leftSlots.map(i => `J${i + 1}`).join(', ')} ha{leftSlots.length > 1 ? 'n' : ''} salido · terminando partida
+          </div>
+        )}
         {warning && (
           <div className="rounded-md border border-[#ef4444] bg-[#7f1d1d]/95 px-4 py-1 font-display text-xs font-bold uppercase tracking-wider text-white sm:text-sm">
             {warning}
@@ -62,19 +66,6 @@ export function OnlineMatchHUD({ snap, room, localSlot, crtClass }: {
         </div>
       </div>
     </div>
-
-    {banner && (
-      <div className="pointer-events-none absolute left-1/2 top-[34%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-center font-display text-2xl font-black uppercase tracking-wider text-[#ffd23f] sm:text-4xl"
-        style={{ textShadow: '0 3px 0 #07090f, 0 0 22px rgba(255,210,63,.6)' }}>
-        {banner}
-      </div>
-    )}
-
-    {winnerPi !== null && (
-      <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-xl border border-[#ffcc33]/60 bg-[#0b1122]/92 px-5 py-3 font-display text-xl font-black uppercase tracking-wider text-[#ffd23f] shadow-[0_0_30px_rgba(255,204,51,.35)]">
-        <Trophy className="h-6 w-6" /> KO! · J{winnerPi + 1}
-      </div>
-    )}
 
     <div className="match-fighter-cards flex items-end justify-between gap-3">
       {players.map((p: any, idx: number) => {
