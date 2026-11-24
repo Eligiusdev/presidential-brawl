@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUp, Crown, Crosshair, Gamepad2, Monitor, RotateCcw, Settings, Swords, Volume2, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Crown, Crosshair, Gamepad, Gamepad2, Globe, Monitor, RotateCcw, Settings, Swords, Volume2, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { sound } from '../audio/soundEngine';
 import { ACTION_LABELS, DEFAULT_CONFIG, DEFAULT_GAMEPAD_BINDINGS, DEFAULT_P1_KEYS, DEFAULT_P2_KEYS, formatKeyCode, PAD_BUTTON_LABELS, PIXEL_PRESET_DIMS } from '../config/defaultConfig';
 import { useGame } from '../game/GameContext';
+import { getClientId, getPlayerName, setPlayerName } from '../network/playerIdentity';
 import type { CrtFilterPreset, GameConfig, ParticleDensity, PixelResolutionPreset, PlayerAction, TouchMode } from '../types/game';
 
-type ConfigTab = 'video' | 'controls' | 'audio';
+type ConfigTab = 'video' | 'controls' | 'gamepad' | 'online' | 'audio';
 
 export function ConfigPage() {
   const g = useGame();
@@ -17,6 +18,7 @@ export function ConfigPage() {
   const [touchEditor, setTouchEditor] = useState(false);
   const [listeningPad, setListeningPad] = useState<PlayerAction | null>(null);
   const [padInfo, setPadInfo] = useState<{ name: string; playstation: boolean } | null>(null);
+  const [onlineName, setOnlineName] = useState(getPlayerName);
   const goBack = () => { sound.uiClick(); if (window.history.length > 1) navigate(-1); else navigate('/'); };
 
   useEffect(() => {
@@ -91,6 +93,8 @@ export function ConfigPage() {
   const tabs: Array<{ id: ConfigTab; label: string; icon: typeof Monitor }> = [
     { id: 'video', label: 'Video', icon: Monitor },
     { id: 'controls', label: 'Controles', icon: Gamepad2 },
+    { id: 'gamepad', label: 'Mando', icon: Gamepad },
+    { id: 'online', label: 'Online', icon: Globe },
     { id: 'audio', label: 'Audio', icon: Volume2 },
   ];
 
@@ -101,7 +105,7 @@ export function ConfigPage() {
           <Settings className="h-5 w-5 text-[#ffcc33]" aria-hidden />
           <div className="ob-brand-text">
             <h2>Configuración</h2>
-            <p>Ajusta video, controles y audio</p>
+            <p>Ajusta video, controles, mando, nombre online y audio</p>
           </div>
         </div>
         <div className="ob-top-actions">
@@ -239,10 +243,17 @@ export function ConfigPage() {
                   </div>
                 ))}
               </div>
+              <div className="flex justify-end">
+                <button onClick={resetKeys} className="flex shrink-0 items-center gap-2 rounded-lg border border-[#32405e] bg-[#1a2236] px-4 py-2 text-xs font-bold text-[#cbd5e1] hover:text-white"><RotateCcw className="h-3.5 w-3.5" />Restaurar Teclas</button>
+              </div>
+            </div>}
+
+            {tab === 'gamepad' && <div className="space-y-6">
+              <SectionTitle>Mando PlayStation / Gamepad</SectionTitle>
               <div className="rounded-lg border border-[#252f47] bg-[#141b2d] p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <h4 className="font-display text-sm font-bold uppercase tracking-wider text-[#ffcc33]">Mando PlayStation / Gamepad</h4>
+                    <h4 className="font-display text-sm font-bold uppercase tracking-wider text-[#ffcc33]">Botones del mando</h4>
                     <div className="text-xs text-[#94a3b8]">
                       {padInfo ? `${padInfo.playstation ? 'Mando PlayStation detectado' : 'Mando detectado'} · ${padInfo.name.slice(0, 52)}` : 'Conecta un mando y pulsa un botón para asignarlo'}
                     </div>
@@ -265,14 +276,34 @@ export function ConfigPage() {
                     </div>;
                   })}
                 </div>
-                <div style={{ marginTop: 12 }}>
-                  <SliderField label="Zona muerta del stick izquierdo" value={config.controls.gamepadDeadzone ?? 0.25} min={0.1} max={0.5} step={0.05} format={v => `${Math.round(v * 100)}%`} onChange={v => updateControls('gamepadDeadzone', v)} />
+              </div>
+              <div className="rounded-lg border border-[#252f47] bg-[#141b2d] p-4">
+                <SliderField label="Zona muerta del stick izquierdo" value={config.controls.gamepadDeadzone ?? 0.25} min={0.1} max={0.5} step={0.05} format={v => `${Math.round(v * 100)}%`} onChange={v => updateControls('gamepadDeadzone', v)} />
+                <div style={{ marginTop: 14 }}>
+                  <ToggleRow label="Vibración en Mandos (Gamepad)" desc="Retroalimentación háptica al impactar y recibir KOs" checked={config.controls.gamepadVibration} onChange={v => updateControls('gamepadVibration', v)} />
                 </div>
               </div>
+            </div>}
 
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <ToggleRow label="Vibración en Mandos (Gamepad)" desc="Retroalimentación háptica al impactar y recibir KOs" checked={config.controls.gamepadVibration} onChange={v => updateControls('gamepadVibration', v)} />
-                <button onClick={resetKeys} className="flex shrink-0 items-center gap-2 rounded-lg border border-[#32405e] bg-[#1a2236] px-4 py-2 text-xs font-bold text-[#cbd5e1] hover:text-white"><RotateCcw className="h-3.5 w-3.5" />Restaurar Teclas</button>
+            {tab === 'online' && <div className="space-y-6">
+              <SectionTitle>Nombre online</SectionTitle>
+              <div className="rounded-lg border border-[#252f47] bg-[#141b2d] p-5 space-y-4">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#cbd5e1]">Nombre que verán los demás jugadores</span>
+                  <input
+                    value={onlineName}
+                    maxLength={18}
+                    placeholder="Jugador"
+                    autoComplete="nickname"
+                    onChange={e => { setOnlineName(e.target.value); setPlayerName(e.target.value); }}
+                    onBlur={() => setOnlineName(setPlayerName(onlineName))}
+                    className="w-full max-w-md rounded-lg border border-[#2f3f5f] bg-[#141d31] px-3 py-2.5 text-sm text-white outline-none transition-colors hover:border-[#4b648f] focus:border-[#ffcc33]"
+                  />
+                </label>
+                <p className="text-xs leading-relaxed text-[#94a3b8]">Se muestra en la sala de espera y en las partidas online. También puedes cambiarlo desde la pantalla de salas.</p>
+                <div className="rounded-lg border border-[#2a344d] bg-[#0e1320] p-3 text-xs text-[#9bb3d4]">
+                  Identidad de este navegador: <span className="font-mono-num text-[#ffcc33]">{getClientId().slice(0, 12)}…</span>
+                </div>
               </div>
             </div>}
 
