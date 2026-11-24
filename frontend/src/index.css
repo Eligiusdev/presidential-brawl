@@ -267,12 +267,13 @@
   border: 2px solid #9bb8d4b0; box-shadow: 0 6px 14px #070c18b0, inset 0 1px 0 #ffffff18;
 }
 .touch-action-grid button.touch-action[aria-pressed="true"] { transform: scale(.9); background: #375980; }
-.touch-jump { left: 90%; top: 82%; right: auto; bottom: auto; transform: translate(-50%,-50%); width: calc(var(--touch-size) * 1.12) !important; height: calc(var(--touch-size) * 1.12) !important; }
-.touch-light { left: 78%; top: 82%; right: auto; bottom: auto; transform: translate(-50%,-50%); }
-.touch-heavy { left: 90%; top: 58%; right: auto; bottom: auto; transform: translate(-50%,-50%); }
-.touch-dash { left: 66%; top: 82%; right: auto; bottom: auto; transform: translate(-50%,-50%); }
-.touch-ult { left: 78%; top: 58%; right: auto; bottom: auto; transform: translate(-50%,-50%); }
-.touch-reload { left: 66%; top: 58%; right: auto; bottom: auto; transform: translate(-50%,-50%); width: calc(var(--touch-size) * 0.88) !important; height: calc(var(--touch-size) * 0.88) !important; }
+/* Fan layout: follows the thumb arc instead of a rigid 2x3 block. */
+.touch-jump { left: 88%; top: 88%; right: auto; bottom: auto; transform: translate(-50%,-50%); width: calc(var(--touch-size) * 1.18) !important; height: calc(var(--touch-size) * 1.18) !important; }
+.touch-light { left: 71%; top: 85%; right: auto; bottom: auto; transform: translate(-50%,-50%); }
+.touch-heavy { left: 91%; top: 68%; right: auto; bottom: auto; transform: translate(-50%,-50%); }
+.touch-dash { left: 64%; top: 72%; right: auto; bottom: auto; transform: translate(-50%,-50%); }
+.touch-ult { left: 80%; top: 52%; right: auto; bottom: auto; transform: translate(-50%,-50%); }
+.touch-reload { left: 62%; top: 54%; right: auto; bottom: auto; transform: translate(-50%,-50%); width: calc(var(--touch-size) * 0.86) !important; height: calc(var(--touch-size) * 0.86) !important; }
 .touch-action-grid button.touch-ult[data-ready="true"] { color: #141923; background: #ffcf64; border-color: #fff2c4; box-shadow: 0 0 0 2px #ffcf6466, 0 6px 14px #070c18b0; }
 
 @media (min-width: 1024px) {
@@ -1593,7 +1594,7 @@ html[data-scaled="true"] #root {
 }
 html[data-scaled="true"] .apex-app {
   width: 1280px !important;
-  height: 720px !important;
+  height: var(--app-height, 720px) !important;
   flex: none;
   transform: scale(var(--app-scale, 1));
   transform-origin: center center;
@@ -1601,12 +1602,12 @@ html[data-scaled="true"] .apex-app {
 }
 
 /* Shell: undo the portrait full-height override */
-html[data-scaled="true"] main { height: 720px !important; }
+html[data-scaled="true"] main { height: var(--app-height, 720px) !important; }
 html[data-scaled="true"] main > div { max-height: none !important; min-height: 0; }
 html[data-scaled="true"] .apex-frame {
-  width: min(100%, calc(720px * 16 / 9));
-  height: auto;
-  aspect-ratio: 16 / 9;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
 }
 html[data-scaled="true"] .landscape-prompt { display: none !important; }
 
@@ -1654,6 +1655,26 @@ html[data-scaled="true"] .apex-frame-combat .touch-deck { grid-area: auto; posit
 html[data-scaled="true"] .apex-arena-backdrop { display: none; }
 html[data-scaled="true"] .victory-showcase { max-height: 90px; width: auto; }
 
+/* Base touch controls: bigger thumb targets in the scaled mobile canvas */
+html[data-scaled="true"] .touch-action-grid { --touch-size: calc(142px * var(--touch-scale, 1)); }
+html[data-scaled="true"] .touch-stick-zone {
+  width: 280px !important; height: 240px !important;
+  left: 28px !important; bottom: 28px !important;
+  top: auto !important; right: auto !important;
+  transform: none !important;
+}
+html[data-scaled="true"] .touch-stick { width: 180px !important; }
+@media (orientation: landscape) {
+  html[data-scaled="true"] .touch-action-grid { --touch-size: calc(96px * var(--touch-scale, 1)); }
+  html[data-scaled="true"] .touch-stick-zone {
+    width: 220px !important; height: 210px !important;
+    left: 20px !important; bottom: 20px !important;
+    top: auto !important; right: auto !important;
+    transform: none !important;
+  }
+  html[data-scaled="true"] .touch-stick { width: 146px !important; }
+}
+
 /* ob-lobby views (select, gallery, online lobby) */
 html[data-scaled="true"] .ob-lobby { overflow: hidden; }
 html[data-scaled="true"] .ob-main { grid-template-columns: minmax(0, 1fr) 300px; overflow: hidden; }
@@ -1686,7 +1707,7 @@ html[data-scaled="true"] .room-mode-grid { grid-template-columns: repeat(4, minm
 html[data-scaled="true"] .room-modal-section-head { flex-direction: row; align-items: baseline; }
 html[data-scaled="true"] .room-modal-body { padding: 18px 20px 20px; }
 html[data-scaled="true"] .console-modal-body { max-height: 504px !important; }
-html[data-scaled="true"] .online-screen.online-match { width: 1280px; height: 720px; }
+html[data-scaled="true"] .online-screen.online-match { width: 1280px; height: var(--app-height, 720px); }
 html[data-scaled="true"] .network-panel { width: 420px; }
 html[data-scaled="true"] .online-hud { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 html[data-scaled="true"] .online-opponents-list { display: block; grid-template-columns: none; }

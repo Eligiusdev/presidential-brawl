@@ -359,8 +359,8 @@ type TouchBtnKey = 'jump' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload';
 type TouchLayout = Partial<Record<TouchBtnKey, { x: number; y: number; scale?: number }>>;
 
 const DEFAULT_TOUCH_LAYOUT: Record<TouchBtnKey, { x: number; y: number }> = {
-  jump: { x: 90, y: 18 }, light: { x: 78, y: 18 }, heavy: { x: 90, y: 42 },
-  dash: { x: 66, y: 18 }, ult: { x: 78, y: 42 }, reload: { x: 66, y: 42 },
+  jump: { x: 88, y: 12 }, light: { x: 71, y: 15 }, heavy: { x: 91, y: 32 },
+  dash: { x: 64, y: 28 }, ult: { x: 80, y: 48 }, reload: { x: 62, y: 46 },
 };
 
 function TouchPreview({ scale, layout, onChange, onReset }: { scale: number; layout?: TouchLayout; onChange: (l: TouchLayout) => void; onReset: () => void }) {
