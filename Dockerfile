@@ -6,6 +6,7 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ENV CGO_ENABLED=0
 
 WORKDIR /app
+RUN go version && node --version && npm --version
 COPY . .
 RUN npm run build
 
