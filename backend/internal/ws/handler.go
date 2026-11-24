@@ -91,6 +91,7 @@ func (s *Server) publish(room *rooms.Room) {
 			_ = p.WS.SendJSON(state)
 		}
 	}
+	s.Reg.Notify()
 }
 
 func (s *Server) remove(room *rooms.Room, player *rooms.Player, resume bool) {

@@ -1197,3 +1197,367 @@
   .config-layout .ob-roster { order: 0; }
   .config-layout .ob-preview { order: 1; }
 }
+
+/* === Online rooms browser (/online) === */
+.online-browser {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(14px, 2.4vw, 30px);
+  overflow: hidden;
+}
+.online-browser::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(700px 400px at 8% 0%, rgba(30, 52, 92, .28), transparent 60%),
+    radial-gradient(600px 360px at 95% 8%, rgba(255, 204, 51, .1), transparent 55%);
+}
+.online-browser > .online-browser-inner {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  flex-shrink: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.online-browser-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.online-browser-heading { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.online-browser-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: #94a3b8;
+  font: 700 13px var(--font-body, system-ui);
+  cursor: pointer;
+  transition: color .12s;
+}
+.online-browser-back:hover, .online-browser-back:focus-visible { color: #fff; }
+.online-browser-heading .console-game-title { font-size: clamp(1.9rem, 3.6vw, 2.9rem); }
+.online-browser-heading .console-tagline { font-size: 13px; }
+.online-browser-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.online-server-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(74, 222, 128, .28);
+  background: rgba(20, 60, 42, .3);
+  color: #a7f3d0;
+  font: 700 11px var(--font-body, system-ui);
+  white-space: nowrap;
+}
+.online-server-state.is-offline {
+  border-color: rgba(248, 113, 113, .3);
+  background: rgba(60, 20, 28, .35);
+  color: #fecaca;
+}
+.online-browser-head-actions .console-btn { min-height: 38px; padding: 0 14px; }
+
+.online-browser-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(330px, .85fr);
+  gap: 14px;
+}
+.online-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(120, 160, 220, .22);
+  border-radius: 16px;
+  background:
+    radial-gradient(500px 240px at 5% -8%, rgba(56, 189, 248, .1), transparent 60%),
+    linear-gradient(180deg, rgba(17, 29, 51, .96), rgba(10, 18, 32, .96));
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+.online-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(120, 160, 220, .14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .025), transparent);
+}
+.online-panel-kicker {
+  margin: 0 0 3px;
+  font: 800 10px var(--font-display, system-ui);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: #d7c07a;
+}
+.online-panel-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font: 800 clamp(1rem, 1.6vw, 1.2rem) var(--font-display, system-ui);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.online-panel-head h2 svg { color: #ffcc33; flex: none; }
+.online-count {
+  flex: none;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 160, 220, .22);
+  background: rgba(10, 16, 30, .55);
+  color: #9bb3d4;
+  font: 700 10px var(--font-display, system-ui);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.online-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  overflow: hidden;
+}
+
+.online-room-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.online-filter {
+  border: 1px solid rgba(120, 160, 220, .22);
+  background: rgba(15, 25, 44, .72);
+  color: #b8cee8;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: 700 11px var(--font-body, system-ui);
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color .12s, background .12s, color .12s;
+}
+.online-filter:hover { border-color: rgba(120, 160, 220, .45); color: #fff; }
+.online-filter[aria-pressed="true"] {
+  color: #141005;
+  background: linear-gradient(180deg, #ffe27a, #ffcc33);
+  border-color: #ffcc33;
+  box-shadow: 0 4px 14px rgba(255, 204, 51, .2);
+}
+.online-room-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(120, 160, 220, .16);
+  background: rgba(10, 16, 30, .45);
+  color: #9bb3d4;
+  font-size: 11px;
+}
+.online-room-summary svg { color: #ffcc33; flex: none; }
+.online-room-summary strong { color: #ffe08a; font-variant-numeric: tabular-nums; }
+.online-room-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #3a5074 transparent;
+}
+.online-room-list::-webkit-scrollbar { width: 5px; }
+.online-room-list::-webkit-scrollbar-thumb { background: #3a5074; border-radius: 999px; }
+.online-room-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 160, 220, .2);
+  background: linear-gradient(180deg, rgba(22, 35, 58, .85), rgba(13, 22, 38, .85));
+  color: #eaf2ff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .12s, background .12s, transform .08s, box-shadow .12s;
+}
+.online-room-card:hover, .online-room-card:focus-visible {
+  border-color: rgba(255, 204, 51, .55);
+  background: linear-gradient(180deg, rgba(255, 204, 51, .11), rgba(20, 32, 54, .9)), linear-gradient(180deg, rgba(22, 35, 58, .9), rgba(13, 22, 38, .9));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .22);
+  outline: none;
+}
+.online-room-card:active { transform: scale(.995); }
+.online-room-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.online-room-code {
+  font: 900 1.15rem var(--font-mono, ui-monospace, monospace);
+  letter-spacing: .18em;
+  color: #ffcc33;
+  text-shadow: 0 0 16px rgba(255, 204, 51, .28);
+}
+.online-room-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, .22);
+  background: rgba(56, 189, 248, .1);
+  color: #8ec5ff;
+  font: 800 10px var(--font-display, system-ui);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.online-room-badge.is-live {
+  border-color: rgba(255, 204, 51, .3);
+  background: rgba(255, 204, 51, .12);
+  color: #ffdd73;
+}
+.online-room-badge.is-open {
+  border-color: rgba(74, 222, 128, .3);
+  background: rgba(74, 222, 128, .12);
+  color: #86efac;
+}
+.online-room-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: #9bb3d4; }
+.online-room-meta > span { display: inline-flex; align-items: center; gap: 4px; }
+.online-room-meta svg { color: #7f98b8; flex: none; }
+.online-room-meta .online-free-count { color: #86efac; font-weight: 700; }
+.online-room-meta .online-free-count svg { color: #86efac; }
+.online-room-players { display: flex; align-items: center; gap: 5px; }
+.online-player-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #253352;
+  border: 1px solid #3a5074;
+}
+.online-player-dot.is-on {
+  background: var(--pc, #ffcc33);
+  border-color: transparent;
+  box-shadow: 0 0 8px var(--pc, #ffcc33);
+}
+.online-room-enter {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #ffcc33;
+  font: 800 11px var(--font-display, system-ui);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.online-empty {
+  flex: 1 1 auto;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px;
+  border: 1px dashed rgba(120, 160, 220, .24);
+  border-radius: 12px;
+  background: rgba(10, 16, 30, .4);
+  color: #8fa9c9;
+  text-align: center;
+}
+.online-empty svg { color: #5b7bb0; }
+.online-empty strong { color: #eaf2ff; font-size: 14px; }
+.online-empty p { margin: 0; max-width: 34ch; font-size: 12px; line-height: 1.45; }
+.online-join-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(120, 160, 220, .14);
+}
+.online-join-row .room-code-field { flex: 1 1 auto; min-width: 0; }
+.online-join-row .console-btn { flex: none; min-width: 92px; min-height: 52px; }
+
+.online-browser-create .online-panel-body {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #3a5074 transparent;
+}
+.online-browser-create .online-panel-body::-webkit-scrollbar { width: 5px; }
+.online-browser-create .online-panel-body::-webkit-scrollbar-thumb { background: #3a5074; border-radius: 999px; }
+.online-mode-list { display: flex; flex-direction: column; gap: 8px; }
+.online-mode-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: auto;
+  padding: 10px 12px;
+}
+.online-mode-card .room-mode-icon { flex: none; }
+.online-mode-card .room-mode-text { flex: 1 1 auto; }
+.online-create-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(74, 222, 128, .22);
+  background: rgba(20, 60, 42, .25);
+  color: #bbf7d0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.online-create-summary svg { flex: none; }
+.online-create-submit { width: 100%; min-height: 50px; font-size: 15px; }
+.online-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #8fa9c9;
+}
+.online-tip svg { flex: none; margin-top: 1px; color: #7f98b8; }
+
+@media (min-width: 1001px) and (max-height: 720px) {
+  .online-browser { padding: 12px 18px; }
+  .online-browser > .online-browser-inner { gap: 8px; }
+  .online-browser-heading .console-game-title { font-size: clamp(1.6rem, 3vw, 2.1rem); }
+  .online-browser-heading .console-tagline { display: none; }
+  .online-panel-head { padding: 9px 14px; }
+  .online-panel-body { gap: 8px; padding: 10px 14px 12px; }
+  .online-mode-card { padding: 7px 10px; }
+  .online-mode-card .room-mode-text small { display: none; }
+  .online-create-submit { min-height: 42px; }
+}
+@media (max-width: 1000px) {
+  .online-browser { overflow-y: auto; }
+  .online-browser > .online-browser-inner { flex: none; }
+  .online-browser-grid { flex: none; grid-template-columns: 1fr; }
+  .online-browser-rooms { min-height: 380px; }
+  .online-browser-create { min-height: 420px; }
+  .online-panel-body { overflow: visible; }
+}
+@media (max-width: 640px) {
+  .online-browser { padding: 12px; }
+  .online-browser-head { align-items: flex-start; }
+  .online-browser-heading .console-game-title { font-size: clamp(1.7rem, 8vw, 2.2rem); }
+  .online-panel-head, .online-panel-body { padding-left: 12px; padding-right: 12px; }
+  .online-room-code { font-size: 1rem; }
+  .online-join-row .console-btn { min-width: 78px; }
+}

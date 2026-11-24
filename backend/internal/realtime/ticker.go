@@ -69,6 +69,7 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 						room.Match.Leave(slot)
 					}
 					room.Players[slot] = nil
+					reg.Notify()
 				}
 			}
 		}

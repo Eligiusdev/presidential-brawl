@@ -15,7 +15,7 @@ import { decodeSnapshotFrame } from '../network/protoAdapter';
 import { worldFromRich } from '../sim/wasmWorld';
 import { OnlineMatchHUD } from './OnlineMatchHUD';
 import { stageArtUrl, stageNightMix } from '../engine/stageAtmosphere';
-import { roomSocketUrl } from '../network/roomClient';
+import { roomSocketUrl, type OnlineIntent } from '../network/roomClient';
 import type { GameConfig, PlayerAction } from '../types/game';
 import { OnlineLobby } from './OnlineLobby';
 import { TouchControls } from './TouchControls';
@@ -47,8 +47,9 @@ const roomCodePattern = /^(?:[A-F0-9]{5}|[A-F0-9]{10})$/;
 type Seat = Extract<ServerRoomMessage, { type: 'seat' }>;
 type Samples = { previous: MatchSnapshot; latest: MatchSnapshot; at: number };
 
-export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '' }: {
+export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '', intent = null, onIntentHandled }: {
   config: GameConfig; onActive: (active: boolean) => void; openSignal?: number; crtClass?: string;
+  intent?: OnlineIntent | null; onIntentHandled?: () => void;
 }) {
   const [invited] = useState(() => {
     const params = new URLSearchParams(location.search);
@@ -284,6 +285,14 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '' }
     socket.current = null;
     ws?.close();
   }, []);
+
+  // Join/create requests coming from the online rooms browser.
+  useEffect(() => {
+    if (!intent) return;
+    setOpen(true);
+    enter.current(intent);
+    onIntentHandled?.();
+  }, [intent, onIntentHandled]);
 
   useEffect(() => {
     if (invited && roomCodePattern.test(invited) && !autoJoined.current) {

@@ -8,7 +8,7 @@ import { performanceMetricsEnabled } from '../engine/performanceMetrics';
 
 export function GameLayout() {
   const g = useGame();
-  const { screen, config, netOpenSignal, onlineActive, loadingArt, canvasRef, arenaBackdropRef, appRef, crtClass } = g;
+  const { screen, config, netOpenSignal, onlineIntent, clearOnlineIntent, onlineActive, loadingArt, canvasRef, arenaBackdropRef, appRef, crtClass } = g;
   const isConfig = useLocation().pathname.replace(/\/+$/, '') === '/config';
   const menuFrame = ['TITLE', 'SELECT', 'CUSTOMIZE'].includes(screen) || isConfig;
   const combatFrame = ['PLAYING', 'PAUSED', 'REPLAY'].includes(screen) && !isConfig;
@@ -17,7 +17,7 @@ export function GameLayout() {
       {loadingArt && <div className="match-art-status" role="status">Preparando luchadores…</div>}
       {performanceMetricsEnabled && <PerformancePanel />}
       <LandscapePrompt />
-      <NetworkPanel config={config} openSignal={netOpenSignal} crtClass={crtClass} onActive={active => { onlineActive.current = active; }} />
+      <NetworkPanel config={config} openSignal={netOpenSignal} crtClass={crtClass} intent={onlineIntent} onIntentHandled={clearOnlineIntent} onActive={active => { onlineActive.current = active; }} />
       <div className={`apex-frame ${menuFrame ? 'apex-frame-menu' : ''} ${combatFrame ? 'apex-frame-combat' : ''} ${crtClass}`}>
         <div ref={arenaBackdropRef} className="apex-arena-backdrop" aria-hidden="true" />
         <canvas ref={canvasRef} width={960} height={540} className="apex-arena pixel-canvas block h-full w-full object-contain" />

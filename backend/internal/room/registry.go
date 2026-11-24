@@ -3,6 +3,7 @@ package rooms
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"sort"
 	"sync"
 	"time"
 
@@ -89,6 +90,19 @@ func (r *Room) State() contract.RoomState {
 	}
 }
 
+// RoomSummary is the public information shown in the online rooms browser.
+type RoomSummary struct {
+	Code       string    `json:"code"`
+	Mode       string    `json:"mode"`
+	TeamSize   int       `json:"teamSize"`
+	Stage      int       `json:"stage"`
+	Players    int       `json:"players"`
+	Connected  int       `json:"connected"`
+	MaxPlayers int       `json:"maxPlayers"`
+	Playing    bool      `json:"playing"`
+	Updated    time.Time `json:"updated"`
+}
+
 type clientBind struct {
 	room   *Room
 	player *Player
@@ -96,13 +110,45 @@ type clientBind struct {
 }
 
 type Registry struct {
-	mu      sync.Mutex
-	rooms   map[string]*Room
-	clients map[*Client]*clientBind
+	mu        sync.Mutex
+	rooms     map[string]*Room
+	clients   map[*Client]*clientBind
+	listeners map[chan struct{}]struct{}
 }
 
 func NewRegistry() *Registry {
-	return &Registry{rooms: map[string]*Room{}, clients: map[*Client]*clientBind{}}
+	return &Registry{
+		rooms: map[string]*Room{}, clients: map[*Client]*clientBind{},
+		listeners: map[chan struct{}]struct{}{},
+	}
+}
+
+// Subscribe returns a channel that is notified whenever the public room list changes.
+// The returned function unsubscribes and closes the channel.
+func (reg *Registry) Subscribe() (<-chan struct{}, func()) {
+	ch := make(chan struct{}, 1)
+	reg.mu.Lock()
+	reg.listeners[ch] = struct{}{}
+	reg.mu.Unlock()
+	ch <- struct{}{} // send the current state immediately
+	return ch, func() {
+		reg.mu.Lock()
+		delete(reg.listeners, ch)
+		reg.mu.Unlock()
+		close(ch)
+	}
+}
+
+// Notify wakes every room-list subscriber. Never blocks on a slow listener.
+func (reg *Registry) Notify() {
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	for ch := range reg.listeners {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
 }
 
 func (reg *Registry) AddClient(c *Client) {
@@ -170,7 +216,7 @@ func (reg *Registry) Create(maxPlayers int, mode string, teamSize int) *Room {
 	if mode != "champion" && mode != "tournament" { mode = "ffa" }
 	if teamSize <= 0 { teamSize = 1 }
 	reg.mu.Lock()
-	defer reg.mu.Unlock()
+	var created *Room
 	for {
 		b := make([]byte, 3)
 		_, _ = rand.Read(b)
@@ -196,14 +242,19 @@ func (reg *Registry) Create(maxPlayers int, mode string, teamSize int) *Room {
 			Stage: 0, Mode: mode, TeamSize: teamSize, Updated: time.Now(),
 		}
 		reg.rooms[code] = r
-		return r
+		created = r
+		break
 	}
+	reg.mu.Unlock()
+	reg.Notify()
+	return created
 }
 
 func (reg *Registry) Delete(code string) {
 	reg.mu.Lock()
-	defer reg.mu.Unlock()
 	delete(reg.rooms, code)
+	reg.mu.Unlock()
+	reg.Notify()
 }
 
 func (reg *Registry) All() []*Room {
@@ -213,6 +264,49 @@ func (reg *Registry) All() []*Room {
 	for _, r := range reg.rooms {
 		out = append(out, r)
 	}
+	return out
+}
+
+// Summaries returns a snapshot of the rooms that can be shown in the lobby browser.
+func (reg *Registry) Summaries() []RoomSummary {
+	all := reg.All()
+	out := make([]RoomSummary, 0, len(all))
+	for _, r := range all {
+		r.Mu().Lock()
+		players, connected := 0, 0
+		for _, p := range r.Players {
+			if p == nil {
+				continue
+			}
+			players++
+			if p.WS != nil && p.LeftAt.IsZero() {
+				connected++
+			}
+		}
+		mode := r.Mode
+		if mode == "" {
+			mode = "ffa"
+		}
+		teamSize := r.TeamSize
+		if teamSize <= 0 {
+			teamSize = 1
+		}
+		out = append(out, RoomSummary{
+			Code: r.Code, Mode: mode, TeamSize: teamSize, Stage: r.Stage,
+			Players: players, Connected: connected, MaxPlayers: r.MaxPlayers(),
+			Playing: r.Match != nil, Updated: r.Updated,
+		})
+		r.Mu().Unlock()
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Playing != out[j].Playing {
+			return !out[i].Playing
+		}
+		if out[i].Connected != out[j].Connected {
+			return out[i].Connected > out[j].Connected
+		}
+		return out[i].Code < out[j].Code
+	})
 	return out
 }
 

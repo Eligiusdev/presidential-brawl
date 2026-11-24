@@ -11,6 +11,7 @@ import { STAGES_DATA } from '../data/stages';
 import { GameEngine } from '../engine/gameEngine';
 import { stageArtUrl, stageNightMix } from '../engine/stageAtmosphere';
 import type { CampaignState, GameConfig, GameMode, GameScreenState, HudSnapshot, MatchReplayData, MatchSummary, PlayerAction, PresidentData } from '../types/game';
+import type { OnlineIntent } from '../network/roomClient';
 
 type Screen = GameScreenState;
 type SetState<T> = React.Dispatch<React.SetStateAction<T>>;
@@ -31,6 +32,7 @@ export interface GameCtx {
   replaySpeed: 0.5 | 1 | 2; setReplaySpeed: SetState<0.5 | 1 | 2>;
   replayEnded: boolean; replayFrame: number;
   netOpenSignal: number; setNetOpenSignal: SetState<number>;
+  onlineIntent: OnlineIntent | null; requestOnline: (intent: OnlineIntent) => void; clearOnlineIntent: () => void;
   loadingArt: boolean; lesson: number | null;
   engineRef: RefObject<GameEngine | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -85,6 +87,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [replayEnded, setReplayEnded] = useState<boolean>(false);
   const [replayFrame, setReplayFrame] = useState<number>(0);
   const [netOpenSignal, setNetOpenSignal] = useState<number>(0);
+  const [onlineIntent, setOnlineIntent] = useState<OnlineIntent | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const locationRef = useRef(location);
@@ -183,7 +186,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     if (rawPath === '/config') return;
 
-    if (rawPath === '/combat' || rawPath === '/gallery') {
+    if (rawPath === '/combat' || rawPath === '/gallery' || rawPath === '/online') {
       const cur = screenRef.current;
       if (cur !== 'TITLE') {
         if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
@@ -273,7 +276,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const loc = locationRef.current;
     const curPath = normPath(loc.pathname);
     if (curPath === '/config') return;
-    const menuPaths = ['/', '/combat', '/gallery'];
+    const menuPaths = ['/', '/combat', '/gallery', '/online'];
     const viewPaths = ['/select', '/play', '/replay', '/result'];
     const legacyPath = curPath === '/visualizar' || curPath.startsWith('/room/') || /^\/result\/(defeat|censure|champion)$/.test(curPath);
     if (!screenChanged && screen === 'TITLE' && (viewPaths.includes(curPath) || legacyPath)) return;
@@ -302,6 +305,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const updateConfig = useCallback((next: GameConfig) => {
     setConfig(next); saveConfig(next); engineRef.current?.updateConfig(next);
   }, []);
+
+  const requestOnline = useCallback((intent: OnlineIntent) => {
+    sound.init(); sound.uiConfirm();
+    setOnlineIntent(intent);
+  }, []);
+  const clearOnlineIntent = useCallback(() => setOnlineIntent(null), []);
 
   const touchAt = useRef<number | null>(null);
   const matchLoading = useRef(false);
@@ -537,7 +546,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     trainingSelection, setTrainingSelection,
     mode, sel, setSel, stageSel, setStageSel, vsAI, setVsAI, configOpen, setConfigOpen,
     hud, campaign, summary, replayPaused, setReplayPaused, replaySpeed, setReplaySpeed,
-    replayEnded, replayFrame, netOpenSignal, setNetOpenSignal, loadingArt, lesson,
+    replayEnded, replayFrame, netOpenSignal, setNetOpenSignal, onlineIntent, requestOnline, clearOnlineIntent, loadingArt, lesson,
     engineRef, canvasRef, arenaBackdropRef, appRef, onlineActive,
     startCampaign, startVersus, startTraining, togglePause,
     startReplay, restartReplay, exitReplay, downloadReplayJson,
