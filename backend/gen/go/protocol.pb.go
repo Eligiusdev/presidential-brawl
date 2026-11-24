@@ -1343,6 +1343,7 @@ type Snapshot struct {
 	Projectiles   []*WireProjectile      `protobuf:"bytes,6,rep,name=projectiles,proto3" json:"projectiles,omitempty"`
 	Cine          *WireCine              `protobuf:"bytes,7,opt,name=cine,proto3" json:"cine,omitempty"`
 	World         *WorldState            `protobuf:"bytes,8,opt,name=world,proto3" json:"world,omitempty"`
+	SnapshotJson  []byte                 `protobuf:"bytes,9,opt,name=snapshot_json,json=snapshotJson,proto3" json:"snapshot_json,omitempty"` // snapshot rico del motor Go (fuente única para el renderer)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1429,6 +1430,13 @@ func (x *Snapshot) GetCine() *WireCine {
 func (x *Snapshot) GetWorld() *WorldState {
 	if x != nil {
 		return x.World
+	}
+	return nil
+}
+
+func (x *Snapshot) GetSnapshotJson() []byte {
+	if x != nil {
+		return x.SnapshotJson
 	}
 	return nil
 }
@@ -1584,7 +1592,7 @@ const file_protocol_proto_rawDesc = "" +
 	"\bcamera_y\x18\x11 \x01(\x02R\acameraY\x12\x1f\n" +
 	"\vcamera_zoom\x18\x12 \x01(\x02R\n" +
 	"cameraZoom\x12\x12\n" +
-	"\x04seed\x18\x13 \x01(\rR\x04seed\"\x97\x02\n" +
+	"\x04seed\x18\x13 \x01(\rR\x04seed\"\xbc\x02\n" +
 	"\bSnapshot\x12\x12\n" +
 	"\x04tick\x18\x01 \x01(\rR\x04tick\x12\x10\n" +
 	"\x03ack\x18\x02 \x03(\x05R\x03ack\x12\x14\n" +
@@ -1593,7 +1601,8 @@ const file_protocol_proto_rawDesc = "" +
 	"\x05zones\x18\x05 \x03(\v2\x10.pb.WireUltimateR\x05zones\x124\n" +
 	"\vprojectiles\x18\x06 \x03(\v2\x12.pb.WireProjectileR\vprojectiles\x12 \n" +
 	"\x04cine\x18\a \x01(\v2\f.pb.WireCineR\x04cine\x12$\n" +
-	"\x05world\x18\b \x01(\v2\x0e.pb.WorldStateR\x05worldB0Z.github.com/presidential-brawl/server/gen/go/pbb\x06proto3"
+	"\x05world\x18\b \x01(\v2\x0e.pb.WorldStateR\x05world\x12#\n" +
+	"\rsnapshot_json\x18\t \x01(\fR\fsnapshotJsonB0Z.github.com/presidential-brawl/server/gen/go/pbb\x06proto3"
 
 var (
 	file_protocol_proto_rawDescOnce sync.Once

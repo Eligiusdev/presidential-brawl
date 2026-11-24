@@ -18,7 +18,7 @@ type Server struct {
 	Origins      map[string]bool
 	FighterIDs   map[string]bool
 	StageCount   int
-	CreateMatch  func(ids []string, stage int, onEnd func([]int)) sim.Match
+	CreateMatch  func(ids []string, stage int, onEnd func([]int)) *sim.Match
 }
 
 func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request) {

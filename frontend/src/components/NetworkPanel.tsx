@@ -12,6 +12,7 @@ import type { RoomCapacity } from '../data/stages';
 import { PixelRenderer } from '../engine/pixelRenderer';
 import { renderMatchState, type MatchSnapshot, type RoomState, type ServerRoomMessage } from '../network/matchState';
 import { decodeSnapshotFrame } from '../network/protoAdapter';
+import { worldFromRich } from '../sim/wasmWorld';
 import { roomSocketUrl } from '../network/roomClient';
 import type { GameConfig, PlayerAction } from '../types/game';
 import { OnlineGameHUD } from './GameHUD';
@@ -342,7 +343,11 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '' }
       const prediction = Math.min(8, Math.max(0, since) + Math.min(5, 1 + ping / 20));
       sound.tickMusic(buffer.latest.players.some(p => p.stocks === 1 || p.damage > 150));
       const start = performance.now();
-      renderer.renderWorld(target, renderMatchState(buffer.previous, buffer.latest, blend, slot, actions(), prediction, jumpSequence.current), config, quality.quality);
+      const snap = buffer.latest;
+      const world = (snap.world as any)?.rich
+        ? worldFromRich(snap as any, buffer.previous as any, blend)
+        : renderMatchState(buffer.previous, snap, blend, slot, actions(), prediction, jumpSequence.current);
+      renderer.renderWorld(target, world, config, quality.quality);
       const cost = performance.now() - start;
       if (previousPaint) {
         quality.record(now - previousPaint, cost);

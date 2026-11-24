@@ -6,6 +6,14 @@ export function decodeSnapshotFrame(buf: ArrayBuffer): MatchSnapshot | null {
   try {
     const s = fromBinary(SnapshotSchema, new Uint8Array(buf));
     if (!s || typeof s.tick !== 'number') return null;
+    // Snapshot rico del motor Go: prioridad sobre el mapeo legacy para que
+    // online y WASM local dibujen exactamente con los mismos datos.
+    if (s.snapshotJson?.length) {
+      try {
+        const rich = JSON.parse(new TextDecoder().decode(s.snapshotJson));
+        if (rich && rich.world && Array.isArray(rich.players)) return rich as MatchSnapshot;
+      } catch {}
+    }
     return protoToMatchSnapshot(s);
   } catch {
     return null;

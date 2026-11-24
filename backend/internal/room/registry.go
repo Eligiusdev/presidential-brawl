@@ -45,7 +45,7 @@ type Room struct {
 	Stage         int
 	Mode          string
 	TeamSize      int
-	Match         sim.Match
+	Match         *sim.Match
 	MatchSlots    []int
 	Standings     []int
 	ChampionSlot  int

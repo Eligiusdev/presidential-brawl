@@ -1,5 +1,13 @@
+export interface WasmConfig {
+  mode?: 'versus' | 'training' | 'campaign' | 'attract';
+  stocks?: number; knockback?: number; gravity?: number;
+  hazard?: string; items?: string; voteGain?: number;
+  startFullVote?: boolean; aiDifficulty?: number;
+  hitstop?: boolean; campaignRound?: number;
+}
+
 export interface WasmSim {
-  create(ids: string[], stage: number, seed: number): number;
+  create(ids: string[], stage: number, seed: number, config?: WasmConfig, mode?: string): number;
   step(id: number, inputs: string[][]): number;
   snapshot(id: number): any;
   leave(id: number, slot: number): void;
@@ -35,7 +43,8 @@ export function loadWasmSim(): Promise<WasmSim> {
     }
     if (typeof g.pbSimCreate !== 'function') throw new Error('WASM sim not ready');
     return {
-      create: (ids, stage, seed) => g.pbSimCreate(JSON.stringify(ids), stage, seed),
+      create: (ids, stage, seed, config) => g.pbSimCreate(JSON.stringify(ids), stage, seed,
+        JSON.stringify(config ?? {}), config?.mode ?? 'versus'),
       step: (id, inputs) => g.pbSimStep(id, JSON.stringify(inputs)),
       snapshot: (id) => JSON.parse(g.pbSimSnapshot(id)),
       leave: (id, slot) => g.pbSimLeave(id, slot),

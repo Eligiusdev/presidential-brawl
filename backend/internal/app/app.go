@@ -26,7 +26,7 @@ func Run(cfg config.Config) error {
 	reg := rooms.NewRegistry()
 	wsSrv := &ws.Server{
 		Reg: reg, Origins: cfg.AllowedOrigins, FighterIDs: fighterIDs, StageCount: sim.StageCount(),
-		CreateMatch: func(ids []string, stage int, onEnd func([]int)) sim.Match {
+		CreateMatch: func(ids []string, stage int, onEnd func([]int)) *sim.Match {
 			m, err := sim.NewOnlineMatch(ids, stage, sim.RandomSeed())
 			if err != nil { log.Println("match create:", err); return nil }
 			m.OnEnd = onEnd

@@ -56,8 +56,10 @@ async function waitSnap(ws: WebSocket, pred: (s: any) => boolean, timeoutMs = 80
     const onMsg = (data: WebSocket.RawData, isBinary: boolean) => {
       if (!isBinary) return;
       const raw = data instanceof Buffer ? new Uint8Array(data) : new Uint8Array(data as ArrayBuffer);
-      const s = fromBinary(SnapshotSchema, raw) as any;
-      if (pred(s)) { clearTimeout(t); ws.off('message', onMsg); resolve(s); }
+      const proto = fromBinary(SnapshotSchema, raw) as any;
+      const snap = proto.snapshotJson?.length
+        ? JSON.parse(new TextDecoder().decode(proto.snapshotJson)) : proto;
+      if (pred(snap)) { clearTimeout(t); ws.off('message', onMsg); resolve(snap); }
     };
     ws.on('message', onMsg);
   });
@@ -102,12 +104,12 @@ describe('Go sim combat parity', () => {
 
     const snap = await waitSnap(ws1, s => {
       const ps = s.players || [];
-      return ps.some((p: any) => (p.damage || 0) > 0 || (p.stocks || 3) < 3);
+      return ps.some((p: any) => (p.pct ?? p.damage ?? 0) > 0 || (p.stocks ?? 3) < 3);
     }, 15000);
     clearInterval(iv);
     const ps = snap.players || [];
     expect(ps.length).toBe(2);
-    const anyDamage = ps.some((p: any) => (p.damage || 0) > 0 || (p.stocks || 3) < 3);
+    const anyDamage = ps.some((p: any) => (p.pct ?? p.damage ?? 0) > 0 || (p.stocks ?? 3) < 3);
     expect(anyDamage).toBe(true);
     ws1.close(); ws2.close();
   }, 20000);

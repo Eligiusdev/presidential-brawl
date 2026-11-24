@@ -12,10 +12,18 @@ func encodeSnapshotBinary(snap any, ack []int) ([]byte, bool) {
 	if !ok {
 		return nil, false
 	}
+	// El motor Go produce un snapshot rico; se transporta tal cual en un campo
+	// opaco para que online y local usen exactamente los mismos datos de render.
+	var richJSON []byte
+	if m["world"] != nil {
+		m["ack"] = ack // el snapshot del motor no conoce los seq aplicados por la sala
+		richJSON, _ = json.Marshal(m)
+	}
 	s := &pb.Snapshot{
 		Tick:  u32(m["tick"]),
 		Ack:   toI32(ack),
 		Stage: i32(m["stage"]),
+		SnapshotJson: richJSON,
 	}
 	if players, ok := m["players"].([]map[string]any); ok {
 		for _, p := range players {

@@ -165,4 +165,5 @@ message Snapshot {
   repeated WireProjectile projectiles = 6;
   WireCine cine = 7;
   WorldState world = 8;
+  bytes snapshot_json = 9; // snapshot rico del motor Go (fuente única para el renderer)
 }

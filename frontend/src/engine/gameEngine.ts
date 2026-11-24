@@ -34,6 +34,7 @@ import {
   RenderUltEffect,
   WorldRenderContext,
 } from './pixelRenderer';
+import { worldFromRich } from '../sim/wasmWorld';
 
 const W = 1440;
 const H = 810;
@@ -330,9 +331,10 @@ export class GameEngine {
   onOnlineEnd?: (standings: number[]) => void;
   private onlineUltContacts = new WeakMap<RenderUltEffect, Map<number, { phase: number; dodged: boolean; stock: number }>>();
   private blast = BZ;
-  private wasmSim: { create(ids:string[],stage:number,seed:number):number; step(id:number,inputs:string[][]):number; snapshot(id:number):any; free(id:number):void } | null = null;
+  private wasmSim: import('../sim/wasmSim').WasmSim | null = null;
   private wasmMatchId: number | null = null;
   private wasmReady: Promise<void> | null = null;
+  private wasmWorld: WorldRenderContext | null = null;
 
   private remoteKeys: Partial<Record<PlayerAction, boolean>> = {};
   private touchPresses = new Set<PlayerAction>();
@@ -630,11 +632,31 @@ export class GameEngine {
       matchConfig: { ...this.config.match },
     };
     this.wasmMatchId = null;
-    const useWasmLocal = !vsAI && mode !== 'training' && mode !== 'campaign';
-    if (useWasmLocal) {
+    this.wasmWorld = null;
+    // El motor Go (WASM) es la fuente de verdad para TODOS los modos locales;
+    // el motor TS queda solo como fallback si WASM no está disponible.
+    if (!this.isReplaying) {
       void this.ensureWasm().then(() => {
         if (this.wasmSim && !this.onlineCapacity && !this.isReplaying && this.fighters.length === 2) {
-          try { this.wasmMatchId = this.wasmSim.create([f1Data.id, f2Data.id], chosenStage, seed); } catch (e) { console.warn('wasm create failed', e); }
+          try {
+            this.wasmMatchId = this.wasmSim.create(
+              [f1Data.id, f2Data.id], chosenStage, seed,
+              {
+                mode,
+                stocks: this.activeMatchCfg.stocks,
+                knockback: this.activeMatchCfg.knockbackMultiplier,
+                gravity: this.activeMatchCfg.gravityMultiplier,
+                hazard: this.activeMatchCfg.hazardFrequency,
+                items: this.activeMatchCfg.itemSpawnRate,
+                voteGain: this.activeMatchCfg.voteGainMultiplier,
+                startFullVote: this.activeMatchCfg.startFullVote,
+                aiDifficulty: this.fighters[1]?.dif ?? 1,
+                hitstop: this.config.video.hitstopEnabled,
+                campaignRound,
+              },
+              mode
+            );
+          } catch (e) { console.warn('wasm create failed', e); }
         }
       });
     }
@@ -717,49 +739,33 @@ export class GameEngine {
   }
 
   private syncWasmSnapshot(snap: any) {
-    if (!snap || !snap.players) return;
+    if (!snap || !snap.world || !Array.isArray(snap.players)) return;
+    // El snapshot del motor Go ya contiene TODAS las capas visuales: el
+    // renderer lo consume directamente, sin reconstrucciones parciales.
+    this.wasmWorld = worldFromRich(snap);
+    // Sincronización mínima para el flujo de juego (victoria, HUD, música).
     for (let i = 0; i < this.fighters.length && i < snap.players.length; i++) {
       const p = snap.players[i];
       const f = this.fighters[i];
       f.x = p.x; f.y = p.y; f.vx = p.vx; f.vy = p.vy;
-      f.face = p.facing; f.pct = p.damage; f.stocks = p.stocks;
-      f.stun = p.stun; f.maxStun = p.maxStun || f.maxStun; f.inv = p.inv;
-      f.dead = p.dead; f.on = p.on; f.moveKind = p.moveKind || '';
-      f.hitFlash = p.hitFlash ? 6 : 0;
-      f.squashX = p.squashX ?? 1; f.squashY = p.squashY ?? 1;
+      f.face = p.face; f.pct = p.pct; f.stocks = p.stocks; f.vote = p.vote;
+      f.dead = p.dead; f.inv = p.inv; f.stun = p.stun; f.maxStun = p.maxStun;
+      f.on = p.on; f.winning = p.winning; f.winT = p.winT;
+      f.hitFlash = p.hitFlash; f.squashX = p.squashX; f.squashY = p.squashY;
       f.dashT = p.dashT; f.dashCD = p.dashCD; f.combo = p.combo;
-      f.vote = p.ultCharge ?? f.vote;
-      f.fastFall = !!p.fastFall; f.winning = !!p.winning; f.winT = p.winT || 0;
-      if (typeof p.ammo === 'number') f.ammo = p.ammo;
-      if (typeof p.reloadT === 'number') f.reloadT = p.reloadT;
+      f.ammo = p.ammo; f.wpn = p.wpn; f.wk = p.wk;
     }
-    if (snap.world?.camera) { this.camX = snap.world.camera.x; this.camY = snap.world.camera.y; this.camZ = snap.world.camera.zoom; }
-    if (Array.isArray(snap.projectiles)) {
-      this.projectiles = snap.projectiles.map((p: any, idx: number) => ({
-        id: idx, x: p.x, y: p.y, w: p.w, h: p.h, vx: p.vx, vy: p.vy,
-        kind: p.kind || 'proj', w2: 0, dir: p.vx < 0 ? -1 : 1, life: p.life,
-        ownerColor: '#fff', ownerHighlight: '#fff', owner: p.owner,
-        dmg: p.dmg, bk: p.bk, ks: p.ks, ang: p.ang,
-      })) as any;
-    }
+    this.T = snap.tick ?? this.T;
   }
 
   private stepWasmLocal() {
     if (!this.wasmSim || this.wasmMatchId == null) return false;
-    const inputs = this.fighters.map((f, i) => {
-      const src = i === 0 ? this.fighters[0].curIn : (this.fighters[1]?.curIn ?? EMPTY_INPUT);
-      const acts: string[] = [];
-      if (src.left) acts.push('left'); if (src.right) acts.push('right');
-      if (src.jump) acts.push('jump'); if (src.down) acts.push('down');
-      if (src.light) acts.push('light'); if (src.heavy) acts.push('heavy');
-      if (src.dash) acts.push('dash'); if (src.ult) acts.push('ult');
-      if (src.reload) acts.push('reload');
-      return acts;
-    });
-    this.wasmSim.step(this.wasmMatchId, inputs);
+    const p1 = inputToActions(this.fighters[0].curIn);
+    const p2 = this.mode === 'versus' && !this.currentMatchMeta?.vsAI && this.fighters[1] && !this.fighters[1].trainingDummy
+      ? inputToActions(this.fighters[1].curIn) : [];
+    this.wasmSim.step(this.wasmMatchId, [p1, p2]);
     const snap = this.wasmSim.snapshot(this.wasmMatchId);
     this.syncWasmSnapshot(snap);
-    this.T = snap?.tick ?? this.T + 1;
     return true;
   }
 
@@ -3234,7 +3240,7 @@ export class GameEngine {
     this.debugHitboxes = [];
     this.gravityFactor = 1;
     this.updateStageHazards();
-    const useWasm = this.wasmMatchId != null && this.wasmSim && !this.onlineCapacity && !isAttract && !this.isReplaying;
+    const useWasm = this.wasmMatchId != null && this.wasmSim && !this.onlineCapacity && !this.isReplaying;
     if (useWasm) {
       for (let i = 0; i < this.fighters.length; i++) {
         const f = this.fighters[i];
@@ -3410,6 +3416,7 @@ export class GameEngine {
   }
 
   worldSnapshot(): WorldRenderContext {
+    if (this.wasmWorld && this.wasmMatchId != null && !this.isReplaying) return this.wasmWorld;
     return {
       T: this.T,
       online: this.onlineCapacity ?? undefined,
