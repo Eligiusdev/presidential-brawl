@@ -250,7 +250,11 @@ func newMatch(ids []string, stage int, seed uint32, capacity int, cfg Config, mo
 }
 
 func NewOnlineMatch(ids []string, stage int, seed uint32) (*Match, error) {
-	return newMatch(ids, stage, seed, len(ids), DefaultConfig(), "versus")
+	return NewOnlineMatchWithConfig(ids, stage, seed, DefaultConfig())
+}
+
+func NewOnlineMatchWithConfig(ids []string, stage int, seed uint32, cfg Config) (*Match, error) {
+	return newMatch(ids, stage, seed, len(ids), cfg, "versus")
 }
 
 func NewLocalMatch(ids []string, stage int, seed uint32, cfg Config, mode string) (*Match, error) {

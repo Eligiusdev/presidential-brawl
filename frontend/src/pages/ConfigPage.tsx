@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUp, Crown, Crosshair, Gamepad2, Monitor, RotateCcw, Settings, Sliders, Swords, Volume2, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Crown, Crosshair, Gamepad2, Monitor, RotateCcw, Settings, Swords, Volume2, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { sound } from '../audio/soundEngine';
 import { ACTION_LABELS, DEFAULT_CONFIG, DEFAULT_P1_KEYS, DEFAULT_P2_KEYS, formatKeyCode, PIXEL_PRESET_DIMS } from '../config/defaultConfig';
 import { useGame } from '../game/GameContext';
-import type { CrtFilterPreset, GameConfig, HazardFrequency, ItemSpawnRate, ParticleDensity, PixelResolutionPreset, PlayerAction, TouchMode } from '../types/game';
+import type { CrtFilterPreset, GameConfig, ParticleDensity, PixelResolutionPreset, PlayerAction, TouchMode } from '../types/game';
 
-type ConfigTab = 'video' | 'match' | 'controls' | 'audio';
+type ConfigTab = 'video' | 'controls' | 'audio';
 
 export function ConfigPage() {
   const g = useGame();
@@ -43,7 +43,6 @@ export function ConfigPage() {
   }, [listening]);
 
   const updateVideo = <K extends keyof GameConfig['video']>(k: K, v: GameConfig['video'][K]) => { sound.uiClick(); updateConfig({ ...config, video: { ...config.video, [k]: v } }); };
-  const updateMatch = <K extends keyof GameConfig['match']>(k: K, v: GameConfig['match'][K]) => { sound.uiClick(); updateConfig({ ...config, match: { ...config.match, [k]: v } }); };
   const updateAudio = <K extends keyof GameConfig['audio']>(k: K, v: GameConfig['audio'][K]) => { updateConfig({ ...config, audio: { ...config.audio, [k]: v } }); };
   const updateControls = <K extends keyof GameConfig['controls']>(k: K, v: GameConfig['controls'][K]) => { sound.uiClick(); updateConfig({ ...config, controls: { ...config.controls, [k]: v } }); };
   const resetAll = () => { sound.uiConfirm(); updateConfig(structuredClone(DEFAULT_CONFIG)); };
@@ -51,19 +50,18 @@ export function ConfigPage() {
 
   const tabs: Array<{ id: ConfigTab; label: string; icon: typeof Monitor }> = [
     { id: 'video', label: 'Video', icon: Monitor },
-    { id: 'match', label: 'Combate', icon: Sliders },
     { id: 'controls', label: 'Controles', icon: Gamepad2 },
     { id: 'audio', label: 'Audio', icon: Volume2 },
   ];
 
   return (
-    <section data-gamepad-config className="ob-lobby ob-gallery" aria-label="Configuración" style={{ position: 'absolute', inset: 0, zIndex: 20, overflowY: 'auto', overflowX: 'hidden' }}>
+    <section data-gamepad-config className="ob-lobby ob-gallery" aria-label="Configuración" style={{ position: 'absolute', inset: 0, zIndex: 100, overflowY: 'auto', overflowX: 'hidden' }}>
       <header className="ob-topbar">
         <div className="ob-brand">
           <Settings className="h-5 w-5 text-[#ffcc33]" aria-hidden />
           <div className="ob-brand-text">
             <h2>Configuración</h2>
-            <p>Ajusta video, combate, controles y audio</p>
+            <p>Ajusta video, controles y audio</p>
           </div>
         </div>
         <div className="ob-top-actions">
@@ -157,28 +155,6 @@ export function ConfigPage() {
                 <div><div className="mb-2 flex justify-between text-xs font-semibold uppercase tracking-wider text-[#cbd5e1]"><span>Vibración de Cámara</span><span className="font-mono-num text-[#ffcc33]">{Math.round(config.video.shakeIntensity*100)}%</span></div>
                   <input type="range" min={0} max={1.5} step={0.1} value={config.video.shakeIntensity} onChange={e => updateVideo('shakeIntensity', parseFloat(e.target.value))} className="w-full accent-[#ffcc33]" />
                 </div>
-              </div>
-            </div>}
-
-            {tab === 'match' && <div className="space-y-6">
-              <SectionTitle>Reglas de combate</SectionTitle>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div><div className="mb-2 flex justify-between text-xs font-semibold uppercase tracking-wider text-[#cbd5e1]"><span>Vidas (Stocks)</span><span className="font-mono-num text-[#ffcc33]">{config.match.stocks}</span></div>
-                  <div className="flex gap-2">{[1,2,3,4,5].map(n => <button key={n} onClick={() => updateMatch('stocks', n)} className={`flex-1 rounded-lg border py-2 font-mono-num text-sm font-bold ${config.match.stocks===n ? 'border-[#ffcc33] bg-[#ffcc33] text-[#0b0e17]' : 'border-[#252f47] bg-[#141b2d] text-[#cbd5e1]'}`}>{n}</button>)}</div>
-                </div>
-                <div><div className="mb-2 flex justify-between text-xs font-semibold uppercase tracking-wider text-[#cbd5e1]"><span>Dificultad de la IA</span><span className="text-[#ffcc33]">{['Novato','Competitiva','Leyenda','Brutal'][config.match.aiDifficulty]}</span></div>
-                  <div className="flex gap-2">{([0,1,2,3] as const).map(lvl => <button key={lvl} onClick={() => updateMatch('aiDifficulty', lvl)} className={`flex-1 rounded-lg border py-2 text-xs font-bold ${config.match.aiDifficulty===lvl ? 'border-[#ffcc33] bg-[#ffcc33] text-[#0b0e17]' : 'border-[#252f47] bg-[#141b2d] text-[#cbd5e1]'}`}>{['Novato','Comp.','Leyenda','Brutal'][lvl]}</button>)}</div>
-                </div>
-                <SliderField label="Multiplicador de Empuje (Knockback)" value={config.match.knockbackMultiplier} min={0.7} max={2} step={0.1} format={v=>`${v.toFixed(1)}x`} onChange={v=>updateMatch('knockbackMultiplier',v)} />
-                <SliderField label="Gravedad de Arena" value={config.match.gravityMultiplier} min={0.7} max={1.3} step={0.1} format={v=>`${v.toFixed(1)}x`} onChange={v=>updateMatch('gravityMultiplier',v)} />
-                <div><label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#cbd5e1]">Peligros de Escenario (Hazards)</label>
-                  <div className="flex gap-2">{(['off','normal','frenetic'] as HazardFrequency[]).map(hf => <button key={hf} onClick={() => updateMatch('hazardFrequency', hf)} className={`flex-1 rounded-lg border py-2 text-xs font-bold ${config.match.hazardFrequency===hf ? 'border-[#ffcc33] bg-[#ffcc33] text-[#0b0e17]' : 'border-[#252f47] bg-[#141b2d] text-[#cbd5e1]'}`}>{hf==='off'?'Desactivado':hf==='normal'?'Normal':'Frenético'}</button>)}</div>
-                </div>
-                <div><label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#cbd5e1]">Armas y Suministros Shooter</label>
-                  <div className="flex gap-2">{(['off','normal','chaos'] as ItemSpawnRate[]).map(ir => <button key={ir} onClick={() => updateMatch('itemSpawnRate', ir)} className={`flex-1 rounded-lg border py-2 text-xs font-bold ${config.match.itemSpawnRate===ir ? 'border-[#ffcc33] bg-[#ffcc33] text-[#0b0e17]' : 'border-[#252f47] bg-[#141b2d] text-[#cbd5e1]'}`}>{ir==='off'?'Sin Armas':ir==='normal'?'Normal':'Lluvia'}</button>)}</div>
-                </div>
-                <SliderField label="Carga de Voto Popular" value={config.match.voteGainMultiplier} min={0.5} max={2} step={0.1} format={v=>`${v.toFixed(1)}x`} onChange={v=>updateMatch('voteGainMultiplier',v)} />
-                <ToggleRow label="Iniciar con Ultimate al 100%" desc="Comienza la pelea con el Decreto Supremo listo" checked={config.match.startFullVote} onChange={v => updateMatch('startFullVote', v)} />
               </div>
             </div>}
 

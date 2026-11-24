@@ -6,7 +6,7 @@ import type { MatchSnapshot, RoomState } from "../network/matchState";
 import { ultimateText } from '../engine/presidentUltimates';
 import { TouchControls } from './TouchControls';
 import {movesFor} from '../combat/roster.js';
-import { ChevronLeft, ChevronRight, Code2, Download, Film, Landmark, Pause, Play, RotateCcw, Settings, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Code2, Download, Film, Landmark, Pause, Play, RotateCcw, Settings, Sliders, Volume2, VolumeX, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { sound } from '../audio/soundEngine';
 import { STAGES_DATA } from '../data/stages';
@@ -38,6 +38,7 @@ interface GameHUDProps {
   replayEnded: boolean;
   onToggleMute: () => void;
   onOpenConfig: () => void;
+  onOpenMatchConfig: () => void;
   onTogglePause: () => void;
   onRestartMatch: () => void;
   onRematch: () => void;
@@ -78,6 +79,7 @@ export function GameHUD({
   replayEnded,
   onToggleMute,
   onOpenConfig,
+  onOpenMatchConfig,
   onTogglePause,
   onRestartMatch,
   onRematch,
@@ -358,6 +360,16 @@ export function GameHUD({
                 <button
                   onClick={() => {
                     sound.uiClick();
+                    onOpenMatchConfig();
+                  }}
+                  aria-label="Reglas de partida"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#2a344d] bg-[#0b0f1b]/90 text-[#cbd5e1] hover:border-[#ffcc33] hover:text-white"
+                >
+                  <Sliders className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    sound.uiClick();
                     onTogglePause();
                   }}
                   aria-label="Pausa"
@@ -605,16 +617,28 @@ export function GameHUD({
           <div className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-5 overflow-y-auto rounded-xl border border-[#2a344d] bg-[#111726] p-6">
             <div className="flex items-center justify-between border-b border-[#222b42] pb-3">
               <h2 className="font-display text-2xl font-bold uppercase text-[#ffcc33]">Combate en Pausa</h2>
-              <button
-                onClick={() => {
-                  sound.uiClick();
-                  onOpenConfig();
-                }}
-                className="flex items-center gap-2 rounded-lg border border-[#2f3b57] bg-[#182034] px-3.5 py-2 text-xs font-bold text-white hover:border-[#ffcc33]"
-              >
-                <Settings className="h-4 w-4 text-[#ffcc33]" />
-                Configuración
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    sound.uiClick();
+                    onOpenConfig();
+                  }}
+                  className="flex items-center gap-2 rounded-lg border border-[#2f3b57] bg-[#182034] px-3.5 py-2 text-xs font-bold text-white hover:border-[#ffcc33]"
+                >
+                  <Settings className="h-4 w-4 text-[#ffcc33]" />
+                  Ajustes
+                </button>
+                <button
+                  onClick={() => {
+                    sound.uiClick();
+                    onOpenMatchConfig();
+                  }}
+                  className="flex items-center gap-2 rounded-lg border border-[#5a4a1f] bg-[#2a2416] px-3.5 py-2 text-xs font-bold text-[#ffdd73] hover:border-[#ffcc33]"
+                >
+                  <Sliders className="h-4 w-4 text-[#ffcc33]" />
+                  Reglas de partida
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

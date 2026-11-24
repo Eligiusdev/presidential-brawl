@@ -17,8 +17,9 @@ const (
 	CReady  ClientType = "ready"
 	CStage  ClientType = "stage"
 	CStart  ClientType = "start"
-	CLobby  ClientType = "lobby"
-	CLeave  ClientType = "leave"
+	CLobby     ClientType = "lobby"
+	CLeave     ClientType = "leave"
+	CRoomConfig ClientType = "roomConfig"
 )
 
 type ClientMessage struct {
@@ -34,6 +35,7 @@ type ClientMessage struct {
 	FighterID  string     `json:"fighterId,omitempty"`
 	Ready      *bool      `json:"ready,omitempty"`
 	Stage      *int       `json:"stage,omitempty"`
+	Stocks     *int       `json:"stocks,omitempty"`
 }
 
 type RoomPlayer struct {
@@ -53,6 +55,7 @@ type RoomState struct {
 	MaxPlayers   int           `json:"maxPlayers"`
 	Mode         string        `json:"mode"`
 	TeamSize     int           `json:"teamSize"`
+	Stocks       int           `json:"stocks"`
 	Playing      bool          `json:"playing"`
 	Standings    []int         `json:"standings"`
 	ChampionNext int           `json:"championNext,omitempty"`

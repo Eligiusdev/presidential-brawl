@@ -16,6 +16,8 @@ export function SelectPage() {
         onSelect={(idx) => g.setSel([idx, g.sel[1]])}
         onStart={g.startCampaign}
         onBack={onBack}
+        onOpenConfig={() => g.setConfigOpen(true)}
+        onOpenMatchConfig={() => g.setMatchConfigOpen(true)}
       />
     );
   }
@@ -34,6 +36,8 @@ export function SelectPage() {
         buttonLabel={isTutorial ? 'INICIAR TUTORIAL' : 'INICIAR ENTRENAMIENTO'}
         statusText={isTutorial ? 'Aprende los controles básicos paso a paso' : 'Practica libremente contra un oponente'}
         tag={isTutorial ? 'Personaje de tutorial' : 'Personaje de entrenamiento'}
+        onOpenConfig={() => g.setConfigOpen(true)}
+        onOpenMatchConfig={() => g.setMatchConfigOpen(true)}
       />
     );
   }
@@ -50,6 +54,8 @@ export function SelectPage() {
       onToggleVsAI={() => g.setVsAI(v => !v)}
       onStart={g.startVersus}
       onBack={onBack}
+      onOpenConfig={() => g.setConfigOpen(true)}
+      onOpenMatchConfig={() => g.setMatchConfigOpen(true)}
     />
   );
 }

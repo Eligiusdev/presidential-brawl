@@ -143,8 +143,8 @@ export function useMenuGamepad(
         clearFocus();
         return;
       }
-      const scope = online
-        ?? (configOpen ? root.querySelector<HTMLElement>('[data-gamepad-config]') : null)
+      const scope = (configOpen ? root.querySelector<HTMLElement>('[data-gamepad-config]') : null)
+        ?? online
         ?? root.querySelector<HTMLElement>('[data-gamepad-overlay]');
       if (!online && !configOpen && start && (screen === 'PLAYING' || screen === 'PAUSED')) {
         onPause();

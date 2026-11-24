@@ -20,6 +20,7 @@ export function OnlineMatchHUD({ snap, room, localSlot, crtClass }: {
   const warning = w.hzPhase === 1 ? `⚠ ${hazardName || 'PELIGRO'}` : null;
   const active = w.hzPhase === 2 ? (stage.hazardMsg || hazardName || 'PELIGRO ACTIVO') : null;
   const ping = room.players[localSlot]?.ping ?? 0;
+  const maxStocks = Math.max(1, Math.min(5, room.stocks ?? 3));
   const leftSlots = room.players.map((p, i) => (p ? -1 : i)).filter(i => i >= 0);
 
   return <div className={`match-hud pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-3 sm:p-4 ${crtClass ?? ''}`}>
@@ -102,7 +103,7 @@ export function OnlineMatchHUD({ snap, room, localSlot, crtClass }: {
                   </div>
                   <div className="truncate font-display text-xs font-bold leading-tight text-white sm:text-sm">{pres.name}</div>
                   <div className="mt-1 flex items-center gap-1">
-                    {Array.from({ length: 3 }).map((_, i) => (
+                    {Array.from({ length: maxStocks }).map((_, i) => (
                       <span key={i} className="h-2.5 w-2.5 rotate-45 rounded-[2px] border border-[#0b1222]"
                         style={{ backgroundColor: i < stocks ? accent : '#1a2740' }} />
                     ))}

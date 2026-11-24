@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Swords, Users } from 'lucide-react';
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Settings, Sliders, Swords, Users } from 'lucide-react';
 import { FighterPreview } from './FighterPreview';
 import { movesFor } from '../combat/roster.js';
 import { ultimateText } from '../engine/presidentUltimates';
@@ -20,9 +20,11 @@ interface Props {
   onToggleVsAI: () => void;
   onStart: () => void;
   onBack: () => void;
+  onOpenConfig: () => void;
+  onOpenMatchConfig: () => void;
 }
 
-export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel, onChangeStage, onToggleVsAI, onStart, onBack }: Props) {
+export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel, onChangeStage, onToggleVsAI, onStart, onBack, onOpenConfig, onOpenMatchConfig }: Props) {
   const display = useRosterDisplay();
   const { query } = display;
   const [filter, setFilter] = useState<RegionFilter>('all');
@@ -68,6 +70,8 @@ export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel
           </div>
         </div>
         <div className="ob-top-actions">
+          <button type="button" onClick={() => { sound.uiClick(); onOpenConfig(); }}><Settings className="h-4 w-4" />Ajustes</button>
+          <button type="button" className="ob-invite-btn" onClick={() => { sound.uiClick(); onOpenMatchConfig(); }}><Sliders className="h-4 w-4" />Reglas de partida</button>
           <button type="button" data-gamepad-back onClick={() => { sound.uiClick(); onBack(); }}><ArrowLeft className="h-4 w-4" />Volver</button>
         </div>
       </header>

@@ -27,6 +27,7 @@ export interface GameCtx {
   stageSel: number; setStageSel: (n: number) => void;
   vsAI: boolean; setVsAI: SetState<boolean>;
   configOpen: boolean; setConfigOpen: (open: boolean) => void;
+  matchConfigOpen: boolean; setMatchConfigOpen: (open: boolean) => void;
   hud: HudSnapshot | null; campaign: CampaignState | null; summary: MatchSummary | null;
   replayPaused: boolean; setReplayPaused: SetState<boolean>;
   replaySpeed: 0.5 | 1 | 2; setReplaySpeed: SetState<0.5 | 1 | 2>;
@@ -88,6 +89,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [replayFrame, setReplayFrame] = useState<number>(0);
   const [netOpenSignal, setNetOpenSignal] = useState<number>(0);
   const [onlineIntent, setOnlineIntent] = useState<OnlineIntent | null>(null);
+  const [matchConfigOpen, setMatchConfigOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const locationRef = useRef(location);
@@ -113,6 +115,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const engineRef = useRef<GameEngine | null>(null);
   const screenRef = useRef<GameScreenState>(screen);
   const configOpenRef = useRef<boolean>(configOpen);
+  const matchConfigOpenRef = useRef<boolean>(matchConfigOpen);
   const replayPausedRef = useRef<boolean>(replayPaused);
   const replaySpeedRef = useRef<0.5 | 1 | 2>(replaySpeed);
   const campaignTimerRef = useRef<number | null>(null);
@@ -120,6 +123,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   screenRef.current = screen;
   configOpenRef.current = configOpen;
+  matchConfigOpenRef.current = matchConfigOpen;
   replayPausedRef.current = replayPaused;
   replaySpeedRef.current = replaySpeed;
 
@@ -447,7 +451,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     engine.updateConfig(config);
     engine.startAttractScene();
     const onKeyDown = (e: KeyboardEvent) => {
-      if (onlineActive.current || configOpenRef.current || screenRef.current === 'CUSTOMIZE') return;
+      if (onlineActive.current || configOpenRef.current || matchConfigOpenRef.current || screenRef.current === 'CUSTOMIZE') return;
       if (screenRef.current === 'REPLAY') {
         if (!e.repeat && (e.code === 'Space' || e.code === 'KeyP')) { e.preventDefault(); setReplayPaused((p) => !p); }
         else if (!e.repeat && e.code === 'Escape') { e.preventDefault(); setReplayPaused((p) => !p); }
@@ -471,8 +475,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       acc += Math.min(50, Math.max(0, rawDt));
       const curScreen = screenRef.current;
       const isAttract = curScreen === 'TITLE' || curScreen === 'SELECT';
-      const shouldStepLive = !configOpenRef.current && (curScreen === 'PLAYING' || isAttract);
-      const shouldStepReplay = !configOpenRef.current && curScreen === 'REPLAY' && !replayPausedRef.current && !engine.replayEnded;
+      const settingsOpen = configOpenRef.current || matchConfigOpenRef.current;
+      const shouldStepLive = !settingsOpen && (curScreen === 'PLAYING' || isAttract);
+      const shouldStepReplay = !settingsOpen && curScreen === 'REPLAY' && !replayPausedRef.current && !engine.replayEnded;
       if (curScreen !== 'PLAYING') touchAt.current = null;
       const startedSimulation = performanceMetricsEnabled ? performance.now() : 0;
       let stepped = false;
@@ -544,7 +549,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     config, updateConfig, roster, lastReplay, screen, setScreen,
     campaignSelection, setCampaignSelection,
     trainingSelection, setTrainingSelection,
-    mode, sel, setSel, stageSel, setStageSel, vsAI, setVsAI, configOpen, setConfigOpen,
+    mode, sel, setSel, stageSel, setStageSel, vsAI, setVsAI, configOpen, setConfigOpen, matchConfigOpen, setMatchConfigOpen,
     hud, campaign, summary, replayPaused, setReplayPaused, replaySpeed, setReplaySpeed,
     replayEnded, replayFrame, netOpenSignal, setNetOpenSignal, onlineIntent, requestOnline, clearOnlineIntent, loadingArt, lesson,
     engineRef, canvasRef, arenaBackdropRef, appRef, onlineActive,

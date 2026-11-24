@@ -18,7 +18,7 @@ type Server struct {
 	Origins      map[string]bool
 	FighterIDs   map[string]bool
 	StageCount   int
-	CreateMatch  func(ids []string, stage int, onEnd func([]int)) *sim.Match
+	CreateMatch  func(ids []string, stage int, stocks int, onEnd func([]int)) *sim.Match
 }
 
 func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +168,17 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 				return
 			}
 			room = s.Reg.Create(msg.MaxPlayers, mode, ts)
+			if msg.Stocks != nil {
+				stocks := *msg.Stocks
+				if stocks < 1 || stocks > 5 {
+					failure(c, "STOCKS", "Elige entre 1 y 5 vidas.")
+					s.Reg.Delete(room.Code)
+					return
+				}
+				room.Mu().Lock()
+				room.Stocks = stocks
+				room.Mu().Unlock()
+			}
 		} else if msg.Type == contract.CJoin || msg.Type == contract.CResume {
 			room = s.Reg.Get(msg.Code)
 			if room == nil {
@@ -343,6 +354,78 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 		room.Mu().Unlock()
 		s.publish(room)
 
+	case contract.CRoomConfig:
+		// Host-only match settings, valid while everyone is still in the lobby.
+		if room.Match != nil || slot != room.HostSlot {
+			return
+		}
+		room.Mu().Lock()
+		mode := room.Mode
+		if msg.Mode == "ffa" || msg.Mode == "tournament" || msg.Mode == "champion" {
+			mode = msg.Mode
+		}
+		teamSize := room.TeamSize
+		if teamSize <= 0 {
+			teamSize = 1
+		}
+		if msg.TeamSize > 0 {
+			teamSize = msg.TeamSize
+		}
+		if teamSize < 1 || teamSize > 4 {
+			room.Mu().Unlock()
+			failure(c, "FORMAT", "Formato de equipo inválido.")
+			return
+		}
+		maxPlayers := len(room.Players)
+		if msg.MaxPlayers > 0 {
+			maxPlayers = msg.MaxPlayers
+		}
+		occupied := 0
+		for _, p := range room.Players {
+			if p != nil {
+				occupied++
+			}
+		}
+		if !rooms.ValidCapacity(maxPlayers) || maxPlayers < occupied {
+			room.Mu().Unlock()
+			failure(c, "CAPACITY", "Elige entre 2, 4, 6 u 8 jugadores sin dejar a nadie fuera.")
+			return
+		}
+		if mode == "tournament" {
+			if teamSize < 2 || maxPlayers%teamSize != 0 {
+				room.Mu().Unlock()
+				failure(c, "FORMAT", "El formato no coincide con la cantidad de jugadores.")
+				return
+			}
+		} else {
+			teamSize = 1
+		}
+		stocks := room.Stocks
+		if stocks <= 0 {
+			stocks = 3
+		}
+		if msg.Stocks != nil {
+			stocks = *msg.Stocks
+			if stocks < 1 || stocks > 5 {
+				room.Mu().Unlock()
+				failure(c, "STOCKS", "Elige entre 1 y 5 vidas.")
+				return
+			}
+		}
+		players := make([]*rooms.Player, maxPlayers)
+		copy(players, room.Players)
+		room.Players = players
+		room.Mode = mode
+		room.TeamSize = teamSize
+		room.Stocks = stocks
+		room.Standings = nil
+		room.ChampionSlot = -1
+		room.ChampionNext = 0
+		room.ChampionSize = 0
+		room.Updated = time.Now()
+		room.Mu().Unlock()
+		s.publish(room)
+
 	case contract.CStart:
 		if slot != room.HostSlot {
 			return
@@ -384,7 +467,7 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 			}
 			stage := room.Stage
 			mslots := append([]int(nil), room.MatchSlots...)
-			room.Match = s.CreateMatch(ids, stage, func(standings []int) {
+			room.Match = s.CreateMatch(ids, stage, room.Stocks, func(standings []int) {
 				remapped := make([]int, len(standings))
 				for i, st := range standings {
 					if st >= 0 && st < len(mslots) { remapped[i] = mslots[st] } else { remapped[i] = st }
@@ -450,7 +533,7 @@ func (s *Server) startChampionMatchLocked(room *rooms.Room, activeSlots []int) {
 	mslots := append([]int(nil), matchSlots...)
 	nextIdx := room.ChampionNext
 	total := len(activeSlots)
-	room.Match = s.CreateMatch(ids, stage, func(standings []int) {
+	room.Match = s.CreateMatch(ids, stage, room.Stocks, func(standings []int) {
 		remapped := make([]int, len(standings))
 		for i, st := range standings {
 			if st >= 0 && st < len(mslots) { remapped[i] = mslots[st] } else { remapped[i] = st }

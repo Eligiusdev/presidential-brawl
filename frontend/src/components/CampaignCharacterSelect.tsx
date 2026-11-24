@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Crown, Swords } from 'lucide-react';
+import { ArrowLeft, Crown, Settings, Sliders, Swords } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { FighterPreview } from './FighterPreview';
 import { movesFor } from '../combat/roster.js';
@@ -15,6 +15,8 @@ interface Props {
   onSelect: (idx: number) => void;
   onStart: () => void;
   onBack: () => void;
+  onOpenConfig: () => void;
+  onOpenMatchConfig: () => void;
   title?: string;
   subtitle?: string;
   buttonLabel?: string;
@@ -22,7 +24,7 @@ interface Props {
   tag?: string;
 }
 
-export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, onBack, title = 'Cumbre Mundial', subtitle = 'Elige tu héroe para la campaña de 7 rondas', buttonLabel = 'INICIAR CAMPAÑA', statusText = '7 rondas · Elige tu héroe y entra a la Cumbre Mundial', tag = 'Héroe de campaña' }: Props) {
+export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, onBack, onOpenConfig, onOpenMatchConfig, title = 'Cumbre Mundial', subtitle = 'Elige tu héroe para la campaña de 7 rondas', buttonLabel = 'INICIAR CAMPAÑA', statusText = '7 rondas · Elige tu héroe y entra a la Cumbre Mundial', tag = 'Héroe de campaña' }: Props) {
   const display = useRosterDisplay();
   const { query } = display;
   const [filter, setFilter] = useState<RegionFilter>('all');
@@ -56,6 +58,8 @@ export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, o
           </div>
         </div>
         <div className="ob-top-actions">
+          <button type="button" onClick={() => { sound.uiClick(); onOpenConfig(); }}><Settings className="h-4 w-4" />Ajustes</button>
+          <button type="button" className="ob-invite-btn" onClick={() => { sound.uiClick(); onOpenMatchConfig(); }}><Sliders className="h-4 w-4" />Reglas de partida</button>
           <button type="button" data-gamepad-back onClick={() => { sound.uiClick(); onBack(); }}><ArrowLeft className="h-4 w-4" />Volver</button>
         </div>
       </header>

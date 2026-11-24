@@ -2,6 +2,7 @@ export interface RoomSummary {
   code: string;
   mode: 'ffa' | 'champion' | 'tournament';
   teamSize: number;
+  stocks: number;
   stage: number;
   players: number;
   connected: number;
@@ -11,7 +12,7 @@ export interface RoomSummary {
 }
 
 export type OnlineIntent =
-  | { type: 'create'; maxPlayers: 2 | 4 | 6 | 8; mode: 'ffa' | 'champion' | 'tournament'; teamSize: number }
+  | { type: 'create'; maxPlayers: 2 | 4 | 6 | 8; mode: 'ffa' | 'champion' | 'tournament'; teamSize: number; stocks?: number }
   | { type: 'join'; code: string };
 
 export function roomApiUrl(path = '') {

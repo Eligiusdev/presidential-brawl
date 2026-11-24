@@ -46,6 +46,7 @@ type Room struct {
 	Stage         int
 	Mode          string
 	TeamSize      int
+	Stocks        int
 	Match         *sim.Match
 	MatchSlots    []int
 	Standings     []int
@@ -83,7 +84,7 @@ func (r *Room) State() contract.RoomState {
 	if teamSize <= 0 { teamSize = 1 }
 	return contract.RoomState{
 		Type: "room", Code: r.Code, HostSlot: r.HostSlot, Stage: r.Stage,
-		MaxPlayers: r.MaxPlayers(), Mode: mode, TeamSize: teamSize,
+		MaxPlayers: r.MaxPlayers(), Mode: mode, TeamSize: teamSize, Stocks: r.Stocks,
 		Playing: r.Match != nil, Standings: r.Standings,
 		ChampionNext: r.ChampionNext, ChampionSize: r.ChampionSize,
 		Players: players,
@@ -95,6 +96,7 @@ type RoomSummary struct {
 	Code       string    `json:"code"`
 	Mode       string    `json:"mode"`
 	TeamSize   int       `json:"teamSize"`
+	Stocks     int       `json:"stocks"`
 	Stage      int       `json:"stage"`
 	Players    int       `json:"players"`
 	Connected  int       `json:"connected"`
@@ -239,7 +241,7 @@ func (reg *Registry) Create(maxPlayers int, mode string, teamSize int) *Room {
 		}
 		r := &Room{
 			Code: code, Players: make([]*Player, maxPlayers), HostSlot: 0,
-			Stage: 0, Mode: mode, TeamSize: teamSize, Updated: time.Now(),
+			Stage: 0, Mode: mode, TeamSize: teamSize, Stocks: 3, Updated: time.Now(),
 		}
 		reg.rooms[code] = r
 		created = r
@@ -292,7 +294,7 @@ func (reg *Registry) Summaries() []RoomSummary {
 			teamSize = 1
 		}
 		out = append(out, RoomSummary{
-			Code: r.Code, Mode: mode, TeamSize: teamSize, Stage: r.Stage,
+			Code: r.Code, Mode: mode, TeamSize: teamSize, Stocks: r.Stocks, Stage: r.Stage,
 			Players: players, Connected: connected, MaxPlayers: r.MaxPlayers(),
 			Playing: r.Match != nil, Updated: r.Updated,
 		})

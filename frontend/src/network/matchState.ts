@@ -20,6 +20,7 @@ export interface RoomState {
   maxPlayers: RoomCapacity;
   mode?: 'ffa' | 'champion' | 'tournament';
   teamSize?: number;
+  stocks?: number;
   playing: boolean;
   standings: number[] | null;
   championNext?: number;

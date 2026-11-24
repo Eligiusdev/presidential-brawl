@@ -26,8 +26,10 @@ func Run(cfg config.Config) error {
 	reg := rooms.NewRegistry()
 	wsSrv := &ws.Server{
 		Reg: reg, Origins: cfg.AllowedOrigins, FighterIDs: fighterIDs, StageCount: sim.StageCount(),
-		CreateMatch: func(ids []string, stage int, onEnd func([]int)) *sim.Match {
-			m, err := sim.NewOnlineMatch(ids, stage, sim.RandomSeed())
+		CreateMatch: func(ids []string, stage int, stocks int, onEnd func([]int)) *sim.Match {
+			cfg := sim.DefaultConfig()
+			cfg.Stocks = stocks
+			m, err := sim.NewOnlineMatchWithConfig(ids, stage, sim.RandomSeed(), cfg)
 			if err != nil { log.Println("match create:", err); return nil }
 			m.OnEnd = onEnd
 			return m

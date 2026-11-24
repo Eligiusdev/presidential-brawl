@@ -47,8 +47,8 @@ const roomCodePattern = /^(?:[A-F0-9]{5}|[A-F0-9]{10})$/;
 type Seat = Extract<ServerRoomMessage, { type: 'seat' }>;
 type Samples = { previous: MatchSnapshot; latest: MatchSnapshot; at: number };
 
-export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '', intent = null, onIntentHandled }: {
-  config: GameConfig; onActive: (active: boolean) => void; openSignal?: number; crtClass?: string;
+export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, crtClass = '', intent = null, onIntentHandled }: {
+  config: GameConfig; onActive: (active: boolean) => void; onOpenConfig: () => void; openSignal?: number; crtClass?: string;
   intent?: OnlineIntent | null; onIntentHandled?: () => void;
 }) {
   const [invited] = useState(() => {
@@ -97,7 +97,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '', 
   }, [fighterIds]);
   const pressed = useRef(new Map<string, PlayerAction>());
   const touch = useRef(new Set<PlayerAction>());
-  const enter = useRef<(request: { type: 'create'; maxPlayers: RoomCapacity; mode?: 'ffa' | 'champion' | 'tournament'; teamSize?: number } | { type: 'join'; code: string } | { type: 'resume'; code: string; token: string }) => void>(() => {});
+  const enter = useRef<(request: { type: 'create'; maxPlayers: RoomCapacity; mode?: 'ffa' | 'champion' | 'tournament'; teamSize?: number; stocks?: number } | { type: 'join'; code: string } | { type: 'resume'; code: string; token: string }) => void>(() => {});
   const autoJoined = useRef(false);
   const onActiveRef = useRef(onActive);
   onActiveRef.current = onActive;
@@ -290,7 +290,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '', 
   useEffect(() => {
     if (!intent) return;
     setOpen(true);
-    enter.current(intent);
+    enter.current(intent.type === 'create' ? { ...intent, stocks: intent.stocks ?? config.match.stocks } : intent);
     onIntentHandled?.();
   }, [intent, onIntentHandled]);
 
@@ -422,7 +422,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '', 
   const selectedFormat = formatOptions.find(f => f.maxPlayers === capacity && f.teamSize === teamSize) || formatOptions[0];
   if (!open) return null;
   if (room && seat && !room.playing) return <>
-    <OnlineLobby room={room} slot={seat.slot} send={recovering || incompatible ? () => {} : send} leave={leave} />
+    <OnlineLobby room={room} slot={seat.slot} send={recovering || incompatible ? () => {} : send} leave={leave} onOpenConfig={onOpenConfig} />
     {status && <p className="online-status" role="status">{status} {reloadButton}</p>}
   </>;
   const championSlot = room?.standings?.[0];
@@ -537,7 +537,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '', 
               </button>;
             })}
           </div>
-          <button type="button" data-gamepad-initial className="console-btn console-btn-primary room-modal-create" disabled={incompatible || busy} onClick={() => enter.current({ type: 'create', maxPlayers: selectedFormat.maxPlayers, mode: roomMode, teamSize: selectedFormat.teamSize })}>
+          <button type="button" data-gamepad-initial className="console-btn console-btn-primary room-modal-create" disabled={incompatible || busy} onClick={() => enter.current({ type: 'create', maxPlayers: selectedFormat.maxPlayers, mode: roomMode, teamSize: selectedFormat.teamSize, stocks: config.match.stocks })}>
             <Swords className="h-4 w-4" />Crear sala
           </button>
         </section>

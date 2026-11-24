@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   ArrowLeft, Check, CircleDot, Clock3, Crown, Globe, KeyRound, MapPin,
-  RefreshCw, Swords, Users, Wifi, WifiOff,
+  RefreshCw, Settings, Swords, Users, Wifi, WifiOff,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { sound } from '../audio/soundEngine';
@@ -127,7 +127,7 @@ export function OnlinePage() {
   };
 
   const createRoom = () => {
-    g.requestOnline({ type: 'create', maxPlayers: selectedFormat.capacity, mode, teamSize: selectedFormat.teamSize });
+    g.requestOnline({ type: 'create', maxPlayers: selectedFormat.capacity, mode, teamSize: selectedFormat.teamSize, stocks: g.config.match.stocks });
   };
 
   const join = (code: string) => {
@@ -157,6 +157,9 @@ export function OnlinePage() {
               {error ? <WifiOff className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
               {error ? 'Servidor no disponible' : loading ? 'Conectando…' : live ? 'Actualización en vivo' : 'Servidor conectado'}
             </span>
+            <button type="button" className="console-btn" onClick={() => { sound.uiClick(); g.setConfigOpen(true); }}>
+              <Settings className="h-4 w-4" /> Ajustes
+            </button>
             <button type="button" className="console-btn" onClick={() => { sound.uiClick(); void load(); }}>
               <RefreshCw className="h-4 w-4" /> Actualizar
             </button>
@@ -220,6 +223,7 @@ export function OnlinePage() {
                     <span className="online-room-meta">
                       <span><Users className="h-3.5 w-3.5" /> {room.connected}/{room.maxPlayers} jugadores</span>
                       <span className="online-free-count"><Check className="h-3.5 w-3.5" /> {room.maxPlayers - room.players} libres</span>
+                      <span>{room.stocks} vidas</span>
                       <span><Swords className="h-3.5 w-3.5" /> {modeLabel(room)}</span>
                       <span><MapPin className="h-3.5 w-3.5" /> {STAGES_DATA[room.stage]?.name ?? 'Escenario'}</span>
                     </span>

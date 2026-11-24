@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Copy, Crown, LogOut, Shuffle, Swords, Users, WifiOff } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Crown, LogOut, Settings, Shuffle, Sliders, Swords, Users, WifiOff } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
 import { sound } from '../audio/soundEngine';
@@ -11,14 +11,16 @@ import type { RoomState } from '../network/matchState';
 import { RosterDisplay, REGION_TABS, matchesFilter, matchesSearch, useRosterDisplay, type RegionFilter } from './CharacterSelect';
 import { FighterPreview } from './FighterPreview';
 import { PortraitCanvas } from './PortraitCanvas';
+import { OnlineRoomSettingsModal } from './OnlineRoomSettingsModal';
 
-export function OnlineLobby({ room, slot, send, leave }: {
-  room: RoomState; slot: number; send: (message: object) => void; leave: () => void;
+export function OnlineLobby({ room, slot, send, leave, onOpenConfig }: {
+  room: RoomState; slot: number; send: (message: object) => void; leave: () => void; onOpenConfig: () => void;
 }) {
   const display = useRosterDisplay();
   const { query } = display;
   const [filter, setFilter] = useState<RegionFilter>('all');
   const [copied, setCopied] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const drag = useRef<{ x: number; id: number } | null>(null);
   const self = room.players[slot];
   const host = room.hostSlot === slot;
@@ -130,7 +132,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
     </div>
   );
 
-  return <section data-gamepad-online className="ob-lobby" aria-label="Selección en línea">
+  return <><section data-gamepad-online className="ob-lobby" aria-label="Selección en línea">
     <header className="ob-topbar">
       <div className="ob-brand">
         <Swords className="h-5 w-5 text-[#ffcc33]" aria-hidden />
@@ -144,6 +146,8 @@ export function OnlineLobby({ room, slot, send, leave }: {
         <strong className="ob-room-value">{room.code}</strong>
       </div>
       <div className="ob-top-actions">
+        <button type="button" onClick={() => { sound.uiClick(); onOpenConfig(); }}><Settings className="h-4 w-4" />Ajustes</button>
+        <button type="button" className="ob-invite-btn" onClick={() => { sound.uiClick(); setSettingsOpen(true); }}><Sliders className="h-4 w-4" />Reglas de partida</button>
         <button type="button" className="ob-invite-btn" onClick={() => void copy()}><Copy className="h-4 w-4" />{copied ? 'Copiado' : 'Copiar invitación'}</button>
         <button type="button" data-gamepad-back onClick={leave}><LogOut className="h-4 w-4" />Salir</button>
       </div>
@@ -265,5 +269,7 @@ export function OnlineLobby({ room, slot, send, leave }: {
         </div>
       </aside>
     </div>
-  </section>;
+  </section>
+  {settingsOpen && <OnlineRoomSettingsModal room={room} slot={slot} send={send} onClose={() => setSettingsOpen(false)} />}
+  </>;
 }
