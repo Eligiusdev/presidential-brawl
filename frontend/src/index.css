@@ -1581,3 +1581,137 @@
   .online-room-code { font-size: 1rem; }
   .online-join-row .console-btn { min-width: 78px; }
 }
+
+/* === Uniform design canvas: same layouts on mobile, only scaled sizes === */
+html[data-scaled="true"] body { display: block; }
+html[data-scaled="true"] #root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100dvh;
+}
+html[data-scaled="true"] .apex-app {
+  width: 1280px !important;
+  height: 720px !important;
+  flex: none;
+  transform: scale(var(--app-scale, 1));
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* Shell: undo the portrait full-height override */
+html[data-scaled="true"] main { height: 720px !important; }
+html[data-scaled="true"] main > div { max-height: none !important; min-height: 0; }
+html[data-scaled="true"] .apex-frame {
+  width: min(100%, calc(720px * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+html[data-scaled="true"] .landscape-prompt { display: none !important; }
+
+/* Character selector / showcase */
+html[data-scaled="true"] .selector-layout {
+  grid-template-columns: minmax(185px, 1fr) minmax(0, 3fr) minmax(185px, 1fr);
+}
+html[data-scaled="true"] .selector-layout-campaign {
+  grid-template-columns: minmax(185px, 1fr) minmax(0, 3fr);
+}
+html[data-scaled="true"] .selector-side { display: block; }
+html[data-scaled="true"] .fighter-showcase { display: flex; background-position: center; }
+html[data-scaled="true"] .fighter-showcase-caption { grid-column: auto; background: none; padding: 0; }
+html[data-scaled="true"] .apex-selector .fighter-showcase { display: flex; align-items: center; max-height: 232px; }
+html[data-scaled="true"] .apex-selector .fighter-showcase-body { width: 218px; }
+html[data-scaled="true"] .selection-rail-grid { max-height: 396px; }
+
+/* Combat: restore the desktop absolute HUD instead of the mobile grid */
+html[data-scaled="true"] .apex-frame-combat {
+  display: block;
+  aspect-ratio: 16 / 9;
+  grid-template: none;
+  grid-template-rows: none;
+  gap: 0;
+  padding: 0 !important;
+}
+html[data-scaled="true"] .apex-frame-combat .match-hud {
+  display: flex !important;
+  position: absolute;
+  inset: 0;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+html[data-scaled="true"] .apex-frame-combat .match-toolbar {
+  grid-area: auto;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  z-index: auto;
+}
+html[data-scaled="true"] .apex-frame-combat .match-toolbar > :nth-child(2) { order: 0; flex-basis: auto; }
+html[data-scaled="true"] .apex-frame-combat .match-toolbar > :empty { display: initial; }
+html[data-scaled="true"] .apex-frame-combat .match-fighter-cards { grid-area: auto; display: flex; }
+html[data-scaled="true"] .apex-frame-combat .apex-arena { grid-area: auto; position: absolute; inset: 0; }
+html[data-scaled="true"] .apex-frame-combat .touch-deck { grid-area: auto; position: absolute; inset: 0; width: 100%; height: 100%; }
+html[data-scaled="true"] .apex-arena-backdrop { display: none; }
+html[data-scaled="true"] .victory-showcase { max-height: 90px; width: auto; }
+
+/* ob-lobby views (select, gallery, online lobby) */
+html[data-scaled="true"] .ob-lobby { overflow: hidden; }
+html[data-scaled="true"] .ob-main { grid-template-columns: minmax(0, 1fr) 300px; overflow: hidden; }
+html[data-scaled="true"] .ob-roster,
+html[data-scaled="true"] .ob-preview,
+html[data-scaled="true"] .ob-character-card { order: 0; min-height: 0; overflow: hidden; }
+html[data-scaled="true"] .ob-topbar { flex-wrap: nowrap; }
+html[data-scaled="true"] .ob-room-code { order: 0; width: auto; flex-direction: column; }
+html[data-scaled="true"] .ob-players-overlay { position: absolute; top: 10px; left: 10px; width: 250px; }
+html[data-scaled="true"] .ob-stage-carousel { position: absolute; top: 10px; right: 10px; width: min(320px, 42%); }
+html[data-scaled="true"] .ob-info-grid { grid-template-columns: 1.1fr 1fr; }
+html[data-scaled="true"] .ob-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html[data-scaled="true"] .ob-hero-fighter.solo { transform: scale(1.35); }
+html[data-scaled="true"] .mm-main { grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); }
+html[data-scaled="true"] .mm-featured { flex-direction: row; align-items: center; }
+html[data-scaled="true"] .mm-hero-hint { position: absolute; }
+
+/* Settings */
+html[data-scaled="true"] .config-layout { grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); }
+html[data-scaled="true"] .config-layout .ob-roster,
+html[data-scaled="true"] .config-layout .ob-preview { order: 0; }
+
+/* Rooms browser and modals */
+html[data-scaled="true"] .online-browser { overflow: hidden; padding: 30px; }
+html[data-scaled="true"] .online-browser > .online-browser-inner { flex: 1 1 auto; flex-shrink: 1; min-height: 0; }
+html[data-scaled="true"] .online-browser-grid { flex: 1 1 auto; grid-template-columns: minmax(0, 1.15fr) minmax(330px, .85fr); }
+html[data-scaled="true"] .online-browser-heading .console-tagline,
+html[data-scaled="true"] .online-mode-card .room-mode-text small { display: block; }
+html[data-scaled="true"] .room-mode-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+html[data-scaled="true"] .room-modal-section-head { flex-direction: row; align-items: baseline; }
+html[data-scaled="true"] .room-modal-body { padding: 18px 20px 20px; }
+html[data-scaled="true"] .console-modal-body { max-height: 504px !important; }
+html[data-scaled="true"] .online-screen.online-match { width: 1280px; height: 720px; }
+html[data-scaled="true"] .network-panel { width: 420px; }
+html[data-scaled="true"] .online-hud { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+html[data-scaled="true"] .online-opponents-list { display: block; grid-template-columns: none; }
+html[data-scaled="true"] .online-brawl-body { grid-template-columns: minmax(0, 1fr) 320px; overflow: hidden; }
+
+/* Tailwind responsive utilities: force the desktop branch on scaled screens */
+html[data-scaled="true"] .sm\:p-12 { padding: 3rem; }
+html[data-scaled="true"] .sm\:p-6 { padding: 1.5rem; }
+html[data-scaled="true"] .sm\:p-4 { padding: 1rem; }
+html[data-scaled="true"] .sm\:p-2\.5 { padding: 0.625rem; }
+html[data-scaled="true"] .sm\:gap-3 { gap: 0.75rem; }
+html[data-scaled="true"] .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+html[data-scaled="true"] .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html[data-scaled="true"] .sm\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+html[data-scaled="true"] .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+html[data-scaled="true"] .sm\:flex-row { flex-direction: row; }
+html[data-scaled="true"] .hidden.sm\:inline,
+html[data-scaled="true"] .hidden.md\:inline { display: inline; }
+html[data-scaled="true"] .sm\:text-2xl { font-size: 1.5rem; line-height: 2rem; }
+html[data-scaled="true"] .sm\:text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+html[data-scaled="true"] .sm\:h-28 { height: 7rem; }
+html[data-scaled="true"] .sm\:w-28 { width: 7rem; }
+html[data-scaled="true"] .sm\:w-\[268px\] { width: 268px; }
+html[data-scaled="true"] .sm\:w-\[440px\] { width: 440px; }
+html[data-scaled="true"] .sm\:max-w-\[170px\] { max-width: 170px; }
+html[data-scaled="true"] .md\:p-5 { padding: 1.25rem; }
+html[data-scaled="true"] .md\:border-l { border-left-width: 1px; }
+html[data-scaled="true"] .md\:border-t-0 { border-top-width: 0; }
