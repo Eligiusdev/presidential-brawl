@@ -2,6 +2,11 @@ package sim
 
 import "encoding/json"
 
+const (
+	snapshotParticleLimit      = 16
+	snapshotCrowdParticleLimit = 8
+)
+
 // RichWorld replica exactamente la forma de WorldRenderContext que consume
 // PixelRenderer. El mismo JSON se usa en el servidor (online) y en WASM (local),
 // de modo que ambas partidas se dibujan con idénticos datos.
@@ -137,6 +142,14 @@ func (m *Match) richFighter(f *Fighter) *RichFighter {
 func (m *Match) richSnapshot() *RichSnapshot {
 	cx, cy, cz := m.Camera()
 	cam := &Point{X: cx, Y: cy, Zoom: cz}
+	particles := m.Particles
+	if len(particles) > snapshotParticleLimit {
+		particles = particles[len(particles)-snapshotParticleLimit:]
+	}
+	crowdParticles := m.CrowdParticles
+	if len(crowdParticles) > snapshotCrowdParticleLimit {
+		crowdParticles = crowdParticles[len(crowdParticles)-snapshotCrowdParticleLimit:]
+	}
 	world := RichWorld{
 		Rich: true, Seed: m.Seed, T: int(m.Tick), Online: m.Capacity, Camera: cam,
 		W: Data().World.W, H: Data().World.H,
@@ -145,7 +158,7 @@ func (m *Match) richSnapshot() *RichSnapshot {
 		HazPhase: m.HZPhase, HazMod: m.HZMod, HazDur: stageData(m.Stage).HazardDur,
 		Fighters: make([]*RichFighter, 0, len(m.Fighters)),
 		Projectiles: m.Projectiles, Items: m.Items,
-		Particles: m.Particles, Crowd: m.Crowd, CrowdParticles: m.CrowdParticles,
+		Particles: particles, Crowd: m.Crowd, CrowdParticles: crowdParticles,
 		Ults: m.UltEffects, Cine: m.Cine, Telegraph: m.Telegraph,
 		Shake: m.Shake, BannerMsg: m.BannerMsg, FloatTexts: m.FloatTexts,
 		WinnerPi: m.WinnerPi, Strikes: m.Strikes, Hitboxes: m.Hitboxes,
