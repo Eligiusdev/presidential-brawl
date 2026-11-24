@@ -1,21 +1,32 @@
-import { ArrowUp, Crown, Crosshair, RotateCcw, Swords, Zap } from 'lucide-react';
+import { Crown, Crosshair, RotateCcw, Swords, Zap } from 'lucide-react';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { sound } from '../audio/soundEngine';
 import type { PlayerAction } from '../types/game';
 
 const actions = [
-  { action: 'jump', label: 'Saltar', Icon: ArrowUp },
-  { action: 'light', label: 'Golpe', Icon: Swords },
-  { action: 'heavy', label: 'Especial', Icon: Crosshair },
+  { action: 'light', label: 'Golpe normal', Icon: Swords },
+  { action: 'heavy', label: 'Golpe cargado', Icon: Crosshair },
   { action: 'dash', label: 'Esquivar', Icon: Zap },
   { action: 'ult', label: 'Supremo', Icon: Crown },
   { action: 'reload', label: 'Recargar', Icon: RotateCcw },
 ] as const;
-const directions = ['left', 'right', 'down'] as const;
+const stickActions = ['left', 'right', 'down', 'jump'] as const;
 const radius = 42;
 
-type TouchLayout = Partial<Record<'jump' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload', { x: number; y: number; scale?: number }>>;
+type TouchLayout = Partial<Record<'light' | 'heavy' | 'dash' | 'ult' | 'reload', { x: number; y: number; scale?: number }>>;
 type TouchJoystick = { x: number; y: number; scale?: number };
+
+export function touchStickActions(dx: number, dy: number, active: ReadonlySet<PlayerAction>) {
+  const size = Math.max(radius, Math.hypot(dx, dy));
+  const horizontal = dx / size;
+  const vertical = dy / size;
+  return {
+    left: horizontal < (active.has('left') ? -0.13 : -0.21),
+    right: horizontal > (active.has('right') ? 0.13 : 0.21),
+    down: vertical > (active.has('down') ? 0.25 : 0.36),
+    jump: vertical < (active.has('jump') ? -0.22 : -0.38),
+  };
+}
 
 export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false, scale = 1, layout, joystick }: {
   onAction: (action: PlayerAction, active: boolean) => void;
@@ -102,15 +113,14 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     const dy = e.clientY - start.y;
     const size = Math.max(radius, Math.hypot(dx, dy));
     setOffset({ x: dx * radius / size, y: dy * radius / size });
-    const horizontal = dx / size;
-    const left = horizontal < (active.current.has('left') ? -0.13 : -0.21);
-    const right = horizontal > (active.current.has('right') ? 0.13 : 0.21);
+    const next = touchStickActions(dx, dy, active.current);
     // Release before switching direction so the online client never sends both.
-    if (!left) setAction('left', false);
-    if (!right) setAction('right', false);
-    if (left) setAction('left', true);
-    if (right) setAction('right', true);
-    setAction('down', dy / size > (active.current.has('down') ? 0.25 : 0.36));
+    if (!next.left) setAction('left', false);
+    if (!next.right) setAction('right', false);
+    if (next.left) setAction('left', true);
+    if (next.right) setAction('right', true);
+    setAction('down', next.down);
+    setAction('jump', next.jump);
   };
   const releaseButton = (pointer: number) => {
     const action = buttons.current.get(pointer);
@@ -124,7 +134,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
       stick.current = null;
       setOrigin(null);
       setOffset({ x: 0, y: 0 });
-      for (const action of directions) setAction(action, false);
+      for (const action of stickActions) setAction(action, false);
     }
     releaseButton(pointerId);
   };
@@ -147,7 +157,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     <div className="touch-action-grid">
       {actions.filter(({ action }) => action !== 'reload' || hasGun).map(({ action, label, Icon }) => {
         const pos = layout?.[action];
-        const baseScale = action === 'jump' ? 1.12 : action === 'reload' ? 0.88 : 1;
+        const baseScale = action === 'reload' ? 0.88 : 1;
         const btnScale = baseScale * (pos?.scale ?? 1);
         const sizeStyle = { width: `calc(var(--touch-size) * ${btnScale})`, height: `calc(var(--touch-size) * ${btnScale})` };
         const posStyle = pos ? { left: `${pos.x}%`, top: `${100 - pos.y}%`, right: 'auto', bottom: 'auto', transform: 'translate(-50%,-50%)' } : undefined;

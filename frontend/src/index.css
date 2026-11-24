@@ -268,7 +268,6 @@
 }
 .touch-action-grid button.touch-action[aria-pressed="true"] { transform: scale(.9); background: #375980; }
 /* Fan layout: follows the thumb arc instead of a rigid 2x3 block. */
-.touch-jump { left: 88%; top: 88%; right: auto; bottom: auto; transform: translate(-50%,-50%); width: calc(var(--touch-size) * 1.18) !important; height: calc(var(--touch-size) * 1.18) !important; }
 .touch-light { left: 71%; top: 85%; right: auto; bottom: auto; transform: translate(-50%,-50%); }
 .touch-heavy { left: 91%; top: 68%; right: auto; bottom: auto; transform: translate(-50%,-50%); }
 .touch-dash { left: 64%; top: 72%; right: auto; bottom: auto; transform: translate(-50%,-50%); }

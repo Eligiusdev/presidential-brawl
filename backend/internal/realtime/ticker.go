@@ -191,9 +191,9 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 		for _, p := range players {
 			if p != nil && p.WS != nil {
 				if ok {
-					_ = p.WS.SendBinary(bin)
+					p.WS.QueueSnapshot(websocket.MessageBinary, bin)
 				} else {
-					_ = p.WS.SendJSONRaw(jsonData)
+					p.WS.QueueSnapshot(websocket.MessageText, jsonData)
 				}
 			}
 		}

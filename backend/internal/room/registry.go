@@ -183,6 +183,7 @@ func (reg *Registry) RemoveClient(c *Client) {
 	reg.mu.Lock()
 	delete(reg.clients, c)
 	reg.mu.Unlock()
+	c.Stop()
 }
 
 func (reg *Registry) BindClient(c *Client, room *Room, player *Player, slot int) {

@@ -78,7 +78,6 @@ export const DEFAULT_CONFIG: GameConfig = {
     touchMode: 'auto',
     touchScale: 1.0,
     touchLayout: {
-      jump: { x: 88, y: 12 },
       light: { x: 71, y: 15 },
       heavy: { x: 91, y: 32 },
       dash: { x: 64, y: 28 },

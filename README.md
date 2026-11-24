@@ -70,6 +70,8 @@ Importa el repositorio como proyecto Vite y selecciona Node.js 24. El frontend s
 
 Mantén arriba o abajo al pulsar especial para las variantes. Los controles pueden reasignarse en configuración.
 
+En móvil, la palanca mueve a izquierda/derecha, salta al inclinarse hacia arriba y agacha hacia abajo. Los botones son golpe normal, golpe cargado, dash y ULT; los personajes con armas también muestran recarga.
+
 En los menús, usa la cruceta o el stick izquierdo para mover el foco, el botón inferior (A / Cruz) para confirmar y el botón derecho (B / Círculo) para volver. Start / Options pausa o reanuda el combate local. Con izquierda y derecha puedes ajustar deslizadores y cambiar opciones de listas. Los campos de texto se editan con el teclado.
 
 ## Cambios visuales

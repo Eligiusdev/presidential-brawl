@@ -355,11 +355,11 @@ function ToggleRow({ label, desc, checked, onChange }: { label: string; desc: st
   );
 }
 
-type TouchBtnKey = 'jump' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload';
+type TouchBtnKey = 'light' | 'heavy' | 'dash' | 'ult' | 'reload';
 type TouchLayout = Partial<Record<TouchBtnKey, { x: number; y: number; scale?: number }>>;
 
 const DEFAULT_TOUCH_LAYOUT: Record<TouchBtnKey, { x: number; y: number }> = {
-  jump: { x: 88, y: 12 }, light: { x: 71, y: 15 }, heavy: { x: 91, y: 32 },
+  light: { x: 71, y: 15 }, heavy: { x: 91, y: 32 },
   dash: { x: 64, y: 28 }, ult: { x: 80, y: 48 }, reload: { x: 62, y: 46 },
 };
 
@@ -412,21 +412,20 @@ function TouchPreview({ scale, layout, onChange, onReset }: { scale: number; lay
           <div className="rounded-full border-2 border-[#bbd2f799] bg-[#172842cc] grid place-items-center" style={{ width: Math.round(88 * scale), height: Math.round(88 * scale) }}>
             <div className="rounded-full bg-[#c9d7e6cc]" style={{ width: Math.round(34 * scale), height: Math.round(34 * scale) }} />
           </div>
-          <span className="text-[10px] text-[#94a3b8] font-semibold">Joystick</span>
+          <span className="text-[10px] text-[#94a3b8] font-semibold">Joystick · ↑ saltar</span>
         </div>
         <div ref={areaRef} className="relative shrink-0 rounded-lg border border-dashed border-[#334155] bg-[#0b1220]/50" style={{ width: W, height: H }}>
-          <Btn k="jump" label="Saltar" icon={ArrowUp} size={Math.round(S*1.12)} primary />
-          <Btn k="light" label="Golpe" icon={Swords} />
-          <Btn k="heavy" label="Especial" icon={Crosshair} />
+          <Btn k="light" label="Golpe normal" icon={Swords} />
+          <Btn k="heavy" label="Golpe cargado" icon={Crosshair} />
           <Btn k="dash" label="Dash" icon={Zap} />
-          <Btn k="ult" label="ULT" icon={Crown} />
+          <Btn k="ult" label="ULT" icon={Crown} primary />
           <Btn k="reload" label="Recargar" icon={RotateCcw} size={Math.round(S*0.88)} />
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#94a3b8] justify-center">
-        <span className="inline-flex items-center gap-1"><ArrowUp size={12}/>Saltar</span>
-        <span className="inline-flex items-center gap-1"><Swords size={12}/>Golpe</span>
-        <span className="inline-flex items-center gap-1"><Crosshair size={12}/>Especial</span>
+        <span className="inline-flex items-center gap-1"><Gamepad2 size={12}/>←/→ mover · ↑ saltar · ↓ agacharse</span>
+        <span className="inline-flex items-center gap-1"><Swords size={12}/>Golpe normal</span>
+        <span className="inline-flex items-center gap-1"><Crosshair size={12}/>Golpe cargado</span>
         <span className="inline-flex items-center gap-1"><Zap size={12}/>Dash</span>
         <span className="inline-flex items-center gap-1"><Crown size={12}/>ULT</span>
         <span className="inline-flex items-center gap-1"><RotateCcw size={12}/>Recargar</span>
@@ -510,7 +509,7 @@ function TouchLayoutEditor({ scale, layout, joystick, onChange, onJoystickChange
   const drag = useRef<{ key: TouchBtnKey | 'joystick'; id: number } | null>(null);
   const layoutRef = useRef<TouchLayout>({});
   const joystickRef = useRef<{ x: number; y: number; scale?: number }>({ x: 18, y: 22, scale: 1 });
-  const [selected, setSelected] = useState<TouchBtnKey | 'joystick'>('jump');
+  const [selected, setSelected] = useState<TouchBtnKey | 'joystick'>('joystick');
   const merged: Record<TouchBtnKey, { x: number; y: number; scale?: number }> = { ...DEFAULT_TOUCH_LAYOUT, ...(layout || {}) } as any;
   const joy = { x: 18, y: 22, scale: 1, ...(joystick || {}) };
   layoutRef.current = merged;
@@ -548,9 +547,8 @@ function TouchLayoutEditor({ scale, layout, joystick, onChange, onJoystickChange
   }, [onClose]);
 
   const items: Array<{ k: TouchBtnKey; label: string; icon: any }> = [
-    { k: 'jump', label: 'Saltar', icon: ArrowUp },
-    { k: 'light', label: 'Golpe', icon: Swords },
-    { k: 'heavy', label: 'Especial', icon: Crosshair },
+    { k: 'light', label: 'Golpe normal', icon: Swords },
+    { k: 'heavy', label: 'Golpe cargado', icon: Crosshair },
     { k: 'dash', label: 'Dash', icon: Zap },
     { k: 'ult', label: 'ULT', icon: Crown },
     { k: 'reload', label: 'Recargar', icon: RotateCcw },
@@ -592,7 +590,7 @@ function TouchLayoutEditor({ scale, layout, joystick, onChange, onJoystickChange
             <div className="absolute inset-0 pointer-events-none">
               {items.map(({ k, label, icon: Icon }) => {
                 const p = merged[k];
-                const base = k === 'jump' ? 1.12 : k === 'reload' ? 0.88 : 1;
+                const base = k === 'reload' ? 0.88 : 1;
                 const size = Math.round(64 * scale * base * (p.scale ?? 1));
                 const isSel = selected === k;
                 return (
