@@ -137,6 +137,7 @@ export function useMenuGamepad(
 
       const root = rootRef.current;
       if (!root) return;
+      if (root.querySelector('[data-gamepad-capturing]')) { clearFocus(); return; }
       const { screen, configOpen, onPause } = currentState.current;
       const online = root.querySelector<HTMLElement>('[data-gamepad-online]');
       if (online?.hasAttribute('data-gamepad-playing')) {

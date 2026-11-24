@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
-  ArrowLeft, Check, CircleDot, Clock3, Crown, Globe, KeyRound, MapPin,
+  ArrowLeft, Check, CircleDot, Clock3, Crown, Globe, KeyRound, Lock, MapPin,
   RefreshCw, Settings, Swords, Users, Wifi, WifiOff,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import { STAGES_DATA, type RoomCapacity } from '../data/stages';
 import { stageArtUrl } from '../engine/stageAtmosphere';
 import { useGame } from '../game/GameContext';
 import { fetchRoomList, subscribeRoomList, type RoomSummary } from '../network/roomClient';
+import { getPlayerName, setPlayerName } from '../network/playerIdentity';
 
 const roomCodePattern = /^(?:[A-F0-9]{5}|[A-F0-9]{10})$/;
 const playerColors = ['#fb5969', '#60a5fa', '#facc15', '#4ade80', '#fb923c', '#c084fc', '#22d3ee', '#f3f4f6'];
@@ -40,6 +41,8 @@ export function OnlinePage() {
   const [capacity, setCapacity] = useState<RoomCapacity>(2);
   const [teamSize, setTeamSize] = useState(1);
   const [joinCode, setJoinCode] = useState('');
+  const [playerName, setPlayerNameState] = useState(getPlayerName);
+  const [publicRoom, setPublicRoom] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
@@ -127,7 +130,11 @@ export function OnlinePage() {
   };
 
   const createRoom = () => {
-    g.requestOnline({ type: 'create', maxPlayers: selectedFormat.capacity, mode, teamSize: selectedFormat.teamSize, stocks: g.config.match.stocks });
+    g.requestOnline({
+      type: 'create', maxPlayers: selectedFormat.capacity, mode,
+      teamSize: selectedFormat.teamSize, stocks: g.config.match.stocks,
+      public: publicRoom, name: setPlayerName(playerName),
+    });
   };
 
   const join = (code: string) => {
@@ -153,6 +160,11 @@ export function OnlinePage() {
             <p className="console-tagline">Entra en una partida o crea tu propia sala y comparte el código.</p>
           </div>
           <div className="online-browser-head-actions">
+            <label className="online-name-field" htmlFor="online-player-name">
+              <span>Tu nombre</span>
+              <input id="online-player-name" value={playerName} maxLength={18} placeholder="Jugador" autoComplete="nickname"
+                onChange={e => setPlayerNameState(e.target.value)} onBlur={() => setPlayerNameState(setPlayerName(playerName))} />
+            </label>
             <span className={`online-server-state ${error ? 'is-offline' : ''}`}>
               {error ? <WifiOff className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
               {error ? 'Servidor no disponible' : loading ? 'Conectando…' : live ? 'Actualización en vivo' : 'Servidor conectado'}
@@ -315,6 +327,18 @@ export function OnlinePage() {
                     </button>
                   );
                 })}
+              </div>
+
+              <div>
+                <span className="room-modal-section-kicker"><Globe className="h-3.5 w-3.5" />Visibilidad</span>
+                <div className="flex flex-wrap gap-2" style={{ marginTop: 8 }} role="radiogroup" aria-label="Visibilidad de la sala">
+                  <button type="button" role="radio" aria-checked={publicRoom} className={`console-btn ${publicRoom ? 'console-btn-primary' : ''}`} onClick={() => { sound.uiClick(); setPublicRoom(true); }}>
+                    <Globe className="h-4 w-4" />Pública
+                  </button>
+                  <button type="button" role="radio" aria-checked={!publicRoom} className={`console-btn ${!publicRoom ? 'console-btn-primary' : ''}`} onClick={() => { sound.uiClick(); setPublicRoom(false); }}>
+                    <Lock className="h-4 w-4" />Privada
+                  </button>
+                </div>
               </div>
 
               <div className="online-create-summary"><Check className="h-4 w-4" /> {summary}</div>

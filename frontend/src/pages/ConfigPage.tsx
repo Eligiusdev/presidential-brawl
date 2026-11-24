@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowUp, Crown, Crosshair, Gamepad2, Monitor, RotateCcw, Settings, Swords, Volume2, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { sound } from '../audio/soundEngine';
-import { ACTION_LABELS, DEFAULT_CONFIG, DEFAULT_P1_KEYS, DEFAULT_P2_KEYS, formatKeyCode, PIXEL_PRESET_DIMS } from '../config/defaultConfig';
+import { ACTION_LABELS, DEFAULT_CONFIG, DEFAULT_GAMEPAD_BINDINGS, DEFAULT_P1_KEYS, DEFAULT_P2_KEYS, formatKeyCode, PAD_BUTTON_LABELS, PIXEL_PRESET_DIMS } from '../config/defaultConfig';
 import { useGame } from '../game/GameContext';
 import type { CrtFilterPreset, GameConfig, ParticleDensity, PixelResolutionPreset, PlayerAction, TouchMode } from '../types/game';
 
@@ -15,7 +15,46 @@ export function ConfigPage() {
   const [tab, setTab] = useState<ConfigTab>('video');
   const [listening, setListening] = useState<{ player: 'p1' | 'p2'; action: PlayerAction } | null>(null);
   const [touchEditor, setTouchEditor] = useState(false);
+  const [listeningPad, setListeningPad] = useState<PlayerAction | null>(null);
+  const [padInfo, setPadInfo] = useState<{ name: string; playstation: boolean } | null>(null);
   const goBack = () => { sound.uiClick(); if (window.history.length > 1) navigate(-1); else navigate('/'); };
+
+  useEffect(() => {
+    const refresh = () => {
+      const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()) : []).find(p => p?.connected);
+      setPadInfo(pad ? {
+        name: pad.id,
+        playstation: /054c|playstation|dualsense|dualshock/i.test(pad.id),
+      } : null);
+    };
+    refresh();
+    window.addEventListener('gamepadconnected', refresh);
+    window.addEventListener('gamepaddisconnected', refresh);
+    return () => { window.removeEventListener('gamepadconnected', refresh); window.removeEventListener('gamepaddisconnected', refresh); };
+  }, []);
+
+  useEffect(() => {
+    if (!listeningPad) return;
+    let raf = 0;
+    const down = new Set<number>();
+    const frame = () => {
+      raf = requestAnimationFrame(frame);
+      const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()) : []).find(p => p?.connected);
+      if (!pad) return;
+      pad.buttons.forEach((button, idx) => {
+        if (button.pressed && !down.has(idx)) {
+          down.add(idx);
+          const next = structuredClone(config);
+          next.controls.gamepadBindings = { ...next.controls.gamepadBindings, [listeningPad]: [idx] };
+          updateConfig(next);
+          sound.uiConfirm();
+          setListeningPad(null);
+        } else if (!button.pressed) down.delete(idx);
+      });
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [listeningPad, config, updateConfig]);
 
   useEffect(() => {
     if (!listening) return;
@@ -35,12 +74,13 @@ export function ConfigPage() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (listeningPad && e.code === 'Escape') { e.preventDefault(); setListeningPad(null); return; }
       if (listening) return;
       if (e.code === 'Escape') { e.preventDefault(); goBack(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [listening]);
+  }, [listening, listeningPad]);
 
   const updateVideo = <K extends keyof GameConfig['video']>(k: K, v: GameConfig['video'][K]) => { sound.uiClick(); updateConfig({ ...config, video: { ...config.video, [k]: v } }); };
   const updateAudio = <K extends keyof GameConfig['audio']>(k: K, v: GameConfig['audio'][K]) => { updateConfig({ ...config, audio: { ...config.audio, [k]: v } }); };
@@ -55,7 +95,7 @@ export function ConfigPage() {
   ];
 
   return (
-    <section data-gamepad-config className="ob-lobby ob-gallery" aria-label="Configuración" style={{ position: 'absolute', inset: 0, zIndex: 100, overflowY: 'auto', overflowX: 'hidden' }}>
+    <section data-gamepad-config {...(listeningPad ? { 'data-gamepad-capturing': '' } : {})} className="ob-lobby ob-gallery" aria-label="Configuración" style={{ position: 'absolute', inset: 0, zIndex: 100, overflowY: 'auto', overflowX: 'hidden' }}>
       <header className="ob-topbar">
         <div className="ob-brand">
           <Settings className="h-5 w-5 text-[#ffcc33]" aria-hidden />
@@ -199,6 +239,37 @@ export function ConfigPage() {
                   </div>
                 ))}
               </div>
+              <div className="rounded-lg border border-[#252f47] bg-[#141b2d] p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="font-display text-sm font-bold uppercase tracking-wider text-[#ffcc33]">Mando PlayStation / Gamepad</h4>
+                    <div className="text-xs text-[#94a3b8]">
+                      {padInfo ? `${padInfo.playstation ? 'Mando PlayStation detectado' : 'Mando detectado'} · ${padInfo.name.slice(0, 52)}` : 'Conecta un mando y pulsa un botón para asignarlo'}
+                    </div>
+                  </div>
+                  <button type="button" className="console-btn" onClick={() => { sound.uiConfirm(); setListeningPad(null); updateConfig({ ...config, controls: { ...config.controls, gamepadBindings: structuredClone(DEFAULT_GAMEPAD_BINDINGS) } }); }}>
+                    <RotateCcw className="h-4 w-4" />Restaurar mando
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {(Object.keys(ACTION_LABELS) as PlayerAction[]).map(act => {
+                    const waiting = listeningPad === act;
+                    const buttons = config.controls.gamepadBindings?.[act] ?? [];
+                    return <div key={act} className="flex items-center justify-between gap-2 rounded border border-[#2a344d] bg-[#0e1320] px-3 py-2 text-xs">
+                      <span className="text-[#cbd5e1]">{ACTION_LABELS[act]}</span>
+                      <button type="button" data-gamepad-ignore {...(waiting ? { 'data-gamepad-initial': '' } : {})}
+                        onClick={() => { sound.uiClick(); setListeningPad(waiting ? null : act); }}
+                        className={`min-w-[110px] rounded border px-3 py-1.5 font-mono-num font-bold transition-colors ${waiting ? 'border-[#ffcc33] bg-[#ffcc33] text-[#0b0e17]' : 'border-[#2f3b57] bg-[#0b1220] text-white hover:border-[#ffcc33]'}`}>
+                        {waiting ? 'Pulsa un botón…' : buttons.length ? buttons.map(i => PAD_BUTTON_LABELS[i] ?? `Btn ${i}`).join(' / ') : 'Sin asignar'}
+                      </button>
+                    </div>;
+                  })}
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <SliderField label="Zona muerta del stick izquierdo" value={config.controls.gamepadDeadzone ?? 0.25} min={0.1} max={0.5} step={0.05} format={v => `${Math.round(v * 100)}%`} onChange={v => updateControls('gamepadDeadzone', v)} />
+                </div>
+              </div>
+
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <ToggleRow label="Vibración en Mandos (Gamepad)" desc="Retroalimentación háptica al impactar y recibir KOs" checked={config.controls.gamepadVibration} onChange={v => updateControls('gamepadVibration', v)} />
                 <button onClick={resetKeys} className="flex shrink-0 items-center gap-2 rounded-lg border border-[#32405e] bg-[#1a2236] px-4 py-2 text-xs font-bold text-[#cbd5e1] hover:text-white"><RotateCcw className="h-3.5 w-3.5" />Restaurar Teclas</button>

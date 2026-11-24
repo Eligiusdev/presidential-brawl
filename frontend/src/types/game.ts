@@ -22,6 +22,7 @@ export type TouchMode = 'auto' | 'on' | 'off';
 export type PlayerAction = 'left' | 'right' | 'jump' | 'down' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload';
 
 export type KeyBindings = Record<PlayerAction, string[]>;
+export type GamepadBindings = Record<PlayerAction, number[]>;
 
 export interface GameConfig {
   video: {
@@ -61,6 +62,8 @@ export interface GameConfig {
     touchLayout?: Partial<Record<'jump' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload', { x: number; y: number; scale?: number }>>;
     touchJoystick?: { x: number; y: number; scale?: number };
     gamepadVibration: boolean;
+    gamepadBindings: GamepadBindings;
+    gamepadDeadzone: number;
   };
 }
 

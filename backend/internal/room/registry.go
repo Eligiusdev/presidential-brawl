@@ -27,6 +27,8 @@ type PendingInput struct {
 
 type Player struct {
 	Token      string
+	ClientID   string
+	Name       string
 	FighterID  string
 	Input      []string
 	Pending    []PendingInput
@@ -47,6 +49,7 @@ type Room struct {
 	Mode          string
 	TeamSize      int
 	Stocks        int
+	Public        bool
 	Match         *sim.Match
 	MatchSlots    []int
 	Standings     []int
@@ -74,7 +77,7 @@ func (r *Room) State() contract.RoomState {
 			fighterID = &fid
 		}
 		players[i] = &contract.RoomPlayer{
-			Slot: i, FighterID: fighterID, Color: Colors[i%len(Colors)],
+			Slot: i, Name: p.Name, FighterID: fighterID, Color: Colors[i%len(Colors)],
 			Ready: p.Ready, Connected: p.WS != nil, Ping: p.Ping,
 		}
 	}
@@ -84,7 +87,7 @@ func (r *Room) State() contract.RoomState {
 	if teamSize <= 0 { teamSize = 1 }
 	return contract.RoomState{
 		Type: "room", Code: r.Code, HostSlot: r.HostSlot, Stage: r.Stage,
-		MaxPlayers: r.MaxPlayers(), Mode: mode, TeamSize: teamSize, Stocks: r.Stocks,
+		MaxPlayers: r.MaxPlayers(), Mode: mode, TeamSize: teamSize, Stocks: r.Stocks, Public: r.Public,
 		Playing: r.Match != nil, Standings: r.Standings,
 		ChampionNext: r.ChampionNext, ChampionSize: r.ChampionSize,
 		Players: players,
@@ -116,13 +119,30 @@ type Registry struct {
 	rooms     map[string]*Room
 	clients   map[*Client]*clientBind
 	listeners map[chan struct{}]struct{}
+	banned    map[string]bool
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
 		rooms: map[string]*Room{}, clients: map[*Client]*clientBind{},
-		listeners: map[chan struct{}]struct{}{},
+		listeners: map[chan struct{}]struct{}{}, banned: map[string]bool{},
 	}
+}
+
+// IsBanned reports whether a stable client identity was banned from all rooms.
+func (reg *Registry) IsBanned(clientID string) bool {
+	if clientID == "" { return false }
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	return reg.banned[clientID]
+}
+
+// Ban blocks a stable client identity from joining or resuming any room.
+func (reg *Registry) Ban(clientID string) {
+	if clientID == "" { return }
+	reg.mu.Lock()
+	reg.banned[clientID] = true
+	reg.mu.Unlock()
 }
 
 // Subscribe returns a channel that is notified whenever the public room list changes.
@@ -214,7 +234,7 @@ func (reg *Registry) Count() int {
 	return len(reg.rooms)
 }
 
-func (reg *Registry) Create(maxPlayers int, mode string, teamSize int) *Room {
+func (reg *Registry) Create(maxPlayers int, mode string, teamSize int, public bool) *Room {
 	if mode != "champion" && mode != "tournament" { mode = "ffa" }
 	if teamSize <= 0 { teamSize = 1 }
 	reg.mu.Lock()
@@ -241,7 +261,7 @@ func (reg *Registry) Create(maxPlayers int, mode string, teamSize int) *Room {
 		}
 		r := &Room{
 			Code: code, Players: make([]*Player, maxPlayers), HostSlot: 0,
-			Stage: 0, Mode: mode, TeamSize: teamSize, Stocks: 3, Updated: time.Now(),
+			Stage: 0, Mode: mode, TeamSize: teamSize, Stocks: 3, Public: public, Updated: time.Now(),
 		}
 		reg.rooms[code] = r
 		created = r
@@ -275,6 +295,10 @@ func (reg *Registry) Summaries() []RoomSummary {
 	out := make([]RoomSummary, 0, len(all))
 	for _, r := range all {
 		r.Mu().Lock()
+		if !r.Public {
+			r.Mu().Unlock()
+			continue // private rooms are only joinable by code
+		}
 		players, connected := 0, 0
 		for _, p := range r.Players {
 			if p == nil {

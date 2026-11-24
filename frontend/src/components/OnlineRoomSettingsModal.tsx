@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Crown, Globe, Sliders, Users, X } from 'lucide-react';
+import { Check, Crown, Globe, Lock, Sliders, Users, X } from 'lucide-react';
 import { sound } from '../audio/soundEngine';
 import type { RoomCapacity } from '../data/stages';
 import type { RoomState } from '../network/matchState';
@@ -22,6 +22,7 @@ export function OnlineRoomSettingsModal({ room, slot, send, onClose }: {
   const [capacity, setCapacity] = useState<RoomCapacity>(room.maxPlayers);
   const [teamSize, setTeamSize] = useState(room.teamSize || 1);
   const [stocks, setStocks] = useState(room.stocks ?? 3);
+  const [publicRoom, setPublicRoom] = useState(room.public !== false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -115,6 +116,14 @@ export function OnlineRoomSettingsModal({ room, slot, send, onClose }: {
             </div>
           </div>
 
+          <div>
+            <span className="room-modal-section-kicker"><Globe className="h-3.5 w-3.5" />Visibilidad</span>
+            <div className="flex flex-wrap gap-2" style={{ marginTop: 8 }} role="radiogroup" aria-label="Visibilidad de la sala">
+              <button type="button" role="radio" aria-checked={publicRoom} disabled={!host} className={`console-btn ${publicRoom ? 'console-btn-primary' : ''}`} onClick={() => { sound.uiClick(); setPublicRoom(true); }}><Globe className="h-4 w-4" />Pública</button>
+              <button type="button" role="radio" aria-checked={!publicRoom} disabled={!host} className={`console-btn ${!publicRoom ? 'console-btn-primary' : ''}`} onClick={() => { sound.uiClick(); setPublicRoom(false); }}><Lock className="h-4 w-4" />Privada</button>
+            </div>
+          </div>
+
           <div className="online-create-summary">
             {mode === 'tournament' ? `Equipos de ${teamSize} · ` : mode === 'champion' ? 'Duelos secuenciales · ' : 'Todos contra todos · '}
             {capacity} jugadores · {nextStocks} vidas
@@ -126,7 +135,7 @@ export function OnlineRoomSettingsModal({ room, slot, send, onClose }: {
               sound.uiConfirm();
               send({
                 type: 'roomConfig', mode, maxPlayers: capacity,
-                teamSize: mode === 'tournament' ? teamSize : 1, stocks: nextStocks,
+                teamSize: mode === 'tournament' ? teamSize : 1, stocks: nextStocks, public: publicRoom,
               });
               onClose();
             }}>Guardar cambios</button>}

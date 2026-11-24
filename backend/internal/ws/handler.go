@@ -81,6 +81,23 @@ func failure(c *rooms.Client, code, message string) {
 	_ = c.SendJSON(contract.ErrorMessage{Type: "error", Code: code, Message: message})
 }
 
+func cleanName(name string) string {
+	name = strings.TrimSpace(name)
+	runes := []rune(name)
+	if len(runes) > 18 { runes = runes[:18] }
+	return string(runes)
+}
+
+func validClientID(id string) bool {
+	if len(id) < 8 || len(id) > 80 { return false }
+	for _, r := range id {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' && r != '_' {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Server) publish(room *rooms.Room) {
 	state := room.State()
 	room.Mu().Lock()
@@ -142,6 +159,14 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 	room, player := s.Reg.ClientRoom(c)
 
 	if player == nil {
+		if s.Reg.IsBanned(msg.ClientID) {
+			failure(c, "BANNED", "Has sido vetado de las salas de este servidor.")
+			return
+		}
+		if msg.ClientID != "" && !validClientID(msg.ClientID) {
+			failure(c, "IDENTITY", "Identidad de jugador no válida.")
+			return
+		}
 		if msg.Protocol != contract.Protocol {
 			failure(c, "PROTOCOL", "Actualiza la página para conectarte con esta versión del servidor.")
 			return
@@ -167,7 +192,9 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 				failure(c, "LIMIT", "El servidor ya tiene demasiadas salas.")
 				return
 			}
-			room = s.Reg.Create(msg.MaxPlayers, mode, ts)
+			public := true
+			if msg.Public != nil { public = *msg.Public }
+			room = s.Reg.Create(msg.MaxPlayers, mode, ts, public)
 			if msg.Stocks != nil {
 				stocks := *msg.Stocks
 				if stocks < 1 || stocks > 5 {
@@ -237,7 +264,9 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 				failure(c, "IN_MATCH", "La partida ya comenzó.")
 				return
 			}
-			player = &rooms.Player{Token: rooms.NewToken(), AppliedSeq: -1, Seq: -1}
+			player = &rooms.Player{Token: rooms.NewToken(), AppliedSeq: -1, Seq: -1,
+				ClientID: msg.ClientID, Name: cleanName(msg.Name)}
+			if player.Name == "" { player.Name = "Jugador" }
 			room.Players[slot] = player
 			room.Mu().Unlock()
 		}
@@ -418,6 +447,9 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 		room.Mode = mode
 		room.TeamSize = teamSize
 		room.Stocks = stocks
+		if msg.Public != nil {
+			room.Public = *msg.Public
+		}
 		room.Standings = nil
 		room.ChampionSlot = -1
 		room.ChampionNext = 0
@@ -425,6 +457,29 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 		room.Updated = time.Now()
 		room.Mu().Unlock()
 		s.publish(room)
+
+	case contract.CKick, contract.CBan:
+		// The host can remove or ban a player; identity always comes from the server.
+		if slot != room.HostSlot || msg.TargetSlot == nil { return }
+		room.Mu().Lock()
+		targetSlot := *msg.TargetSlot
+		if targetSlot < 0 || targetSlot >= len(room.Players) || targetSlot == slot {
+			room.Mu().Unlock()
+			return
+		}
+		target := room.Players[targetSlot]
+		if target == nil || target.WS == nil {
+			room.Mu().Unlock()
+			return
+		}
+		targetWS := target.WS
+		clientID := target.ClientID
+		room.Mu().Unlock()
+		if msg.Type == contract.CBan {
+			s.Reg.Ban(clientID)
+		}
+		s.remove(room, target, false)
+		targetWS.Close(websocket.StatusCode(4003), string(msg.Type))
 
 	case contract.CStart:
 		if slot != room.HostSlot {

@@ -1,4 +1,4 @@
-import { GameConfig, KeyBindings, MatchReplayData, PixelResolutionPreset, PlayerAction, PresidentData } from '../types/game';
+import { GameConfig, GamepadBindings, KeyBindings, MatchReplayData, PixelResolutionPreset, PlayerAction, PresidentData } from '../types/game';
 
 export const DEFAULT_P1_KEYS: KeyBindings = {
   left: ['KeyA'],
@@ -23,6 +23,24 @@ export const DEFAULT_P2_KEYS: KeyBindings = {
   ult: ['KeyM', 'Numpad0', 'Enter'],
   reload: ['Slash', 'NumpadDecimal'],
 };
+
+// Standard gamepad mapping (DualShock 4 / DualSense: ✕=0, ○=1, □=2, △=3).
+export const DEFAULT_GAMEPAD_BINDINGS: GamepadBindings = {
+  left: [14],
+  right: [15],
+  jump: [12, 0, 3],
+  down: [13],
+  light: [2],
+  heavy: [1],
+  dash: [4, 5],
+  ult: [6, 7],
+  reload: [11],
+};
+
+export const PAD_BUTTON_LABELS = [
+  '✕ / A', '○ / B', '□ / X', '△ / Y', 'L1 / LB', 'R1 / RB', 'L2 / LT', 'R2 / RT',
+  'Share / Select', 'Options / Start', 'L3 / Stick', 'R3 / Stick', '↑', '↓', '←', '→',
+];
 
 export const DEFAULT_CONFIG: GameConfig = {
   video: {
@@ -69,6 +87,8 @@ export const DEFAULT_CONFIG: GameConfig = {
     },
     touchJoystick: { x: 18, y: 22, scale: 1 },
     gamepadVibration: true,
+    gamepadBindings: DEFAULT_GAMEPAD_BINDINGS,
+    gamepadDeadzone: 0.25,
   },
 };
 
@@ -107,6 +127,8 @@ export function loadConfig(): GameConfig {
         ...(parsed.controls || {}),
         p1: { ...DEFAULT_P1_KEYS, ...(parsed.controls?.p1 || {}) },
         p2: { ...DEFAULT_P2_KEYS, ...(parsed.controls?.p2 || {}) },
+        gamepadBindings: { ...DEFAULT_GAMEPAD_BINDINGS, ...(parsed.controls?.gamepadBindings || {}) },
+        gamepadDeadzone: typeof parsed.controls?.gamepadDeadzone === 'number' ? parsed.controls.gamepadDeadzone : 0.25,
       },
     };
   } catch {

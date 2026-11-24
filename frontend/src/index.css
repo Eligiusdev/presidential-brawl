@@ -657,6 +657,10 @@
 .ob-slot-head em{font-style:normal;color:#9fc5ff;font-size:10px;font-weight:700}
 .ob-slot-head .spacer{flex:1}
 .ob-slot-head small{color:#8fb3d9;font-size:11px}
+.ob-slot-mod{display:grid;place-items:center;width:20px;height:20px;border-radius:6px;border:1px solid rgba(120,160,220,.28);background:rgba(10,16,30,.6);color:#b8cee8;cursor:pointer;z-index:2;transition:border-color .12s,color .12s}
+.ob-slot-mod:hover{border-color:#5b7bb0;color:#fff}
+.ob-slot-mod.is-ban{border-color:rgba(248,113,113,.35);color:#fca5a5}
+.ob-slot-mod.is-ban:hover{border-color:#f87171;color:#fff}
 .ob-slot-name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#eef6ff}
 .ob-slot-state{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#8fa9c9}
 .ob-slot-state.on{color:#86efac;font-weight:700}
@@ -1253,6 +1257,22 @@
 .online-browser-heading .console-game-title { font-size: clamp(1.9rem, 3.6vw, 2.9rem); }
 .online-browser-heading .console-tagline { font-size: 13px; }
 .online-browser-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.online-name-field {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(120,160,220,.24);
+  background: rgba(10,16,30,.55);
+  color: #9bb3d4;
+  font: 700 11px var(--font-display, system-ui);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.online-name-field:focus-within { border-color: rgba(255,204,51,.55); color: #ffcc33; }
+.online-name-field input {
+  width: 110px; border: 0; background: transparent; outline: none; color: #fff;
+  font: 700 12px var(--font-body, system-ui); text-transform: none; letter-spacing: 0;
+}
+.online-name-field input::placeholder { color: #6882a3; }
 .online-server-state {
   display: inline-flex;
   align-items: center;

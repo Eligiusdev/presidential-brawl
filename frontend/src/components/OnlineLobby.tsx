@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Copy, Crown, LogOut, Settings, Shuffle, Sliders, Swords, Users, WifiOff } from 'lucide-react';
+import { Ban, Check, ChevronLeft, ChevronRight, Copy, Crown, LogOut, Settings, Shuffle, Sliders, Swords, UserX, Users, WifiOff } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
 import { sound } from '../audio/soundEngine';
@@ -120,8 +120,14 @@ export function OnlineLobby({ room, slot, send, leave, onOpenConfig }: {
                 {i === slot && <em>Tú</em>}
                 <span className="spacer" />
                 {p?.connected ? <small>{p.ping}ms</small> : !p ? null : <WifiOff className="h-3.5 w-3.5 text-[#f87171]" />}
+                {host && p?.connected && i !== slot && <>
+                  <button type="button" className="ob-slot-mod" title={`Expulsar a ${p.name}`} aria-label={`Expulsar a ${p.name}`}
+                    onClick={() => { sound.uiConfirm(); send({ type: 'kick', targetSlot: i }); }}><UserX className="h-3.5 w-3.5" /></button>
+                  <button type="button" className="ob-slot-mod is-ban" title={`Vetar a ${p.name}`} aria-label={`Vetar a ${p.name}`}
+                    onClick={() => { sound.uiConfirm(); send({ type: 'ban', targetSlot: i }); }}><Ban className="h-3.5 w-3.5" /></button>
+                </>}
               </div>
-              <div className="ob-slot-name">{fighter ? fighter.name : p ? 'Eligiendo…' : 'Esperando jugador'}</div>
+              <div className="ob-slot-name">{p?.name ? `${p.name} · ` : ''}{fighter ? fighter.name : p ? 'Eligiendo…' : 'Esperando jugador'}</div>
               <div className={`ob-slot-state ${p?.ready ? 'on' : ''}`}>
                 {!p ? 'Libre' : !p.connected ? 'Reconectando' : p.ready ? <><Check className="h-3.5 w-3.5" />Listo</> : 'En selección'}
               </div>
@@ -138,7 +144,7 @@ export function OnlineLobby({ room, slot, send, leave, onOpenConfig }: {
         <Swords className="h-5 w-5 text-[#ffcc33]" aria-hidden />
         <div className="ob-brand-text">
           <h2>{room.mode === 'tournament' ? `Equipos ${room.teamSize || 1}v${room.teamSize || 1}` : room.mode === 'champion' ? 'Champion' : 'Todos contra todos'} en línea</h2>
-          <p><span style={{ color: self?.color }}>J{slot + 1}</span>{host ? ' · Anfitrión' : ''}{room.maxPlayers ? ` · ${room.maxPlayers} jugadores` : ''}</p>
+          <p><span style={{ color: self?.color }}>J{slot + 1}</span>{host ? ' · Anfitrión' : ''}{room.maxPlayers ? ` · ${room.maxPlayers} jugadores` : ''} · {room.public === false ? 'Sala privada' : 'Sala pública'}</p>
         </div>
       </div>
       <div className="ob-room-code" aria-label={`Código de sala ${room.code}`}>

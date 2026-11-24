@@ -16,6 +16,7 @@ import { worldFromRich } from '../sim/wasmWorld';
 import { OnlineMatchHUD } from './OnlineMatchHUD';
 import { stageArtUrl, stageNightMix } from '../engine/stageAtmosphere';
 import { roomSocketUrl, type OnlineIntent } from '../network/roomClient';
+import { getClientId, getPlayerName } from '../network/playerIdentity';
 import type { GameConfig, PlayerAction } from '../types/game';
 import { OnlineLobby } from './OnlineLobby';
 import { TouchControls } from './TouchControls';
@@ -70,6 +71,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     if (next && roomCodePattern.test(next)) setCode(next);
   }, [openSignal]);
   const [capacity, setCapacity] = useState<RoomCapacity>(2);
+  const [roomPublic, setRoomPublic] = useState(true);
   const [roomMode, setRoomMode] = useState<'ffa' | 'champion' | 'tournament'>('ffa');
   const [teamSize, setTeamSize] = useState(1);
   const [room, setRoom] = useState<RoomState | null>(null);
@@ -97,7 +99,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   }, [fighterIds]);
   const pressed = useRef(new Map<string, PlayerAction>());
   const touch = useRef(new Set<PlayerAction>());
-  const enter = useRef<(request: { type: 'create'; maxPlayers: RoomCapacity; mode?: 'ffa' | 'champion' | 'tournament'; teamSize?: number; stocks?: number } | { type: 'join'; code: string } | { type: 'resume'; code: string; token: string }) => void>(() => {});
+  const enter = useRef<(request: { type: 'create'; maxPlayers: RoomCapacity; mode?: 'ffa' | 'champion' | 'tournament'; teamSize?: number; stocks?: number; public?: boolean; name?: string } | { type: 'join'; code: string } | { type: 'resume'; code: string; token: string }) => void>(() => {});
   const autoJoined = useRef(false);
   const onActiveRef = useRef(onActive);
   onActiveRef.current = onActive;
@@ -180,7 +182,10 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       lastReply = performance.now();
       if (data.type === 'hello') {
         if (data.protocol !== ROOM_PROTOCOL) incompatibleProtocol();
-        else send({ ...request, protocol: ROOM_PROTOCOL });
+        else send({
+          ...request, protocol: ROOM_PROTOCOL, clientId: getClientId(),
+          ...(request.type === 'resume' ? {} : { name: getPlayerName() || 'Jugador' }),
+        });
         return;
       }
       if (data.type === 'seat') {
@@ -233,6 +238,12 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       }
       if (data.type === 'error') {
         if (data.code === 'PROTOCOL') { incompatibleProtocol(); return; }
+        if (data.code === 'BANNED') {
+          currentSeat.current = null; retryUntil.current = 0; saveSeat(null);
+          setSeat(null); setRoom(null); setBusy(false); socket.current = null; ws.close();
+          setStatus(data.message);
+          return;
+        }
         setStatus(data.message);
         setBusy(false);
         if (!currentSeat.current || data.code === 'RESUME' || data.code === 'ROOM_MISSING') {
@@ -256,7 +267,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       setBusy(false);
       clearInput();
       const saved = currentSeat.current;
-      if (saved && closeCode !== 4001 && reason !== 'expired') {
+      if (saved && closeCode !== 4001 && closeCode !== 4003 && reason !== 'expired' && reason !== 'kick' && reason !== 'ban') {
         const now = Date.now();
         retryUntil.current ||= now + ROOM_RESUME_MS;
         if (now < retryUntil.current) {
@@ -273,7 +284,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       setSeat(null);
       setRoom(null);
       samples.current = null;
-      setStatus(closeCode === 4001 ? 'El puesto se abrió en otra conexión.' : saved
+      setStatus(closeCode === 4003 ? (reason === 'ban' ? 'Fuiste vetado de esta sala.' : 'El anfitrión te expulsó de la sala.') : closeCode === 4001 ? 'El puesto se abrió en otra conexión.' : saved
         ? 'No se pudo recuperar tu puesto. Puedes volver a intentar con el código.'
         : 'No se pudo conectar con el servidor de salas.');
     }
@@ -537,7 +548,11 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
               </button>;
             })}
           </div>
-          <button type="button" data-gamepad-initial className="console-btn console-btn-primary room-modal-create" disabled={incompatible || busy} onClick={() => enter.current({ type: 'create', maxPlayers: selectedFormat.maxPlayers, mode: roomMode, teamSize: selectedFormat.teamSize, stocks: config.match.stocks })}>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Visibilidad de la sala" style={{ marginTop: 4 }}>
+            <button type="button" role="radio" aria-checked={roomPublic} className={`console-btn ${roomPublic ? 'console-btn-primary' : ''}`} disabled={incompatible || busy} onClick={() => { sound.uiClick(); setRoomPublic(true); }}><Globe className="h-4 w-4" />Pública</button>
+            <button type="button" role="radio" aria-checked={!roomPublic} className={`console-btn ${!roomPublic ? 'console-btn-primary' : ''}`} disabled={incompatible || busy} onClick={() => { sound.uiClick(); setRoomPublic(false); }}>Privada</button>
+          </div>
+          <button type="button" data-gamepad-initial className="console-btn console-btn-primary room-modal-create" disabled={incompatible || busy} onClick={() => enter.current({ type: 'create', maxPlayers: selectedFormat.maxPlayers, mode: roomMode, teamSize: selectedFormat.teamSize, stocks: config.match.stocks, public: roomPublic, name: getPlayerName() || 'Jugador' })}>
             <Swords className="h-4 w-4" />Crear sala
           </button>
         </section>

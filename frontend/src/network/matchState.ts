@@ -6,6 +6,7 @@ import type { PlayerAction } from '../types/game';
 
 export interface RoomPlayer {
   slot: number;
+  name: string;
   fighterId: string | null;
   color: string;
   ready: boolean;
@@ -21,6 +22,7 @@ export interface RoomState {
   mode?: 'ffa' | 'champion' | 'tournament';
   teamSize?: number;
   stocks?: number;
+  public?: boolean;
   playing: boolean;
   standings: number[] | null;
   championNext?: number;

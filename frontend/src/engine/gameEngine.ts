@@ -864,17 +864,20 @@ export class GameEngine {
         continue;
       }
       const b = (idx: number) => Boolean(p.buttons[idx]?.pressed);
+      const bindings = this.config.controls.gamepadBindings;
+      const bound = (action: PlayerAction) => (bindings?.[action] ?? []).some(i => b(i));
       const ax = p.axes[0] || 0;
       const ay = p.axes[1] || 0;
-      const dz = 0.25;
-      this.keys[prefix + 'left'] = ax < -dz || b(14);
-      this.keys[prefix + 'right'] = ax > dz || b(15);
-      this.keys[prefix + 'jump'] = ay < -0.7 || b(12) || b(0) || b(3);
-      this.keys[prefix + 'down'] = ay > dz || b(13);
-      this.keys[prefix + 'light'] = b(2);
-      this.keys[prefix + 'heavy'] = b(1);
-      this.keys[prefix + 'dash'] = b(4) || b(5);
-      this.keys[prefix + 'ult'] = b(6) || b(7);
+      const dz = this.config.controls.gamepadDeadzone ?? 0.25;
+      this.keys[prefix + 'left'] = ax < -dz || bound('left');
+      this.keys[prefix + 'right'] = ax > dz || bound('right');
+      this.keys[prefix + 'jump'] = ay < -0.7 || bound('jump');
+      this.keys[prefix + 'down'] = ay > dz || bound('down');
+      this.keys[prefix + 'light'] = bound('light');
+      this.keys[prefix + 'heavy'] = bound('heavy');
+      this.keys[prefix + 'dash'] = bound('dash');
+      this.keys[prefix + 'ult'] = bound('ult');
+      this.keys[prefix + 'reload'] = bound('reload');
 
       const startPressed = b(9);
       if (allowPlayPause && startPressed && !this.gpState[n]) {
