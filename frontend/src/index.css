@@ -431,7 +431,38 @@
 .online-hud progress { width: 100%; height: 5px; accent-color: #ffda6a; }
 .online-duel-hud article { padding: 8px; }
 .online-duel-hud img { width: clamp(32px, 4vw, 56px); }
-.online-match { display: grid; grid-template: auto minmax(0, 1fr) auto / minmax(0, 1fr); gap: 5px; }
+/* Pantalla de combate online: mismo frame a pantalla completa que el local. */
+.online-screen.online-match {
+  position: fixed; inset: 0;
+  width: 100vw; height: 100dvh; max-width: none; aspect-ratio: auto;
+  padding: 0; gap: 0; background: #070d19;
+  display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
+.online-screen.online-match .apex-arena-backdrop {
+  display: block; position: absolute; inset: 0; pointer-events: none;
+  background: var(--arena-day) center 55% / cover no-repeat;
+  filter: blur(7px); transform: scale(1.035);
+}
+.online-screen.online-match .apex-arena-backdrop::before,
+.online-screen.online-match .apex-arena-backdrop::after {
+  content: ''; position: absolute; inset: 0;
+}
+.online-screen.online-match .apex-arena-backdrop::before {
+  background: var(--arena-night) center 55% / cover no-repeat;
+  opacity: var(--arena-night-mix, 0);
+}
+.online-screen.online-match .apex-arena-backdrop::after {
+  background: linear-gradient(#070d19d9, #0b142456 50%, #070d198e);
+}
+.online-screen.online-match .online-arena {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: transparent; min-height: 0; overflow: hidden;
+}
+.online-screen.online-match .online-results { z-index: 20; }
+.online-screen.online-match > footer {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 12;
+  padding: 4px 10px; background: linear-gradient(transparent, #070d19cc);
+}
 .online-arena { display: grid; place-items: center; overflow: hidden; min-height: 0; position: relative; background: #050a13; }
 .online-arena canvas { width: 100%; height: 100%; min-height: 0; object-fit: contain; display: block; }
 .online-match .network-touch { position: absolute; inset: 0; pointer-events: none; }

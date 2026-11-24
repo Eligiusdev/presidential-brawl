@@ -76,8 +76,6 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 	for _, a := range f.Afterimages { if a.Alpha > 0 { aliveIm = append(aliveIm, a) } }
 	f.Afterimages = aliveIm
 
-	if f.Pl != nil { f.Y = f.Pl.Y - f.H }
-
 	free := f.Stun <= 0
 	if !free {
 		f.Stun--
@@ -219,6 +217,15 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 		((f.Wall == 1 && in.Right) || (f.Wall == -1 && in.Left)) { f.VY = 2.2 }
 
 	f.X += f.VX
+	// Una plataforma móvil arrastra al luchador solo mientras siga sobre ella;
+	// al salir se suelta y cae por gravedad.
+	if f.Pl != nil {
+		if f.X+f.W > f.Pl.X && f.X < f.Pl.X+f.Pl.W && math.Abs(f.Y+f.H-f.Pl.Y) < 24 {
+			f.Y = f.Pl.Y - f.H
+		} else {
+			f.Pl = nil
+		}
+	}
 	main := m.Main
 	if f.X+f.W > main.X && f.X < main.X+main.W && f.Y+f.H > main.Y && f.Y < main.Y+main.H {
 		if f.VX > 0 { f.X = main.X - f.W } else if f.VX < 0 { f.X = main.X + main.W }

@@ -8,14 +8,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Crown, Globe, KeyRound, Swords, Users, X } from 'lucide-react';
 import { DEFAULT_P1_KEYS, DEFAULT_P2_KEYS, PIXEL_PRESET_DIMS } from '../config/defaultConfig';
 import { PRESIDENTS_DATA } from '../data/presidents';
-import type { RoomCapacity } from '../data/stages';
+import { STAGES_DATA, type RoomCapacity } from '../data/stages';
 import { PixelRenderer } from '../engine/pixelRenderer';
 import { renderMatchState, type MatchSnapshot, type RoomState, type ServerRoomMessage } from '../network/matchState';
 import { decodeSnapshotFrame } from '../network/protoAdapter';
 import { worldFromRich } from '../sim/wasmWorld';
+import { OnlineMatchHUD } from './OnlineMatchHUD';
+import { stageArtUrl, stageNightMix } from '../engine/stageAtmosphere';
 import { roomSocketUrl } from '../network/roomClient';
 import type { GameConfig, PlayerAction } from '../types/game';
-import { OnlineGameHUD } from './GameHUD';
 import { OnlineLobby } from './OnlineLobby';
 import { TouchControls } from './TouchControls';
 
@@ -78,6 +79,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '' }
   const retryUntil = useRef(0);
   const [busy, setBusy] = useState(false);
   const [hud, setHud] = useState<MatchSnapshot['players']>([]);
+  const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
   const socket = useRef<WebSocket | null>(null);
   const authenticatedSocket = useRef<WebSocket | null>(null);
   const currentSeat = useRef<Seat | null>(null);
@@ -130,6 +132,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '' }
       setRoom(null);
       setSeat(null);
       setHud([]);
+      setSnapshot(null);
       samples.current = null;
       currentSeat.current = null;
       authenticatedSocket.current = null;
@@ -201,6 +204,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '' }
         if (!data.playing) {
           samples.current = null;
           setHud([]);
+      setSnapshot(null);
         }
       }
       if (data.type === 'snapshot') {
@@ -221,7 +225,10 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '' }
           else if (data.cine && !last.cine) sound.siren();
           else if (data.players.some(p => p.damage > last.players[p.slot].damage)) sound.hit();
         }
-        if (data.tick % 3 === 0 || !last || data.world.winnerPi !== null) setHud(data.players);
+        if (data.tick % 3 === 0 || !last || data.world.winnerPi !== null) {
+          setHud(data.players);
+          setSnapshot(data);
+        }
       }
       if (data.type === 'error') {
         if (data.code === 'PROTOCOL') { incompatibleProtocol(); return; }
@@ -303,6 +310,7 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '' }
     setRoom(null);
     setSeat(null);
     setHud([]);
+    setSnapshot(null);
     setBusy(false);
     setStatus('');
     retryUntil.current = 0;
@@ -410,10 +418,18 @@ export function NetworkPanel({ config, onActive, openSignal = 0, crtClass = '' }
   </>;
   const championSlot = room?.standings?.[0];
   const champion = championSlot === undefined ? undefined : PRESIDENTS_DATA.find(f => f.id === room?.players[championSlot]?.fighterId);
-  if (room && seat) return <section data-gamepad-online data-gamepad-playing={playing || undefined} className={`online-screen online-match ${crtClass}`} aria-label="Combate en línea">
-    <OnlineGameHUD fighters={hud} room={room} localSlot={seat.slot} />
+  const stageId = STAGES_DATA[snapshot?.stage ?? room?.stage ?? 0]?.id ?? STAGES_DATA[0].id;
+  const nightMix = stageNightMix(config.video.stageTime, snapshot?.tick ?? 0, Boolean((snapshot as any)?.world?.stageNightStart));
+  const backdropStyle = {
+    '--arena-day': `url("${stageArtUrl(stageId, 'day')}")`,
+    '--arena-night': `url("${stageArtUrl(stageId, 'night')}")`,
+    '--arena-night-mix': String(nightMix),
+  } as any;
+  if (room && seat) return <section data-gamepad-online data-gamepad-playing={playing || undefined} className={`online-screen online-match apex-frame apex-frame-combat ${crtClass}`} aria-label="Combate en línea">
+    <div className="apex-arena-backdrop" aria-hidden="true" style={backdropStyle} />
+    <OnlineMatchHUD snap={snapshot} room={room} localSlot={seat.slot} />
     <div className="online-arena">
-      <canvas ref={canvas} className="pixel-canvas" aria-label="Arena multijugador" />
+      <canvas ref={canvas} className="pixel-canvas block h-full w-full object-contain" aria-label="Arena multijugador" />
       {playing && !recovering && !incompatible && <div data-gamepad-ignore className="network-touch"><TouchControls inline scale={config.controls.touchScale ?? 1} layout={config.controls.touchLayout} joystick={config.controls.touchJoystick} onAction={(action, down) => {
         const touchStarted = performanceMetricsEnabled && down ? performance.now() : null;
         if (down) {
