@@ -22,6 +22,7 @@ const (
 	CRoomConfig ClientType = "roomConfig"
 	CKick       ClientType = "kick"
 	CBan        ClientType = "ban"
+	CName       ClientType = "name"
 )
 
 type ClientMessage struct {

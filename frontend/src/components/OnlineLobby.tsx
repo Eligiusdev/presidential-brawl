@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Ban, Check, ChevronLeft, ChevronRight, Copy, Crown, LogOut, Settings, Shuffle, Sliders, Swords, UserX, Users, WifiOff } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
@@ -12,6 +12,7 @@ import { RosterDisplay, REGION_TABS, matchesFilter, matchesSearch, useRosterDisp
 import { FighterPreview } from './FighterPreview';
 import { PortraitCanvas } from './PortraitCanvas';
 import { OnlineRoomSettingsModal } from './OnlineRoomSettingsModal';
+import { setPlayerName } from '../network/playerIdentity';
 
 export function OnlineLobby({ room, slot, send, leave, onOpenConfig }: {
   room: RoomState; slot: number; send: (message: object) => void; leave: () => void; onOpenConfig: () => void;
@@ -23,6 +24,14 @@ export function OnlineLobby({ room, slot, send, leave, onOpenConfig }: {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const drag = useRef<{ x: number; id: number } | null>(null);
   const self = room.players[slot];
+  const [nameDraft, setNameDraft] = useState(self?.name ?? '');
+  useEffect(() => { setNameDraft(self?.name ?? ''); }, [self?.name]);
+  const commitName = (value: string = nameDraft) => {
+    const clean = setPlayerName(value) || 'Jugador';
+    setNameDraft(clean);
+    sound.uiConfirm();
+    send({ type: 'name', name: clean });
+  };
   const host = room.hostSlot === slot;
   const allReady = room.players.every(p => p?.ready && p.connected);
   const url = new URL(`/room/${room.code}`, location.origin);
@@ -152,6 +161,12 @@ export function OnlineLobby({ room, slot, send, leave, onOpenConfig }: {
         <strong className="ob-room-value">{room.code}</strong>
       </div>
       <div className="ob-top-actions">
+        <label className="online-name-field" htmlFor="lobby-player-name">
+          <span>Tu nombre</span>
+          <input id="lobby-player-name" value={nameDraft} maxLength={18} placeholder="Jugador" autoComplete="nickname"
+            onChange={e => setNameDraft(e.target.value)} onBlur={e => commitName(e.currentTarget.value)}
+            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
+        </label>
         <button type="button" onClick={() => { sound.uiClick(); onOpenConfig(); }}><Settings className="h-4 w-4" />Ajustes</button>
         <button type="button" className="ob-invite-btn" onClick={() => { sound.uiClick(); setSettingsOpen(true); }}><Sliders className="h-4 w-4" />Reglas de partida</button>
         <button type="button" className="ob-invite-btn" onClick={() => void copy()}><Copy className="h-4 w-4" />{copied ? 'Copiado' : 'Copiar invitación'}</button>

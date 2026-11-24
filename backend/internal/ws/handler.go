@@ -351,6 +351,14 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 		player.InputAt = time.Now()
 		room.Mu().Unlock()
 
+	case contract.CName:
+		name := cleanName(msg.Name)
+		if name == "" { return }
+		room.Mu().Lock()
+		player.Name = name
+		room.Mu().Unlock()
+		s.publish(room)
+
 	case contract.CSelect:
 		if room.Match != nil || !s.FighterIDs[msg.FighterID] {
 			return
