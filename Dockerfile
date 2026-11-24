@@ -1,8 +1,9 @@
 FROM golang:1.26.8-bookworm AS go-toolchain
 
 FROM node:24-bookworm AS build
-COPY --from=go-toolchain /usr/local/go /usr/local/go
-ENV PATH="/usr/local/go/bin:${PATH}"
+COPY --from=go-toolchain /usr/local/go /tmp/go
+ENV GOROOT=/tmp/go
+ENV PATH="/tmp/go/bin:${PATH}"
 ENV CGO_ENABLED=0
 
 WORKDIR /app
