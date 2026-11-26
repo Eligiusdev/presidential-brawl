@@ -11,7 +11,15 @@ export function decodeSnapshotFrame(buf: ArrayBuffer): MatchSnapshot | null {
     if (s.snapshotJson?.length) {
       try {
         const rich = JSON.parse(new TextDecoder().decode(s.snapshotJson));
-        if (rich && rich.world && Array.isArray(rich.players)) return rich as MatchSnapshot;
+        if (rich && rich.world && Array.isArray(rich.players)) {
+          // The rich Go snapshot uses renderer names for these two values.
+          const players = rich.players.map((player: MatchSnapshot['players'][number] & { vote?: number; pct?: number }) => ({
+            ...player,
+            damage: player.damage ?? player.pct ?? 0,
+            ultCharge: player.ultCharge ?? player.vote ?? 0,
+          }));
+          return { ...rich, players } as MatchSnapshot;
+        }
       } catch {}
     }
     return protoToMatchSnapshot(s);

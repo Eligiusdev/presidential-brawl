@@ -1905,3 +1905,50 @@ html[data-mobile] .online-browser-rooms .online-panel-body { gap: 6px; }
 html[data-mobile] .online-room-summary { display: none; }
 html[data-mobile] .online-room-list { flex: 1 0 96px; }
 html[data-mobile] .online-join-row { flex-shrink: 0; }
+
+.match-ultimate { position: relative; display: flex; align-items: center; gap: 6px; padding-left: 6px; }
+.match-ultimate-track { flex: 1; height: 8px; overflow: hidden; border: 1px solid #344362; border-radius: 999px; background: #0d1729; }
+.match-ultimate-fill { height: 100%; border-radius: inherit; transition: width 100ms linear; }
+.match-ultimate-label { color: #adc5e3; font-size: 10px; font-weight: 800; white-space: nowrap; }
+.match-ultimate[data-ready="true"] .match-ultimate-track { border-color: #ffdc75; box-shadow: 0 0 7px #ffcc3377; }
+.match-ultimate[data-ready="true"] .match-ultimate-label { color: #ffdb68; }
+
+@media (orientation: landscape) {
+  html[data-mobile] .apex-frame-combat { display: block; padding: 0; }
+  html[data-mobile] .apex-frame-combat > .apex-arena,
+  html[data-mobile] .online-match .online-arena > canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 65%;
+  }
+  html[data-mobile] .apex-frame-combat .match-hud {
+    display: flex;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: max(4px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right))
+      0 max(6px, env(safe-area-inset-left));
+  }
+  html[data-mobile] .apex-frame-combat .match-fighter-cards { align-items: start; }
+  html[data-mobile] .apex-frame-combat .match-fighter-card {
+    width: 100%;
+    max-width: 190px;
+    padding: 3px 5px;
+    gap: 2px;
+  }
+  html[data-mobile] .match-fighter-card .match-portrait { width: 22px; height: 22px; }
+  html[data-mobile] .match-fighter-card .match-damage { font-size: 18px; }
+  html[data-mobile] .match-fighter-card .match-stocks { margin-top: 2px; gap: 4px; }
+  html[data-mobile] .match-stocks [style] { width: 6px; height: 6px; }
+  html[data-mobile] .match-fighter-card .match-fighter-badges { font-size: 8px; max-height: 14px; overflow: hidden; }
+  html[data-mobile] .match-ultimate-track { height: 5px; }
+  html[data-mobile] .match-ultimate-label { font-size: 9px; }
+  html[data-mobile] .apex-frame-combat > .touch-deck { position: absolute; inset: 0; height: 100%; }
+  html[data-mobile] .touch-deck-buttons {
+    --direction-size: clamp(36px, calc(43px * var(--touch-scale)), 50px);
+    --attack-size: clamp(34px, calc(40px * var(--touch-scale)), 48px);
+  }
+}

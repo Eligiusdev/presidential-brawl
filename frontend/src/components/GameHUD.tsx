@@ -1,3 +1,4 @@
+import { UltimateMeter } from './UltimateMeter';
 import { FighterName } from './FighterName';
 import { VictoryShowcase } from './VictoryShowcase';
 import { CampaignBracket } from './CampaignBracket';
@@ -437,7 +438,7 @@ export function GameHUD({
                         <div className="truncate font-display text-xs font-bold leading-tight text-white sm:text-sm">
                           <FighterName fighter={pres} name={f.name} />
                         </div>
-                        <div className="mt-1.5 flex items-center gap-2">
+                        <div className="match-stocks mt-1.5 flex items-center gap-2">
                           <div className="flex items-center gap-1">
                             {mode === 'training' ? (
                               <span className="font-mono-num text-[10px] font-semibold text-[#38bdf8]">∞ LIBRE</span>
@@ -521,31 +522,7 @@ export function GameHUD({
                     </div>
                   )}
 
-                  <div className="relative z-[1] flex items-center gap-2 pl-1.5">
-                    <div
-                      className={`relative h-2.5 flex-1 overflow-hidden rounded-full border bg-[#0f1a2f] ${
-                        ultReady ? 'border-[#ffcc33] hud-ult-glow' : 'border-[#273456]'
-                      }`}
-                    >
-                      <div
-                        className="h-full transition-all duration-100"
-                        style={{
-                          width: `${Math.min(100, f.vote)}%`,
-                          background: ultReady
-                            ? 'linear-gradient(90deg,#ffe27a,#ffbf1a)'
-                            : `linear-gradient(90deg,${f.accent}aa,${f.accent})`,
-                          boxShadow: ultReady ? '0 0 10px rgba(255, 204, 51, 0.85)' : `0 0 8px ${f.accent}55`,
-                        }}
-                      />
-                    </div>
-                    <span
-                      className={`whitespace-nowrap font-mono-num text-[10px] font-extrabold tracking-wider ${
-                        ultReady ? 'text-[#ffcc33]' : 'text-[#9bb3d4]'
-                      }`}
-                    >
-                      {ultReady ? 'ULT LISTO' : `ULT ${f.vote}%`}
-                    </span>
-                  </div>
+                  <UltimateMeter charge={f.vote} fighter={pres.name} accent={f.accent} />
                 </div>
               );
             })}

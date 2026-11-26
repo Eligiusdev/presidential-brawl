@@ -1,5 +1,6 @@
+import { UltimateMeter } from './UltimateMeter';
 import { FighterName } from './FighterName';
-import { Landmark, Radio, Zap } from 'lucide-react';
+import { Landmark, Radio } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
 import type { MatchSnapshot, RoomState } from '../network/matchState';
@@ -70,18 +71,18 @@ export function OnlineMatchHUD({ snap, room, localSlot, crtClass }: {
     </div>
 
     <div className="match-fighter-cards flex items-end justify-between gap-3">
-      {players.map((p: any, idx: number) => {
+      {players.map(p => {
         const pres = PRESIDENTS_DATA.find(d => d.id === p.fighterId) ?? PRESIDENTS_DATA[0];
         const art = fighterArtPath(pres);
-        const pct = Math.floor(p.pct ?? 0);
+        const pct = Math.floor(p.damage);
         const stocks = p.stocks ?? 0;
-        const ultReady = (p.vote ?? 0) >= 100;
+        const ultReady = p.ultCharge >= 100;
         const hit = (p.hitFlash ?? 0) > 0;
-        const isYou = p.pi === localSlot || p.slot === localSlot;
-        const accent = room.players[p.pi ?? p.slot]?.color ?? pres.palette.accent.base;
+        const isYou = p.slot === localSlot;
+        const accent = room.players[p.slot]?.color ?? pres.palette.accent.base;
         const weapon = p.wk || '';
         return (
-          <div key={p.pi ?? idx}
+          <div key={p.slot}
             className={`match-fighter-card relative flex w-[150px] flex-col gap-1.5 overflow-hidden rounded-xl border p-2 transition-transform duration-100 sm:w-[214px] sm:p-2.5 ${hit ? 'scale-[1.02]' : ''} ${art ? 'has-art' : ''}`}
             style={{
               ['--pc' as any]: accent,
@@ -100,10 +101,10 @@ export function OnlineMatchHUD({ snap, room, localSlot, crtClass }: {
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1 font-display text-[10px] font-extrabold uppercase tracking-[.14em]">
-                    <span style={{ color: accent }}>J{p.pi + 1}{isYou ? ' · TÚ' : ''}</span>
+                    <span style={{ color: accent }}>J{p.slot + 1}{isYou ? ' · TÚ' : ''}</span>
                   </div>
                   <div className="truncate font-display text-xs font-bold leading-tight text-white sm:text-sm"><FighterName fighter={pres} /></div>
-                  <div className="mt-1 flex items-center gap-1">
+                  <div className="match-stocks mt-1 flex items-center gap-1">
                     {Array.from({ length: maxStocks }).map((_, i) => (
                       <span key={i} className="h-2.5 w-2.5 rotate-45 rounded-[2px] border border-[#0b1222]"
                         style={{ backgroundColor: i < stocks ? accent : '#1a2740' }} />
@@ -125,16 +126,7 @@ export function OnlineMatchHUD({ snap, room, localSlot, crtClass }: {
                 {weapon && <span className="font-mono-num text-[#ffd23f]">{weapon === 'mg' ? 'METRALLETA' : weapon === 'rocket' ? 'COHETE' : 'MALETÍN'}</span>}
               </div>
             )}
-            <div className="relative z-[1] ml-1.5 h-1.5 overflow-hidden rounded-full border border-[#2c3959] bg-[#101a2f]"
-              title={`Definitiva de ${pres.name}`}>
-              <div className="h-full rounded-full transition-[width] duration-150"
-                style={{ width: `${Math.min(100, p.vote ?? 0)}%`, background: ultReady ? '#ffd23f' : accent }} />
-            </div>
-            {(p.vote ?? 0) >= 100 && (
-              <div className="relative z-[1] flex items-center gap-1 pl-1.5 text-[9px] font-bold uppercase tracking-wider text-[#ffd23f]">
-                <Zap className="h-3 w-3" /> DEFINITIVA LISTA
-              </div>
-            )}
+            <UltimateMeter charge={p.ultCharge} fighter={pres.name} accent={accent} />
           </div>
         );
       })}

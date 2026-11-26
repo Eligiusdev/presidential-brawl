@@ -119,3 +119,14 @@ describe('renderMatchState con snapshots binarios', () => {
     expect(world.projectiles[0].x).toBe(700);
   });
 });
+
+it('exposes damage and ultimate charge from the rich Go snapshot', () => {
+  const rich = {
+    type: 'snapshot', tick: 1, world: {},
+    players: [{ slot: 0, fighterId: 'washington', pct: 43.5, vote: 100 }],
+  };
+  const snapshotJson = new TextEncoder().encode(JSON.stringify(rich));
+  const snapshot = decodeSnapshotFrame(binarySnapshot(0, 0, 1, undefined, { snapshotJson }));
+
+  expect(snapshot?.players[0]).toMatchObject({ slot: 0, damage: 43.5, ultCharge: 100, pct: 43.5, vote: 100 });
+});

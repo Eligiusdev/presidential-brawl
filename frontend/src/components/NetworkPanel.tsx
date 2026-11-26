@@ -447,12 +447,14 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     '--arena-night': `url("${stageArtUrl(stageId, 'night')}")`,
     '--arena-night-mix': String(nightMix),
   } as any;
+  const localFighter = snapshot?.players.find(player => player.slot === seat?.slot);
   if (room && seat) return <section data-gamepad-online data-gamepad-playing={playing || undefined} className={`online-screen online-match apex-frame apex-frame-combat ${crtClass}`} aria-label="Combate en línea">
     <div className="apex-arena-backdrop" aria-hidden="true" style={backdropStyle} />
     <OnlineMatchHUD snap={snapshot} room={room} localSlot={seat.slot} />
     <div className="online-arena">
       <canvas ref={canvas} className="pixel-canvas block h-full w-full object-contain" aria-label="Arena multijugador" />
-      {showTouch && playing && !recovering && !incompatible && <div data-gamepad-ignore className="network-touch"><TouchControls inline movement={config.controls.touchMovement} scale={config.controls.touchScale ?? 1} layout={config.controls.touchLayout} joystick={config.controls.touchJoystick} onAction={(action, down) => {
+      {showTouch && playing && !recovering && !incompatible && <div data-gamepad-ignore className="network-touch"><TouchControls inline ultReady={(localFighter?.ultCharge ?? 0) >= 100}
+        hasGun={localFighter?.wk === 'mg' || localFighter?.wk === 'rocket'} movement={config.controls.touchMovement} scale={config.controls.touchScale ?? 1} layout={config.controls.touchLayout} joystick={config.controls.touchJoystick} onAction={(action, down) => {
         const touchStarted = performanceMetricsEnabled && down ? performance.now() : null;
         if (down) {
           if (action === 'jump' && !actions().has('jump')) jumpSequence.current = sequence.current + 1;
