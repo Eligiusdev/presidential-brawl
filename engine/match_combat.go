@@ -27,7 +27,19 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 	}
 
 	f.Prev, f.Cur, f.Just = f.Cur, in, edge(in, f.Cur)
+	if f.Atk != nil && f.Atk.Spec.Individual && f.Atk.T >= f.Atk.Spec.Dur {
+		f.Atk, f.MoveKind = nil, ""
+	}
 	just := f.Just
+	upSpecialInput := f.Moves() != nil && just.Heavy
+	switch {
+	case upSpecialInput || f.Stun > 0:
+		f.JumpBuffer = 0
+	case just.Jump:
+		f.JumpBuffer = 6
+	case f.JumpBuffer > 0:
+		f.JumpBuffer--
+	}
 	dir := 0
 	if in.Right { dir++ }
 	if in.Left { dir-- }
@@ -102,13 +114,14 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 				Dir: f.Face, Owner: f.Slot, Dmg: 10, BK: 5.5, KS: .16, Ang: -25, Heavy: true})
 			f.Wpn, f.WeaponKind = 0, ""
 			m.sound("sword")
-		} else if just.Dash && f.DashCD <= 0 && f.DashT <= 0 {
+		} else if just.Dash && f.DashCD <= 0 && f.DashT <= 0 && !f.duelAttackRecovery() {
 			f.DashT, f.Inv, f.DashCD = 12, int(math.Max(float64(f.Inv), 12)), 82
 			f.Floating = false
 			speed := 10.5
 			if f.IsAgile() { speed = 12.2 }
-			f.VX = float64(dir|f.Face) * speed
-			if dir == 0 { f.VX = float64(f.Face) * speed }
+			dashDir := dir
+			if dashDir == 0 { dashDir = f.Face }
+			f.VX = float64(dashDir) * speed
 			f.VY = 0
 			f.Atk = nil
 			f.MoveKind = ""
@@ -159,7 +172,8 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 	}
 
 	// jumps
-	if just.Jump && !(f.Moves() != nil && just.Heavy) {
+	if (just.Jump || (f.JumpBuffer > 0 && f.On)) && !upSpecialInput {
+		if f.On || f.Wall != 0 || f.AirJ > 0 { f.JumpBuffer = 0 }
 		if f.On {
 			f.JumpTick = int(m.Tick)
 			f.VY = -f.JumpForce()
@@ -349,6 +363,17 @@ func moveData(name string, a []int, hb *BoxDef, dmg, bk, ks, ang float64, dur in
 	return &MoveData{Name: name, K: "l", Dur: dur, Ph: []PhaseData{{A: a, HB: hb, Dmg: dmg, BK: bk, KS: ks, Ang: ang}}}
 }
 
+func (f *Fighter) isDuelFighter() bool {
+	return f.D.ID == "bolivar" || f.D.ID == "aquiles"
+}
+
+func (f *Fighter) duelAttackRecovery() bool {
+	if !f.isDuelFighter() { return false }
+	if f.Atk == nil || !f.Atk.Spec.Heavy || f.Atk.Spec.Frames == nil { return false }
+	frames := f.Atk.Spec.Frames
+	return f.Atk.T > frames.Startup + frames.Active
+}
+
 func (m *Match) attackActions(f *Fighter, in Input, just InputEdge, dir int) {
 	if f.Atk != nil && !(f.Atk.Spec.K == "l" && !f.Atk.Spec.Balanced && f.Atk.T >= int(float64(f.Atk.Spec.Dur)*.55)) {
 		return
@@ -430,7 +455,7 @@ func (m *Match) startAttack(f *Fighter, source *MoveData, mk string, heavy bool,
 	if spec.Dur <= 0 { spec.Dur = 20 }
 	f.MoveKind = mk
 	f.Atk = &ActiveAtk{Spec: &spec, Hits: map[string]bool{}, Baseline: spec.Dur}
-	if source.Launch != nil {
+	if source.Launch != nil && (!source.Balanced || !f.isDuelFighter()) {
 		f.On, f.UpSpecUsed, f.FastFall = false, true, false
 		f.VY = source.Launch.VY
 		f.VX = source.Launch.VX * float64(f.Face)
@@ -453,6 +478,11 @@ func (m *Match) advanceAttack(f *Fighter) {
 	sp := a.Spec
 	t := a.T
 	if sp.Balanced && sp.Frames != nil && t == sp.Frames.Startup+1 {
+		if sp.Launch != nil && f.isDuelFighter() {
+			f.On, f.UpSpecUsed, f.FastFall = false, true, false
+			f.VY = sp.Launch.VY
+			f.VX = sp.Launch.VX * float64(f.Face)
+		}
 		if sp.Effect == "seal" || sp.Effect == "barrier" {
 			life := Data().Limits.FieldLifetime
 			if sp.Effect == "barrier" { life = 150 }

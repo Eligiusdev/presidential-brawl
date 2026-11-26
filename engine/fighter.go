@@ -83,6 +83,7 @@ type Fighter struct {
 	JumpTick int
 	KOVisual *KOVis
 	DashT, DashCD, DashDanceT int
+	JumpBuffer int
 	Combo, MaxCombo, CT, CTMax int
 	LastAttacker int
 	DamageDealt float64
@@ -157,6 +158,7 @@ func (f *Fighter) Reset(x, y float64, first bool, stocks int) {
 	if !first { f.Inv = 120 }
 	f.Stun, f.MaxStun = 0, 0
 	f.JumpTick = 0
+	f.JumpBuffer = 0
 	f.KOVisual = nil
 	f.DashT, f.DashCD, f.DashDanceT = 0, 0, 0
 	f.Combo, f.MaxCombo, f.CT = 0, 0, 0

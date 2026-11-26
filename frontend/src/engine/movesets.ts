@@ -49,13 +49,13 @@ function sample([min, max]: FrameRange, value: number) {
 }
 
 export function balanceMove<T extends { ph: Phase[]; sp: Shot[]; dur: number; effect?: string }>(
-  move: T, fighter: PresidentData, slot: Slot,
+  move: T, fighter: PresidentData, slot: Slot, duelBalance = false,
 ) {
   const seed = [...fighter.id].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 0);
   const [startupRange, activeRange, recoveryRange, damageRange] = ranges[slot];
-  const startup = sample(startupRange, seed >>> 2);
+  const startup = duelBalance && slot === 'neutral' ? (fighter.id === 'bolivar' ? 13 : 15) : sample(startupRange, seed >>> 2);
   const active = sample(activeRange, seed >>> 8);
-  const recovery = sample(recoveryRange, seed >>> 12);
+  const recovery = duelBalance && slot === 'neutral' ? (fighter.id === 'bolivar' ? 21 : 24) : sample(recoveryRange, seed >>> 12);
   const damage = sample(damageRange, seed >>> 17);
   const frames: FrameData = { startup, active, recovery, damage };
   const first = startup + 1;
@@ -67,7 +67,8 @@ export function balanceMove<T extends { ph: Phase[]; sp: Shot[]; dur: number; ef
   const rawDamage = move.ph.reduce((sum, p) => sum + (p.hb ? p.dmg ?? 0 : 0), 0) +
     move.sp.reduce((sum, s) => sum + s.p.dmg, 0);
   const scale = damage / Math.max(1, rawDamage);
-  const tank = combatBalance(fighter.id)?.archetype === 'tank' && (slot === 'neutral' || slot === 'down');
+  const shieldCharge = duelBalance && fighter.id === 'aquiles' && slot === 'neutral';
+  const tank = shieldCharge || combatBalance(fighter.id)?.archetype === 'tank' && (slot === 'neutral' || slot === 'down');
 
   const geometry = renewed[fighter.id];
   const ph: Phase[] = move.ph.map(p => ({
@@ -79,14 +80,14 @@ export function balanceMove<T extends { ph: Phase[]; sp: Shot[]; dur: number; ef
     bk: slot === 'jab' ? Math.min(p.bk ?? 2, 2.6) : slot === 'up' ? Math.max(p.bk ?? 5, 8) : p.bk,
     ks: slot === 'jab' ? Math.min(p.ks ?? .1, .075) : p.ks,
     ang: slot === 'up' ? -76 : p.ang,
-    armor: tank,
+    armor: tank && (!shieldCharge || p === move.ph[0]),
   }));
   if (!rawDamage) ph.push({
     a: [first, last], hb: { fx: 6, y: slot === 'up' ? -118 : -58, w: 44, h: 48 },
     dmg: damage, ang: slot === 'up' ? -76 : -42, bk: slot === 'up' ? 8 : 5,
   });
   // The window also covers projectile-only and defensive moves with no melee box.
-  if (tank) ph.push({ a: [first, last], dmg: undefined, bk: undefined, ks: undefined, ang: undefined, armor: true });
+  if (tank && !shieldCharge) ph.push({ a: [first, last], dmg: undefined, bk: undefined, ks: undefined, ang: undefined, armor: true });
   const sp = move.sp.map(shot => ({
     ...shot,
     t: frame(shot.t),

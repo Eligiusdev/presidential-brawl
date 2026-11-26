@@ -203,9 +203,9 @@ const newSignatures = {
   sheinbaum: move('Trayectoria orbital', 'arco orbe arco'),
 };
 
-function withNames(book, names, data, balanced) {
-  if (!names) return new Fighter(book);
-  const [jab, neutral, up, down] = names;
+function withNames(book, names, data, balanced, duelBalance = false) {
+  if (!names && !duelBalance) return new Fighter(book);
+  const [jab, neutral, up, down] = names ?? [book.jab.name, book.neutral.name, book.up.name, book.down.name];
   const named = {
     jab: { ...book.jab, name: jab },
     neutral: { ...book.neutral, name: neutral },
@@ -213,10 +213,28 @@ function withNames(book, names, data, balanced) {
     down: { ...book.down, name: down },
   };
   if (!balanced) return new Fighter(named);
-  return new Fighter(Object.fromEntries(Object.entries(named).map(([slot, move]) => [slot, balanceMove(move, data, slot)])));
+  return new Fighter(Object.fromEntries(Object.entries(named).map(([slot, move]) => [slot, balanceMove(move, data, slot, duelBalance)])));
 }
 
-export function movesFor(data, legacySignatures = false, legacyNames = legacySignatures, balanced = !legacyNames) {
+const duelMoves = {
+  bolivar: book(
+    threeThrusts,
+    move('Estocada del Libertador', 'pausa punta'),
+    lift('Salto de Campaña', 'punta alto', -16, 9, 'ledge'),
+    featured.bolivar.down,
+  ),
+  aquiles: book(
+    move('Talón alado', 'toque bajo'),
+    move('Carga de los Mirmidones', 'carga carga punta'),
+    lift('Salto Divino', 'gancho alto', -22, 2, 'olympus'),
+    featured.aquiles.down,
+  ),
+};
+duelMoves.bolivar.neutral.ph[0].hb.w = 104;
+duelMoves.bolivar.neutral.ph[0].mv = 9;
+
+export function movesFor(data, legacySignatures = false, legacyNames = legacySignatures, balanced = !legacyNames, duelBalance = balanced) {
+  if (duelBalance && duelMoves[data.id]) return withNames(duelMoves[data.id], undefined, data, balanced, true);
   const names = legacyNames ? undefined : MOVE_NAMES[data.id];
   if (featured[data.id]) return withNames(featured[data.id], names, data, balanced);
   const phrases = repertoire[data.id];

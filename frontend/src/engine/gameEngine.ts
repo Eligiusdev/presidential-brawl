@@ -145,6 +145,7 @@ class FighterSim implements RenderFighterState {
   airJ = 2;
   dropT = 0;
   jumpTick = -30;
+  jumpBuffer = 0;
   koVisual?: { x: number; tick: number };
   dead = 0;
   wall = 0;
@@ -295,6 +296,7 @@ class FighterSim implements RenderFighterState {
     this.dropT = 0;
     this.koVisual = undefined;
     this.jumpTick = -30;
+    this.jumpBuffer = 0;
     this.dead = 0;
     this.wall = 0;
     this.on = first;
@@ -819,6 +821,10 @@ export class GameEngine {
       f2.dif = replay.matchConfig.aiDifficulty;
     }
 
+    if (replay.version >= 6 && replay.version < 11) {
+      f1.moves = movesFor(f1Data, false, false, replay.version >= 7, false);
+      f2.moves = movesFor(f2Data, false, false, replay.version >= 7, false);
+    }
     if (replay.version <= 5) {
       f1.moves = replay.version === 1 ? null : movesFor(f1Data, replay.version <= 3, true);
       f2.moves = replay.version === 1 ? null : movesFor(f2Data, replay.version <= 3, true);
@@ -1988,6 +1994,13 @@ export class GameEngine {
     f.prevIn = i;
     f.curIn = i;
     f.justIn = just;
+    const newCombat = !this.replayData || this.replayData.version >= 11;
+    const upSpecialInput = Boolean(f.moves && just.heavy);
+    if (newCombat) {
+      if (upSpecialInput || f.stun > 0) f.jumpBuffer = 0;
+      else if (just.jump) f.jumpBuffer = 6;
+      else if (f.jumpBuffer > 0) f.jumpBuffer--;
+    }
 
     if (f.atk?.spec.individual && f.atk.t >= f.atk.spec.dur) {
       f.atk=null; f.moveKind='';
@@ -2109,7 +2122,9 @@ export class GameEngine {
         f.wpn = 0;
         f.wk = null;
         sound.sword();
-      } else if (just.dash && f.dashCD <= 0 && f.dashT <= 0) {
+      } else if (just.dash && f.dashCD <= 0 && f.dashT <= 0 &&
+        !(newCombat && a?.spec.heavy && a.spec.frames && a.t > a.spec.frames.startup + a.spec.frames.active &&
+          (f.d.id === 'bolivar' || f.d.id === 'aquiles'))) {
         f.dashT = 12;
         f.inv = Math.max(f.inv, 12);
         f.dashCD = 82;
@@ -2153,7 +2168,8 @@ export class GameEngine {
           f.vx *= 0.986;
         }
 
-        if (just.jump && !(f.moves && just.heavy)) {
+        if ((just.jump || (f.jumpBuffer > 0 && f.on)) && !upSpecialInput) {
+          if (f.on || f.wall !== 0 || f.airJ > 0) f.jumpBuffer = 0;
           if (f.on) {
             f.jumpTick = this.T;
             f.vy = -f.S.jumpForce;
@@ -3197,8 +3213,11 @@ export class GameEngine {
         this.cine = null;
         const ultimate = this.specializedUltimate(c.f);
         const origin = ultimate ? this.ultimateOrigin(ultimate, c.f, c.o) : undefined;
+        const duelStartup = !this.replayData || this.replayData.version >= 11
+          ? ({ bolivar: 32, aquiles: 36 } as Record<string, number>)[c.f.d.id]
+          : undefined;
         const duration = c.f.balance && ultimate
-          ? ({ simo: 42, ricaurte: 39 }[c.f.d.id] ?? ultimate.profile.tempo?.startup ?? ULTIMATE_BUDGETS[ultimateCategory(c.f.d.id)].startup)
+          ? ({ simo: 42, ricaurte: 39 }[c.f.d.id] ?? duelStartup ?? ultimate.profile.tempo?.startup ?? ULTIMATE_BUDGETS[ultimateCategory(c.f.d.id)].startup)
           : 20;
         this.telegraph = { f: c.f, o: c.o, t: 0, duration, ultimateId: ultimate?.spec.id, origin,
           zones: this.getUltZones(c.f, c.o, origin) };
@@ -3393,7 +3412,7 @@ export class GameEngine {
         };
         if (this.currentMatchMeta) {
           const replay: MatchReplayData = {
-            version: 10,
+            version: 11,
             recordedAt: new Date().toISOString(),
             seed: this.currentMatchMeta.seed,
             mode: this.mode,

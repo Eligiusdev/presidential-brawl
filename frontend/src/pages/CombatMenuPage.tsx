@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, Crown, Crosshair, Globe, Swords, Dumbbell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { STAGES_DATA } from '../data/stages';
 import { stageArtUrl } from '../engine/stageAtmosphere';
 import { sound } from '../audio/soundEngine';
 import { useGame } from '../game/GameContext';
@@ -18,6 +19,17 @@ export function CombatMenuPage() {
     { id: 'online', label: 'En línea', sub: 'Salas y duelos online', icon: Globe, action: () => navigate('/online') },
     { id: 'training', label: 'Entrenamiento', sub: 'Practica tus movimientos', icon: Dumbbell, action: () => { g.setCampaignSelection(false); g.setTrainingSelection('training'); g.setScreen('SELECT'); } },
     { id: 'tutorial', label: 'Tutorial', sub: 'Aprende a moverte y atacar', icon: Crosshair, action: () => { g.setCampaignSelection(false); g.setTrainingSelection('tutorial'); g.setScreen('SELECT'); } },
+    { id: 'duel', label: 'Bolívar vs Aquiles', sub: 'Duelo de prueba · Palacio de Nariño', icon: Crosshair, action: () => {
+      const bolivar = g.roster.findIndex(fighter => fighter.id === 'bolivar');
+      const aquiles = g.roster.findIndex(fighter => fighter.id === 'aquiles');
+      if (bolivar < 0 || aquiles < 0) return;
+      g.setCampaignSelection(false);
+      g.setTrainingSelection(null);
+      g.setSel([bolivar, aquiles]);
+      g.setStageSel(STAGES_DATA.findIndex(stage => stage.id === 'narino'));
+      g.setVsAI(true);
+      g.setScreen('SELECT');
+    } },
     { id: 'local', label: 'Combate local', sub: '1P · 2P en el mismo dispositivo', icon: Swords, action: () => { g.setCampaignSelection(false); g.setScreen('SELECT'); } },
   ], [g, navigate]);
 

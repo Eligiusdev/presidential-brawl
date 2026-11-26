@@ -222,6 +222,8 @@ func (m *Match) openTelegraph() {
 		switch f.ID {
 		case "simo": duration = 42
 		case "ricaurte": duration = 39
+		case "bolivar": duration = 32
+		case "aquiles": duration = 36
 		default:
 			if u.Profile.Tempo != nil && u.Profile.Tempo.Startup > 0 { duration = u.Profile.Tempo.Startup } else if b := Data().Budgets[f.D.Category]; b.Startup > 0 { duration = b.Startup }
 		}
