@@ -1,3 +1,4 @@
+import { paintIllustratedPlatform } from './platformArt';
 import { markOnlinePerformance, performanceMetricsEnabled } from './performanceMetrics';
 import { fullQuality, type RenderQuality } from './renderPerformance';
 import type { RoomCapacity } from '../data/stages';
@@ -2775,52 +2776,6 @@ export class PixelRenderer extends LegacyFighterGeometry {
     return true;
   }
 
-  private drawIllustratedPlatform(ctx: CanvasRenderingContext2D, stage: StageDef, night: number,
-    x: number, y: number, w: number, h: number, floating = false) {
-    if (w <= 0 || h <= 0) return;
-    const base = floating ? stage.palette.floatMain : stage.palette.platformMain;
-    const ledge = floating ? stage.palette.floatTop : stage.palette.platformTop;
-    const bevel = Math.min(this.sw(floating ? 6 : 10), h / 3, w / 5);
-    const edge = Math.max(1, this.sw(2));
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + w, y);
-    ctx.lineTo(x + w, y + h - bevel);
-    ctx.lineTo(x + w - bevel, y + h);
-    ctx.lineTo(x + bevel, y + h);
-    ctx.lineTo(x, y + h - bevel);
-    ctx.closePath();
-    ctx.clip();
-    const shading = ctx.createLinearGradient(0, y, 0, y + h);
-    shading.addColorStop(0, mixHex(ledge, '#516083', night * 0.42));
-    shading.addColorStop(0.16, mixHex(base, '#172239', night * 0.40));
-    shading.addColorStop(1, mixHex(base, '#080d17', 0.64 + night * 0.10));
-    ctx.fillStyle = shading;
-    ctx.fillRect(x, y, w, h);
-    const art = stageArt(stage.id, night >= 0.5 ? 'night' : 'day');
-    if (art) {
-      ctx.save();
-      ctx.imageSmoothingEnabled = true;
-      ctx.globalAlpha = floating ? 0.18 : 0.26;
-      ctx.drawImage(art, 0, art.height * 0.81, art.width, art.height * 0.17, x, y, w, h);
-      ctx.restore();
-    }
-    ctx.fillStyle = mixHex(ledge, '#9faed3', night * 0.36);
-    ctx.fillRect(x, y, w, edge);
-    ctx.fillStyle = stage.palette.platformTrim;
-    ctx.fillRect(x, y + bevel, w, edge);
-    ctx.fillStyle = 'rgba(8, 13, 22, 0.55)';
-    ctx.fillRect(x, y + h - edge, w, edge);
-    if (!floating) {
-      const spacing = Math.max(8, this.sw(84));
-      for (let offset = spacing; offset < w; offset += spacing) {
-        ctx.fillRect(x + offset, y + bevel * 2, 1, h - bevel * 2);
-      }
-    }
-    ctx.restore();
-  }
-
   private drawArenaHazard(ctx: CanvasRenderingContext2D, world: WorldRenderContext) {
     if (!world.hzPhase) return;
     const hazard = world.stage.hazard;
@@ -3173,9 +3128,9 @@ export class PixelRenderer extends LegacyFighterGeometry {
     const mainOutline = tintOutlineHex(world.stage.palette.platformMain, 0.3);
     const floatOutline = tintOutlineHex(world.stage.palette.floatMain, 0.28);
     if (illustrated) {
-      this.drawIllustratedPlatform(ctx, world.stage, night, mx, my, mw, mh);
+      paintIllustratedPlatform(ctx, world.stage, night, mx, my, mw, mh, false, sw, stageArt(world.stage.id, night >= .5 ? 'night' : 'day'));
       for (const p of world.plats) {
-        if (!campal) this.drawIllustratedPlatform(ctx, world.stage, night, sx(p.x), sy(p.y), sw(p.w), sw(16), true);
+        if (!campal) paintIllustratedPlatform(ctx, world.stage, night, sx(p.x), sy(p.y), sw(p.w), sw(16), true, sw, stageArt(world.stage.id, night >= .5 ? 'night' : 'day'));
       }
     } else {
       this.pxRect(ctx, mx - 1, my - 1, mw + 2, mh + 2, mainOutline);

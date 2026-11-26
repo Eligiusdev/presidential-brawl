@@ -1,10 +1,11 @@
-import { Application, Assets, BitmapText, Container, Rectangle, Sprite, Texture } from 'pixi.js';
+import { Application, Assets, BitmapText, Container, ImageSource, Rectangle, Sprite, Texture } from 'pixi.js';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
 import { fighterAtlasArt } from '../engine/fighterSprites';
 import { stageArtUrl } from '../engine/stageAtmosphere';
 import type { MatchSnapshot } from '../network/matchState';
 import { createFighterVisualSync } from './syncFighterVisuals';
+import { createArenaAtlas } from './pixiArenaArt';
 import { Field, MAX_PLAYERS, STRIDE } from './wasmBridge';
 
 const clips = ['guard', 'walk', 'jump', 'walk', 'slash', 'hurt'] as const;
@@ -15,11 +16,13 @@ const BAR_WIDTH = 140;
 export async function createPixiCombat(target: HTMLCanvasElement, initial: MatchSnapshot) {
   const app = new Application();
   const ownedTextures: Texture[] = [];
-  const ownedSources: Texture[] = [];
+  const ownedSources: ImageSource[] = [];
+  let arenaAtlas: ReturnType<typeof createArenaAtlas> | undefined;
   const destroy = () => {
     app.destroy({ removeView: true }, { children: true });
     for (const texture of ownedTextures) texture.destroy(false);
-    for (const texture of ownedSources) texture.destroy(true);
+    for (const source of ownedSources) source.destroy();
+    arenaAtlas?.destroy();
   };
 
   await app.init({
@@ -28,7 +31,7 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
     backgroundColor: 0x10182a,
   });
   app.ticker.remove(app.render, app);
-  app.ticker.maxFPS = 60;
+  app.ticker.maxFPS = 0;
   try {
     const world = new Container();
     const hud = new Container();
@@ -41,16 +44,17 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
     background.width = WIDTH;
     background.height = HEIGHT;
     world.addChild(background);
-    const platforms = Array.from({ length: 16 }, () => new Sprite(Texture.WHITE));
-    const shots = Array.from({ length: 80 }, () => new Sprite(Texture.WHITE));
-    for (const platform of platforms) {
-      platform.tint = 0x514967;
-      world.addChild(platform);
+    const art = createArenaAtlas(stage, Number(Boolean(initial.world.stageNightStart)), background.texture);
+    arenaAtlas = art;
+    const platforms = Array.from({ length: 16 }, (_, slot) => art.platform(slot > 0));
+    const shots = Array.from({ length: 80 }, () => new Sprite(Texture.EMPTY));
+    const particles = Array.from({ length: 128 }, () => art.particle());
+    const hazards = Array.from({ length: 16 }, () => new Sprite(Texture.WHITE));
+    for (const hazard of hazards) {
+      hazard.tint = 0xff4538;
+      world.addChild(hazard);
     }
-    for (const shot of shots) {
-      shot.tint = 0xffcc55;
-      world.addChild(shot);
-    }
+    for (const platform of platforms) world.addChild(platform);
 
     const ids = new Array<string>(MAX_PLAYERS).fill('');
     initial.players.forEach((player, index) => {
@@ -62,13 +66,13 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
       return [id, (async () => {
         const art = await fighterAtlasArt(fighter);
         if (!art) throw new Error(`Missing fighter atlas: ${id}`);
-        const source = Texture.from(art.atlas);
+        const source = new ImageSource({ resource: art.atlas });
         ownedSources.push(source);
         return clips.map(clip => {
           const animation = art.meta.animations[clip] ?? art.meta.animations.guard;
           const pose = art.meta.poses[animation.frames[0].pose];
           const [x, y, width, height] = pose.region;
-          const texture = new Texture({ source: source.source, frame: new Rectangle(x, y, width, height),
+          const texture = new Texture({ source, frame: new Rectangle(x, y, width, height),
             defaultAnchor: { x: pose.anchor[0] / width, y: pose.anchor[1] / height } });
           ownedTextures.push(texture);
           return { texture, scale: pose.scale };
@@ -118,6 +122,8 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
         setStatus: (damage: number, stocks: number) => { status.text = `${damage}% · ${stocks} vidas`; },
       };
     }));
+    for (const shot of shots) world.addChild(shot);
+    for (const particle of particles) world.addChild(particle);
     const sync = createFighterVisualSync(visuals);
     const fallback = new Float32Array(MAX_PLAYERS * STRIDE);
     app.canvas.className = target.className;
@@ -168,9 +174,38 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
           const sprite = shots[i];
           sprite.visible = Boolean(shot);
           if (shot) {
-            sprite.position.set(shot.x, shot.y);
+            const texture = art.projectile(shot.kind);
+            if (sprite.texture !== texture) sprite.texture = texture;
+            sprite.tint = shot.kind === 'pulse' && shot.ownerColor ? shot.ownerColor : 0xffffff;
+            const direction = shot.dir < 0 || (shot.dir == null && shot.vx < 0) ? -1 : 1;
             sprite.width = shot.w;
             sprite.height = shot.h;
+            sprite.scale.x = direction * Math.abs(sprite.scale.x);
+            sprite.position.set(shot.x + (direction < 0 ? shot.w : 0), shot.y);
+          }
+        }
+        const zones = (snapshot as MatchSnapshot & { telegraph?: { zones: { x: number; y: number; w: number; h: number }[] } }).telegraph?.zones;
+        for (let i = 0; i < hazards.length; i++) {
+          const zone = zones?.[i];
+          const sprite = hazards[i];
+          sprite.visible = Boolean(zone);
+          if (zone) {
+            sprite.alpha = snapshot.tick % 6 < 3 ? .32 : .16;
+            sprite.position.set(zone.x, zone.y);
+            sprite.width = zone.w;
+            sprite.height = zone.h;
+          }
+        }
+        const effects = snapshot.world.particles;
+        for (let i = 0; i < particles.length; i++) {
+          const effect = effects?.[i];
+          const sprite = particles[i];
+          sprite.visible = Boolean(effect);
+          if (effect) {
+            sprite.position.set(effect.x, effect.y);
+            sprite.width = sprite.height = Math.max(1, effect.z * 2);
+            sprite.alpha = Math.max(0, Math.min(1, effect.l / Math.max(1, effect.m)));
+            sprite.tint = effect.col;
           }
         }
       },
