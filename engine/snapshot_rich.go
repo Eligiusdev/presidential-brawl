@@ -103,6 +103,7 @@ type RichFighter struct {
 }
 
 type RichSnapshot struct {
+	Frame     int `json:"frame,omitempty"`
 	Type      string `json:"type"`
 	Tick      uint32 `json:"tick"`
 	Stage     int    `json:"stage"`
@@ -189,6 +190,7 @@ func (m *Match) Snapshot() any {
 func (m *Match) NetworkSnapshot(ack, matchSlots []int) *RichSnapshot {
 	snap := m.richSnapshot()
 	snap.Ack = ack
+	snap.Frame = m.Frame
 	for _, fighter := range snap.Players {
 		if fighter.PI >= 0 && fighter.PI < len(matchSlots) {
 			fighter.Slot = matchSlots[fighter.PI]

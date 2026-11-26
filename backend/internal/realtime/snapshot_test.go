@@ -14,6 +14,8 @@ func TestNetworkSnapshotSharesStateWithoutDuplicatingWorldEntities(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+	match.Freeze = 1
+	match.Step(nil)
 	legacy, err := json.Marshal(match.Snapshot())
 	if err != nil {
 		t.Fatal(err)
@@ -29,6 +31,9 @@ func TestNetworkSnapshotSharesStateWithoutDuplicatingWorldEntities(t *testing.T)
 	var snapshot sim.RichSnapshot
 	if err := json.Unmarshal(envelope.SnapshotJson, &snapshot); err != nil {
 		t.Fatal(err)
+	}
+	if snapshot.Frame != 1 || snapshot.Tick != 0 {
+		t.Fatal("frame must advance even when hitstop freezes the tick")
 	}
 	if len(snapshot.Players) != 2 || snapshot.Players[1].PI != 1 ||
 		snapshot.Players[1].Slot != 3 || snapshot.Ack[3] != 12 {
