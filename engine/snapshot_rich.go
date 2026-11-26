@@ -185,6 +185,33 @@ func (m *Match) Snapshot() any {
 	return out
 }
 
+// NetworkSnapshot retains simulation indices (PI) and exposes the room seat in Slot.
+func (m *Match) NetworkSnapshot(ack, matchSlots []int) *RichSnapshot {
+	snap := m.richSnapshot()
+	snap.Ack = ack
+	for _, fighter := range snap.Players {
+		if fighter.PI >= 0 && fighter.PI < len(matchSlots) {
+			fighter.Slot = matchSlots[fighter.PI]
+		}
+	}
+	if len(matchSlots) > 0 && snap.Standings != nil {
+		snap.Standings = append([]int(nil), snap.Standings...)
+		for i, slot := range snap.Standings {
+			if slot >= 0 && slot < len(matchSlots) {
+				snap.Standings[i] = matchSlots[slot]
+			}
+		}
+	}
+
+	// The top-level snapshot already carries these values for the renderer.
+	snap.World.Fighters = nil
+	snap.World.Projectiles = nil
+	snap.World.Ults = nil
+	snap.World.Cine = nil
+	snap.World.Telegraph = nil
+	return snap
+}
+
 func (m *Match) SnapshotJSON() []byte {
 	b, _ := json.Marshal(m.richSnapshot())
 	return b

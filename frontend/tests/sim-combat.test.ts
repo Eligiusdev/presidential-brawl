@@ -1,3 +1,4 @@
+import { encodeBinaryInput } from '../src/network/binaryInput';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import net from 'node:net';
@@ -98,7 +99,7 @@ describe('Go sim combat parity', () => {
     let seq1 = 0, seq2 = 0;
     const iv = setInterval(() => {
       seq1++; seq2++;
-      if (ws1.readyState === WebSocket.OPEN) ws1.send(JSON.stringify({ protocol: ROOM_PROTOCOL, type: 'input', seq: seq1, actions: ['right','light'] }));
+      if (ws1.readyState === WebSocket.OPEN) ws1.send(encodeBinaryInput(seq1, new Set(['right', 'light']))!);
       if (ws2.readyState === WebSocket.OPEN) ws2.send(JSON.stringify({ protocol: ROOM_PROTOCOL, type: 'input', seq: seq2, actions: ['left','light'] }));
     }, 50);
 

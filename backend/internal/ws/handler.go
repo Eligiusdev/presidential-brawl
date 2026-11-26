@@ -36,6 +36,7 @@ func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		CompressionMode: websocket.CompressionDisabled,
 		InsecureSkipVerify: true, // we checked origin above
 	})
 	if err != nil {
@@ -47,17 +48,21 @@ func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request) {
 	s.Reg.AddClient(c)
 	defer s.Reg.RemoveClient(c)
 
-	_ = c.SendJSON(contract.HelloMessage{Type: "hello", Protocol: contract.Protocol})
+	_ = c.SendJSON(contract.HelloMessage{Type: "hello", Protocol: contract.Protocol, BinaryInput: true})
 
 	ctx := r.Context()
 	for {
-		_, data, err := conn.Read(ctx)
+		kind, data, err := conn.Read(ctx)
 		if err != nil {
 			s.handleClose(c)
 			return
 		}
 		var msg contract.ClientMessage
-		if err := json.Unmarshal(data, &msg); err != nil {
+		if kind == websocket.MessageBinary {
+			var ok bool
+			msg, ok = decodeBinaryInput(data)
+			if !ok { continue }
+		} else if err := json.Unmarshal(data, &msg); err != nil {
 			continue
 		}
 		s.handleMessage(c, msg)
@@ -301,10 +306,7 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 
 	switch msg.Type {
 	case contract.CInput:
-		if room.Match == nil || room.Standings != nil {
-			return
-		}
-		if msg.Seq <= player.Seq || len(msg.Actions) > len(rooms.Actions) {
+		if len(msg.Actions) > len(rooms.Actions) {
 			return
 		}
 		for _, a := range msg.Actions {
@@ -322,6 +324,10 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 			}
 		}
 		room.Mu().Lock()
+		if player.WS != c || room.Match == nil || room.Standings != nil || msg.Seq <= player.Seq {
+			room.Mu().Unlock()
+			return
+		}
 		player.Seq = msg.Seq
 		last := player.Input
 		if len(player.Pending) > 0 {

@@ -87,6 +87,7 @@ type ErrorMessage struct {
 }
 
 type HelloMessage struct {
+	BinaryInput bool `json:"binaryInput,omitempty"`
 	Type     string `json:"type"`
 	Protocol int    `json:"protocol"`
 }

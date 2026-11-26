@@ -1,3 +1,4 @@
+import { encodeBinaryInput } from '../network/binaryInput';
 import { ROOM_PROTOCOL, ROOM_RESUME_MS } from '../network/roomProtocol.mjs';
 import { AdaptiveRenderQuality } from '../engine/renderPerformance';
 import { preloadMatchArt } from '../engine/matchArt';
@@ -89,6 +90,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   const authenticatedSocket = useRef<WebSocket | null>(null);
   const currentSeat = useRef<Seat | null>(null);
   const sequence = useRef(0);
+  const binaryInput = useRef(false);
   const jumpSequence = useRef(-1);
   const reconnect = useRef<number | undefined>(undefined);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -118,8 +120,13 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   };
   const sendInput = () => {
     if (!socket.current || authenticatedSocket.current !== socket.current) return;
+    if (socket.current.readyState !== WebSocket.OPEN || socket.current.bufferedAmount >= 32000) return;
     const seq = ++sequence.current;
-    return send({ type: 'input', seq, actions: [...actions()] }) ? seq : undefined;
+    const held = actions();
+    const frame = binaryInput.current ? encodeBinaryInput(seq, held) : null;
+    if (frame) socket.current.send(frame);
+    else socket.current.send(JSON.stringify({ type: 'input', seq, actions: [...held] }));
+    return seq;
   };
   const clearInput = () => { pressed.current.clear(); touch.current.clear(); sendInput(); };
 
@@ -149,6 +156,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     const previous = socket.current;
     const ws = new WebSocket(roomSocketUrl());
     ws.binaryType = 'arraybuffer';
+    binaryInput.current = false;
     socket.current = ws;
     if (previous && previous !== ws) try { previous.close(); } catch {}
     let lastReply = performance.now();
@@ -184,6 +192,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       }
       lastReply = performance.now();
       if (data.type === 'hello') {
+        binaryInput.current = data.binaryInput === true;
         if (data.protocol !== ROOM_PROTOCOL) incompatibleProtocol();
         else send({
           ...request, protocol: ROOM_PROTOCOL, clientId: getClientId(),
