@@ -180,15 +180,24 @@ func cloneUltimate(ultimate *UltimateDef) *UltimateDef {
 // StateHash covers simulation state and transient effects, including values
 // hidden by the renderer's JSON format. It deliberately excludes callbacks.
 func (m *Match) StateHash() (string, error) {
-	type hashState struct {
-		*Match
-		RNG        *uint32
-		VisRNG     *uint32
-		Platforms  []float64
-		Contacts   []platformContact
-		AlreadyHit []map[int]bool
+	encoded, err := json.Marshal(m.checkpointState())
+	if err != nil {
+		return "", err
 	}
-	state := hashState{Match: m, RNG: rngState(m.RNG), VisRNG: rngState(m.VisRNG)}
+	return fmt.Sprintf("%x", sha256.Sum256(encoded)), nil
+}
+
+type checkpointState struct {
+	*Match
+	RNG        *uint32
+	VisRNG     *uint32
+	Platforms  []float64
+	Contacts   []platformContact
+	AlreadyHit []map[int]bool
+}
+
+func (m *Match) checkpointState() checkpointState {
+	state := checkpointState{Match: m, RNG: rngState(m.RNG), VisRNG: rngState(m.VisRNG)}
 	for _, platform := range m.Plats {
 		state.Platforms = append(state.Platforms, platform.BaseY)
 	}
@@ -207,11 +216,59 @@ func (m *Match) StateHash() (string, error) {
 		}
 		state.AlreadyHit = append(state.AlreadyHit, hit)
 	}
-	encoded, err := json.Marshal(state)
-	if err != nil {
-		return "", err
+	return state
+}
+
+const CheckpointVersion = 1
+
+type wireCheckpoint struct {
+	Version int             `json:"version"`
+	State   checkpointState `json:"state"`
+}
+
+func (m *Match) MarshalCheckpoint() ([]byte, error) {
+	return json.Marshal(wireCheckpoint{Version: CheckpointVersion, State: m.checkpointState()})
+}
+
+// DecodeCheckpoint accepts state from the authoritative server.
+func DecodeCheckpoint(data []byte) (Checkpoint, error) {
+	if len(data) > 2<<20 {
+		return Checkpoint{}, fmt.Errorf("checkpoint exceeds maximum size")
 	}
-	return fmt.Sprintf("%x", sha256.Sum256(encoded)), nil
+	var wire wireCheckpoint
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return Checkpoint{}, err
+	}
+	s := wire.State
+	m := s.Match
+	if wire.Version != CheckpointVersion || m == nil || m.Frame < 0 || len(m.Fighters) < 2 ||
+		len(m.Fighters) > 8 || m.Capacity != len(m.Fighters) || m.Stage < 0 || m.Stage >= len(Data().Stages) ||
+		len(m.Plats) != len(s.Platforms) || len(m.Fighters) != len(s.Contacts) ||
+		len(m.Projectiles) != len(s.AlreadyHit) || s.RNG == nil || s.VisRNG == nil {
+		return Checkpoint{}, fmt.Errorf("incompatible checkpoint")
+	}
+	m.RNG, m.VisRNG = rng.NewRNG(*s.RNG), rng.NewRNG(*s.VisRNG)
+	for i := range m.Plats {
+		m.Plats[i].BaseY = s.Platforms[i]
+	}
+	for i, f := range m.Fighters {
+		contact := s.Contacts[i]
+		if f == nil || f.D == nil || f.Slot != i || contact.Index < -1 || contact.Index >= len(m.Plats) {
+			return Checkpoint{}, fmt.Errorf("invalid fighter checkpoint")
+		}
+		if contact.Index >= 0 {
+			f.Pl = &m.Plats[contact.Index]
+		} else if f.Pl != nil {
+			f.Pl.BaseY = contact.BaseY
+		}
+	}
+	for i, p := range m.Projectiles {
+		if p == nil {
+			return Checkpoint{}, fmt.Errorf("invalid projectile checkpoint")
+		}
+		p.Done = s.AlreadyHit[i]
+	}
+	return Checkpoint{state: m}, nil
 }
 
 type platformContact struct {

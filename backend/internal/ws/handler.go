@@ -48,7 +48,7 @@ func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request) {
 	s.Reg.AddClient(c)
 	defer s.Reg.RemoveClient(c)
 
-	_ = c.SendJSON(contract.HelloMessage{Type: "hello", Protocol: contract.Protocol, BinaryInput: true})
+	_ = c.SendJSON(contract.HelloMessage{Type: "hello", Protocol: contract.Protocol, BinaryInput: true, CheckpointVersion: sim.CheckpointVersion})
 
 	ctx := r.Context()
 	for {
@@ -305,6 +305,20 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 	room.Mu().Unlock()
 
 	switch msg.Type {
+	case contract.CRollbackSync:
+		room.Mu().Lock()
+		now := time.Now()
+		if player.WS != c || room.Match == nil || now.Sub(player.RollbackSyncAt) < 250*time.Millisecond {
+			room.Mu().Unlock()
+			return
+		}
+		player.RollbackSyncAt = now
+		reply, err := room.RollbackSyncLocked(msg.MatchID, msg.AfterFrame)
+		room.Mu().Unlock()
+		if err == nil {
+			_ = c.SendJSON(reply)
+		}
+
 	case contract.CInput:
 		if len(msg.Actions) > len(rooms.Actions) {
 			return
@@ -568,6 +582,7 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 			}
 		}
 		room.Match = nil
+		room.ClearRollbackLocked()
 		room.MatchSlots = nil
 		room.Standings = nil
 		room.ChampionSlot = -1

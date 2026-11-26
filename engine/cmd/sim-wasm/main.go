@@ -111,6 +111,23 @@ func main() {
 		return match != nil && match.Restore(checkpoints[id][args[1].Int()])
 	}))
 
+	js.Global().Set("pbSimRestoreNetwork", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) < 2 {
+			return false
+		}
+		id := args[0].Int()
+		match := matches[id]
+		if match == nil {
+			return false
+		}
+		checkpoint, err := sim.DecodeCheckpoint([]byte(args[1].String()))
+		if err != nil || !match.Restore(checkpoint) {
+			return false
+		}
+		delete(checkpoints, id)
+		return true
+	}))
+
 	js.Global().Set("pbSimDropCheckpoint", js.FuncOf(func(this js.Value, args []js.Value) any {
 		if len(args) >= 2 {
 			delete(checkpoints[args[0].Int()], args[1].Int())

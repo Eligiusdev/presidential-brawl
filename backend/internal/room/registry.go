@@ -26,6 +26,7 @@ type PendingInput struct {
 }
 
 type Player struct {
+	RollbackSyncAt time.Time
 	Token      string
 	ClientID   string
 	Name       string
@@ -42,6 +43,7 @@ type Player struct {
 }
 
 type Room struct {
+	rollback rollbackHistory
 	Code          string
 	Players       []*Player
 	HostSlot      int

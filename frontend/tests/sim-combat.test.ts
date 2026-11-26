@@ -103,6 +103,22 @@ describe('Go sim combat parity', () => {
       if (ws2.readyState === WebSocket.OPEN) ws2.send(JSON.stringify({ protocol: ROOM_PROTOCOL, type: 'input', seq: seq2, actions: ['left','light'] }));
     }, 50);
 
+    const requestSync = (matchId?: number, afterFrame?: number) => {
+      const reply = waitMsg<any>(ws1, message => message.type === 'rollbackSync');
+      ws1.send(JSON.stringify({ type: 'rollbackSync', matchId, afterFrame }));
+      return reply;
+    };
+    const checkpoint = await requestSync();
+    expect(checkpoint.checkpoint.version).toBe(1);
+    expect(checkpoint.checkpoint.state.Frame).toBe(checkpoint.frame);
+    expect(checkpoint.roomSlots).toEqual([0, 1]);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const confirmed = await requestSync(checkpoint.matchId, checkpoint.frame);
+    expect(confirmed.checkpoint).toBeUndefined();
+    expect(confirmed.inputs[0].frame).toBe(checkpoint.frame + 1);
+    expect(confirmed.inputs.at(-1).frame).toBe(confirmed.frame);
+    expect(confirmed.inputs.some((frame: any) => frame.slots.every((slot: any) => slot.seq > 0))).toBe(true);
+
     const snap = await waitSnap(ws1, s => {
       const ps = s.players || [];
       return ps.some((p: any) => (p.pct ?? p.damage ?? 0) > 0 || (p.stocks ?? 3) < 3);

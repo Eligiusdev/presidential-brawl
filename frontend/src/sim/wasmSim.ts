@@ -13,12 +13,19 @@ export interface WasmSim {
   save?(id: number): number;
   restore?(id: number, checkpoint: number): boolean;
   dropCheckpoint?(id: number, checkpoint: number): void;
+  restoreNetwork?(id: number, checkpointJSON: string): boolean;
   stateHash?(id: number): string | null;
   leave(id: number, slot: number): void;
   free(id: number): void;
 }
 
 let ready: Promise<WasmSim> | null = null;
+
+function wasmAsset(filename: string): string {
+  const url = `${import.meta.env.BASE_URL}sim/${filename}`;
+  const version = import.meta.env.VITE_WASM_VERSION;
+  return version ? `${url}?v=${encodeURIComponent(version)}` : url;
+}
 
 export function loadWasmSim(): Promise<WasmSim> {
   if (ready) return ready;
@@ -27,14 +34,15 @@ export function loadWasmSim(): Promise<WasmSim> {
     if (!g.Go) {
       await new Promise<void>((ok, err) => {
         const s = document.createElement('script');
-        s.src = '/sim/wasm_exec.js';
+        s.src = wasmAsset('wasm_exec.js');
         s.onload = () => ok();
         s.onerror = () => err(new Error('wasm_exec.js load failed'));
         document.head.appendChild(s);
       });
     }
     const go = new g.Go();
-    const resp = await fetch('/sim/sim.wasm');
+    const resp = await fetch(wasmAsset('sim.wasm'));
+    if (!resp.ok) throw new Error(`Wasm download failed (${resp.status})`);
     const bytes = await resp.arrayBuffer();
     const mod = await WebAssembly.compile(bytes);
     const inst = await WebAssembly.instantiate(mod, go.importObject);
@@ -56,6 +64,9 @@ export function loadWasmSim(): Promise<WasmSim> {
         restore: (id: number, checkpoint: number) => g.pbSimRestore(id, checkpoint),
         dropCheckpoint: (id: number, checkpoint: number) => g.pbSimDropCheckpoint(id, checkpoint),
         stateHash: (id: number) => g.pbSimStateHash(id),
+      } : {}),
+      ...(typeof g.pbSimRestoreNetwork === 'function' ? {
+        restoreNetwork: (id: number, checkpointJSON: string) => g.pbSimRestoreNetwork(id, checkpointJSON),
       } : {}),
       leave: (id, slot) => g.pbSimLeave(id, slot),
       free: (id) => g.pbSimFree(id),

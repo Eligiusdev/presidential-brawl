@@ -116,7 +116,10 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 				for i := range room.Players { matchSlots[i] = i }
 			}
 			inputs := make([][]string, len(matchSlots))
+			var sequences []int
+			if room.WantsConfirmedInputsLocked(now) { sequences = make([]int, len(matchSlots)) }
 			for mi, si := range matchSlots {
+				if sequences != nil { sequences[mi] = -1 }
 				if si < 0 || si >= len(room.Players) { inputs[mi] = []string{}; continue }
 				p := room.Players[si]
 				if p == nil || p.WS == nil || now.Sub(p.InputAt) >= 500*time.Millisecond {
@@ -133,8 +136,10 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 				inp := make([]string, len(p.Input))
 				copy(inp, p.Input)
 				inputs[mi] = inp
+				if sequences != nil { sequences[mi] = p.AppliedSeq }
 			}
 			step := room.Match.Step(inputs)
+			if sequences != nil { room.RecordConfirmedLocked(inputs, sequences) }
 			if step%2 == 0 || room.Standings != nil {
 				snapshotDue = true
 			}

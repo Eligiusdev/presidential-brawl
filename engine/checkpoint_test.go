@@ -114,3 +114,33 @@ func TestRollbackParityFixture(t *testing.T) {
 	}
 	t.Logf("rollback-hash=%s", hashMatch(t, predicted))
 }
+
+func TestNetworkCheckpointRoundTripAndResimulation(t *testing.T) {
+	match := rollbackMatch(t, 8)
+	for i := 1; i <= 75; i++ {
+		match.Step(testInputs(i, 8))
+	}
+	match.Fighters[0].Pl = &match.Plats[0]
+	match.Projectiles = append(match.Projectiles, &Projectile{ID: 500, Life: 22, Owner: 0, Done: map[int]bool{1: true}})
+	wire, err := match.MarshalCheckpoint()
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkpoint, err := DecodeCheckpoint(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored Match
+	if !restored.Restore(checkpoint) || hashMatch(t, match) != hashMatch(t, &restored) {
+		t.Fatal("network round trip changed the complete state")
+	}
+	for i := 76; i < 86; i++ {
+		inputs := testInputs(i, 8)
+		match.Step(inputs)
+		restored.Step(inputs)
+		if hashMatch(t, match) != hashMatch(t, &restored) {
+			t.Fatalf("network-restored simulation diverged at frame %d", i)
+		}
+	}
+	t.Logf("8-player authoritative checkpoint: %d bytes", len(wire))
+}
