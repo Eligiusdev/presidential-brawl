@@ -1,3 +1,4 @@
+import { campalBounds } from './campalBounds';
 import { fullQuality, type RenderQuality } from './renderPerformance';
 import type { RoomCapacity } from '../data/stages';
 import { paintUltimatePreview, paintUltimateSprite } from './ultimateSprites';
@@ -2024,6 +2025,18 @@ export class PixelRenderer extends LegacyFighterGeometry {
   }
 
   private updateCamera(world: WorldRenderContext) {
+    if (world.fighters.length > 2) {
+      const bounds = campalBounds(world.fighters);
+      if (bounds) {
+        const { left, right, top, bottom } = bounds;
+        const fit = Math.min(1.65, 1440 / (right - left), 810 / (bottom - top));
+        this.camZoom = Math.min(fit, this.camZoom + (fit - this.camZoom) * .10);
+        const halfW = 720 / this.camZoom, halfH = 405 / this.camZoom;
+        this.camX = clamp(this.camX + ((left + right) / 2 - this.camX) * .16, right - halfW, left + halfW);
+        this.camY = clamp(this.camY + ((top + bottom) / 2 - this.camY) * .16, bottom - halfH, top + halfH);
+        return;
+      }
+    }
     if (world.camera) {
       this.camX += (world.camera.x - this.camX) * .16;
       this.camY += (world.camera.y - this.camY) * .16;
@@ -3103,7 +3116,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     ctx.restore();
   }
 
-  renderWorld(targetCanvas: HTMLCanvasElement, world: WorldRenderContext, cfg: GameConfig, quality: RenderQuality = fullQuality) {
+  renderWorld(targetCanvas: HTMLCanvasElement, world: WorldRenderContext, cfg: GameConfig, quality: RenderQuality = fullQuality, localPi?: number) {
     this.syncBufferSize(cfg, quality, world.online ? targetCanvas : undefined);
     this.updateCamera(world);
     const ctx = this.offCtx;
@@ -3116,7 +3129,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     ctx.save();
     ctx.clearRect(0, 0, W, H);
 
-    if (world.cine && world.fighters.length < 6) {
+    if (world.cine && world.fighters.length <= 2) {
       const z = 1 + Math.min(world.cine.t, 24) * 0.006;
       const zx = sx(world.cine.f.cx);
       const zy = sy(world.cine.f.y + world.cine.f.h * 0.45);
@@ -3288,6 +3301,35 @@ export class PixelRenderer extends LegacyFighterGeometry {
         paintSprite(ctx, f.d, 'defeat', world.T - f.koVisual.tick, f.face, pxScale);
         ctx.restore();
         continue;
+      }
+      if (f.pi === localPi && f.dead <= 0 && world.winnerPi == null) {
+        ctx.save();
+        const foot = sy(f.y + f.h);
+        ctx.translate(sx(f.cx), foot);
+        const size = Math.max(W / 320, sw(f.w * .6));
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size, size * .24, 0, 0, Math.PI * 2);
+        ctx.moveTo(-size * .21, size * .2);
+        ctx.lineTo(0, size * .5);
+        ctx.lineTo(size * .21, size * .2);
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#102039';
+        ctx.lineWidth = Math.max(2, W / 330);
+        ctx.stroke();
+        ctx.strokeStyle = '#91fff0';
+        ctx.lineWidth *= .48;
+        ctx.stroke();
+        if (world.T < 100 || f.inv > 65) {
+          ctx.font = `bold ${Math.max(10, Math.round(W / 80))}px sans-serif`;
+          ctx.textAlign = 'center';
+          const labelY = sy(f.y) - foot - 4;
+          ctx.strokeStyle = '#102039';
+          ctx.lineWidth = 3;
+          ctx.strokeText('TÚ', 0, labelY);
+          ctx.fillStyle = '#fff';
+          ctx.fillText('TÚ', 0, labelY);
+        }
+        ctx.restore();
       }
       if (world.cine?.f === f) {
         ctx.save();

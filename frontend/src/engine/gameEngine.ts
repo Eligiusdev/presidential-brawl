@@ -3451,8 +3451,9 @@ export class GameEngine {
     };
   }
 
-  render(targetCanvas: HTMLCanvasElement, quality?: RenderQuality) {
-    this.renderer.renderWorld(targetCanvas, this.worldSnapshot(), this.config, quality);
+  render(targetCanvas: HTMLCanvasElement, quality?: RenderQuality, markPlayer = false) {
+    this.renderer.renderWorld(targetCanvas, this.worldSnapshot(), this.config, quality,
+      markPlayer && (this.mode !== 'versus' || this.currentMatchMeta?.vsAI) ? 0 : undefined);
   }
 
   getHudSnapshot(): HudSnapshot {

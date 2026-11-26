@@ -375,7 +375,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       const world = (snap.world as any)?.rich
         ? worldFromRich(snap as any, buffer.previous as any, blend)
         : renderMatchState(buffer.previous, snap, blend, slot, actions(), prediction, jumpSequence.current);
-      renderer.renderWorld(target, world, config, quality.quality);
+      const index = snap.players.findIndex(p => p.slot === slot);
+      renderer.renderWorld(target, world, config, quality.quality, world.fighters[index]?.pi);
       const cost = performance.now() - start;
       if (previousPaint) {
         quality.record(now - previousPaint, cost);

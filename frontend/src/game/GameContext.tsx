@@ -515,7 +515,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const start = performance.now();
         const period = 1000 / 60; nextPaintAt += Math.max(1, Math.floor((now - nextPaintAt) / period) + 1) * period;
         if (fighting && startedSimulation) samplePerformance('simulation', simulationCost);
-        engine.render(canvasRef.current, quality.quality);
+        engine.render(canvasRef.current, quality.quality, curScreen === 'PLAYING' || curScreen === 'PAUSED');
         const end = performance.now();
         if (fighting && lastPaint) { quality.record(now - lastPaint, end - start); samplePerformance('frame', now - lastPaint); samplePerformance('render', end - start); }
         if (stepped && curScreen === 'PLAYING' && touchAt.current !== null) { samplePerformance('touch', end - touchAt.current); touchAt.current = null; }
