@@ -1,3 +1,4 @@
+import { createRenderReader } from '../render/wasmBridge';
 import type { OnlineWasm } from '../network/liveRollback';
 export interface WasmConfig {
   mode?: 'versus' | 'training' | 'campaign' | 'attract';
@@ -9,6 +10,7 @@ export interface WasmConfig {
 
 export interface WasmSim {
   online?: OnlineWasm;
+  onlineRenderView?(id: number): Float32Array | null;
   create(ids: string[], stage: number, seed: number, config?: WasmConfig, mode?: string): number;
   step(id: number, inputs: string[][]): number;
   snapshot(id: number): any;
@@ -81,6 +83,9 @@ export function loadWasmSim(): Promise<WasmSim> {
           },
           free: (id: number) => g.pbOnlineFree(id),
         },
+      } : {}),
+      ...(typeof g.pbOnlineRenderBuffer === 'function' && inst.exports.mem instanceof WebAssembly.Memory ? {
+        onlineRenderView: createRenderReader(inst.exports.mem, id => g.pbOnlineRenderBuffer(id)),
       } : {}),
       leave: (id, slot) => g.pbSimLeave(id, slot),
       free: (id) => g.pbSimFree(id),

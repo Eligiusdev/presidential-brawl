@@ -32,6 +32,7 @@ type createOpts struct {
 }
 
 func main() {
+	registerOnlineRenderBuffer()
 	js.Global().Set("pbSimCreate", js.FuncOf(func(this js.Value, args []js.Value) any {
 		if len(args) < 3 {
 			return map[string]any{"error": "args: idsJson, stage, seed[, configJson]"}
