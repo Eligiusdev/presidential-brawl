@@ -821,9 +821,9 @@ export class GameEngine {
       f2.dif = replay.matchConfig.aiDifficulty;
     }
 
-    if (replay.version >= 6 && replay.version < 11) {
-      f1.moves = movesFor(f1Data, false, false, replay.version >= 7, false);
-      f2.moves = movesFor(f2Data, false, false, replay.version >= 7, false);
+    if (replay.version >= 6 && replay.version < 12) {
+      f1.moves = movesFor(f1Data, false, false, replay.version >= 7, replay.version);
+      f2.moves = movesFor(f2Data, false, false, replay.version >= 7, replay.version);
     }
     if (replay.version <= 5) {
       f1.moves = replay.version === 1 ? null : movesFor(f1Data, replay.version <= 3, true);
@@ -1994,7 +1994,9 @@ export class GameEngine {
     f.prevIn = i;
     f.curIn = i;
     f.justIn = just;
-    const newCombat = !this.replayData || this.replayData.version >= 11;
+    const rulesVersion = this.replayData?.version ?? 12;
+    const newCombat = rulesVersion >= 11;
+    const recoveryLock = rulesVersion >= 12 || (newCombat && (f.d.id === 'bolivar' || f.d.id === 'aquiles'));
     const upSpecialInput = Boolean(f.moves && just.heavy);
     if (newCombat) {
       if (upSpecialInput || f.stun > 0) f.jumpBuffer = 0;
@@ -2123,8 +2125,7 @@ export class GameEngine {
         f.wk = null;
         sound.sword();
       } else if (just.dash && f.dashCD <= 0 && f.dashT <= 0 &&
-        !(newCombat && a?.spec.heavy && a.spec.frames && a.t > a.spec.frames.startup + a.spec.frames.active &&
-          (f.d.id === 'bolivar' || f.d.id === 'aquiles'))) {
+        !(recoveryLock && a?.spec.heavy && a.spec.frames && a.t > a.spec.frames.startup + a.spec.frames.active)) {
         f.dashT = 12;
         f.inv = Math.max(f.inv, 12);
         f.dashCD = 82;
@@ -3216,9 +3217,10 @@ export class GameEngine {
         const duelStartup = !this.replayData || this.replayData.version >= 11
           ? ({ bolivar: 32, aquiles: 36 } as Record<string, number>)[c.f.d.id]
           : undefined;
-        const duration = c.f.balance && ultimate
+        const baseDuration = c.f.balance && ultimate
           ? ({ simo: 42, ricaurte: 39 }[c.f.d.id] ?? duelStartup ?? ultimate.profile.tempo?.startup ?? ULTIMATE_BUDGETS[ultimateCategory(c.f.d.id)].startup)
           : 20;
+        const duration = !this.replayData || this.replayData.version >= 12 ? Math.max(30, baseDuration) : baseDuration;
         this.telegraph = { f: c.f, o: c.o, t: 0, duration, ultimateId: ultimate?.spec.id, origin,
           zones: this.getUltZones(c.f, c.o, origin) };
         c.f.inv = Math.max(c.f.inv, c.f.balance ? COMBAT_LIMITS.maxUltimateInvulnerability : 24);
@@ -3412,7 +3414,7 @@ export class GameEngine {
         };
         if (this.currentMatchMeta) {
           const replay: MatchReplayData = {
-            version: 11,
+            version: 12,
             recordedAt: new Date().toISOString(),
             seed: this.currentMatchMeta.seed,
             mode: this.mode,

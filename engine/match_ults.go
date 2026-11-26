@@ -228,6 +228,7 @@ func (m *Match) openTelegraph() {
 			if u.Profile.Tempo != nil && u.Profile.Tempo.Startup > 0 { duration = u.Profile.Tempo.Startup } else if b := Data().Budgets[f.D.Category]; b.Startup > 0 { duration = b.Startup }
 		}
 	}
+	if duration < 30 { duration = 30 }
 	id := ""
 	if u != nil { id = u.Spec.ID }
 	f.Inv = int(math.Max(float64(f.Inv), 24))

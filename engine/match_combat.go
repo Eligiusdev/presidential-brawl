@@ -114,7 +114,7 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 				Dir: f.Face, Owner: f.Slot, Dmg: 10, BK: 5.5, KS: .16, Ang: -25, Heavy: true})
 			f.Wpn, f.WeaponKind = 0, ""
 			m.sound("sword")
-		} else if just.Dash && f.DashCD <= 0 && f.DashT <= 0 && !f.duelAttackRecovery() {
+		} else if just.Dash && f.DashCD <= 0 && f.DashT <= 0 && !f.specialRecovery() {
 			f.DashT, f.Inv, f.DashCD = 12, int(math.Max(float64(f.Inv), 12)), 82
 			f.Floating = false
 			speed := 10.5
@@ -363,12 +363,7 @@ func moveData(name string, a []int, hb *BoxDef, dmg, bk, ks, ang float64, dur in
 	return &MoveData{Name: name, K: "l", Dur: dur, Ph: []PhaseData{{A: a, HB: hb, Dmg: dmg, BK: bk, KS: ks, Ang: ang}}}
 }
 
-func (f *Fighter) isDuelFighter() bool {
-	return f.D.ID == "bolivar" || f.D.ID == "aquiles"
-}
-
-func (f *Fighter) duelAttackRecovery() bool {
-	if !f.isDuelFighter() { return false }
+func (f *Fighter) specialRecovery() bool {
 	if f.Atk == nil || !f.Atk.Spec.Heavy || f.Atk.Spec.Frames == nil { return false }
 	frames := f.Atk.Spec.Frames
 	return f.Atk.T > frames.Startup + frames.Active
@@ -455,7 +450,7 @@ func (m *Match) startAttack(f *Fighter, source *MoveData, mk string, heavy bool,
 	if spec.Dur <= 0 { spec.Dur = 20 }
 	f.MoveKind = mk
 	f.Atk = &ActiveAtk{Spec: &spec, Hits: map[string]bool{}, Baseline: spec.Dur}
-	if source.Launch != nil && (!source.Balanced || !f.isDuelFighter()) {
+	if source.Launch != nil && !source.Balanced {
 		f.On, f.UpSpecUsed, f.FastFall = false, true, false
 		f.VY = source.Launch.VY
 		f.VX = source.Launch.VX * float64(f.Face)
@@ -478,7 +473,7 @@ func (m *Match) advanceAttack(f *Fighter) {
 	sp := a.Spec
 	t := a.T
 	if sp.Balanced && sp.Frames != nil && t == sp.Frames.Startup+1 {
-		if sp.Launch != nil && f.isDuelFighter() {
+		if sp.Launch != nil {
 			f.On, f.UpSpecUsed, f.FastFall = false, true, false
 			f.VY = sp.Launch.VY
 			f.VX = sp.Launch.VX * float64(f.Face)

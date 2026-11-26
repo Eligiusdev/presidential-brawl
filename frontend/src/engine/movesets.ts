@@ -1,4 +1,4 @@
-import { combatBalance } from '../data/combatBalance';
+import { combatBalance, type Archetype } from '../data/combatBalance';
 import type { PresidentData } from '../types/game';
 
 type FrameRange = readonly [number, number];
@@ -44,18 +44,29 @@ const renewed: Record<string, readonly [reach: number, height: number, drop: num
   trump: [.89, 1.31, 7], uribe: [1.21, .97, 6], wallace: [1.16, 1.21, -3],
 };
 
+const recoveryByArchetype: Record<Archetype, { forward: number; rise: number; commitment: number }> = {
+  vanguard: { forward: 6, rise: 17, commitment: 5 },
+  tank: { forward: 3, rise: 18, commitment: 7 },
+  controller: { forward: 4, rise: 19, commitment: 4 },
+  artillery: { forward: 2, rise: 21, commitment: 6 },
+  assassin: { forward: 8, rise: 16, commitment: 3 },
+  specialist: { forward: 5, rise: 20, commitment: 4 },
+};
+
 function sample([min, max]: FrameRange, value: number) {
   return min + value % (max - min + 1);
 }
 
-export function balanceMove<T extends { ph: Phase[]; sp: Shot[]; dur: number; effect?: string }>(
-  move: T, fighter: PresidentData, slot: Slot, duelBalance = false,
+export function balanceMove<T extends { ph: Phase[]; sp: Shot[]; dur: number; effect?: string; launch?: { vx: number; vy: number } }>(
+  move: T, fighter: PresidentData, slot: Slot, duelBalance = false, rosterBalance = false,
 ) {
   const seed = [...fighter.id].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 0);
   const [startupRange, activeRange, recoveryRange, damageRange] = ranges[slot];
+  const archetype = combatBalance(fighter.id)?.archetype ?? 'specialist';
+  const profile = recoveryByArchetype[archetype];
   const startup = duelBalance && slot === 'neutral' ? (fighter.id === 'bolivar' ? 13 : 15) : sample(startupRange, seed >>> 2);
   const active = sample(activeRange, seed >>> 8);
-  const recovery = duelBalance && slot === 'neutral' ? (fighter.id === 'bolivar' ? 21 : 24) : sample(recoveryRange, seed >>> 12);
+  const recovery = duelBalance && slot === 'neutral' ? (fighter.id === 'bolivar' ? 21 : 24) : sample(recoveryRange, seed >>> 12) + (rosterBalance && (slot === 'neutral' || slot === 'down') ? profile.commitment : 0);
   const damage = sample(damageRange, seed >>> 17);
   const frames: FrameData = { startup, active, recovery, damage };
   const first = startup + 1;
@@ -68,7 +79,7 @@ export function balanceMove<T extends { ph: Phase[]; sp: Shot[]; dur: number; ef
     move.sp.reduce((sum, s) => sum + s.p.dmg, 0);
   const scale = damage / Math.max(1, rawDamage);
   const shieldCharge = duelBalance && fighter.id === 'aquiles' && slot === 'neutral';
-  const tank = shieldCharge || combatBalance(fighter.id)?.archetype === 'tank' && (slot === 'neutral' || slot === 'down');
+  const tank = shieldCharge || archetype === 'tank' && (slot === 'neutral' || slot === 'down');
 
   const geometry = renewed[fighter.id];
   const ph: Phase[] = move.ph.map(p => ({
@@ -100,5 +111,8 @@ export function balanceMove<T extends { ph: Phase[]; sp: Shot[]; dur: number; ef
     to: [0, Number.isFinite(oldStart) ? oldStart : atlasDuration / 3,
       Number.isFinite(oldEnd) ? oldEnd : atlasDuration * 2 / 3, atlasDuration],
   };
-  return { ...move, ph, sp, dur: last + recovery, frames, animationTiming, balanced: true, renewed: Boolean(geometry), tank };
+  const launch = rosterBalance && !duelBalance && slot === 'up' && move.launch && move.effect !== 'hover'
+    ? { vx: profile.forward + (move.launch.vx >= 6 ? 1 : 0), vy: -profile.rise }
+    : move.launch;
+  return { ...move, launch, ph, sp, dur: last + recovery, frames, animationTiming, balanced: true, renewed: Boolean(geometry), tank };
 }

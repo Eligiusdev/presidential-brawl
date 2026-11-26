@@ -149,7 +149,7 @@ export function loadLastReplay(): MatchReplayData | null {
     const raw = localStorage.getItem(LAST_REPLAY_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && (parsed.version === 1 || parsed.version === 2 || parsed.version === 3 || parsed.version === 4 || parsed.version === 5 || parsed.version === 6 || parsed.version === 7 || parsed.version === 8 || parsed.version === 9 || parsed.version === 10 || parsed.version === 11) && Array.isArray(parsed.keyframes)) {
+    if (parsed && (parsed.version === 1 || parsed.version === 2 || parsed.version === 3 || parsed.version === 4 || parsed.version === 5 || parsed.version === 6 || parsed.version === 7 || parsed.version === 8 || parsed.version === 9 || parsed.version === 10 || parsed.version === 11 || parsed.version === 12) && Array.isArray(parsed.keyframes)) {
       return parsed as MatchReplayData;
     }
     return null;

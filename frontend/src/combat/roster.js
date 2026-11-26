@@ -203,7 +203,7 @@ const newSignatures = {
   sheinbaum: move('Trayectoria orbital', 'arco orbe arco'),
 };
 
-function withNames(book, names, data, balanced, duelBalance = false) {
+function withNames(book, names, data, balanced, duelBalance = false, rosterBalance = false) {
   if (!names && !duelBalance) return new Fighter(book);
   const [jab, neutral, up, down] = names ?? [book.jab.name, book.neutral.name, book.up.name, book.down.name];
   const named = {
@@ -213,7 +213,7 @@ function withNames(book, names, data, balanced, duelBalance = false) {
     down: { ...book.down, name: down },
   };
   if (!balanced) return new Fighter(named);
-  return new Fighter(Object.fromEntries(Object.entries(named).map(([slot, move]) => [slot, balanceMove(move, data, slot, duelBalance)])));
+  return new Fighter(Object.fromEntries(Object.entries(named).map(([slot, move]) => [slot, balanceMove(move, data, slot, duelBalance, rosterBalance)])));
 }
 
 const duelMoves = {
@@ -233,10 +233,13 @@ const duelMoves = {
 duelMoves.bolivar.neutral.ph[0].hb.w = 104;
 duelMoves.bolivar.neutral.ph[0].mv = 9;
 
-export function movesFor(data, legacySignatures = false, legacyNames = legacySignatures, balanced = !legacyNames, duelBalance = balanced) {
-  if (duelBalance && duelMoves[data.id]) return withNames(duelMoves[data.id], undefined, data, balanced, true);
+export function movesFor(data, legacySignatures = false, legacyNames = legacySignatures, balanced = !legacyNames, rulesVersion = 12) {
+  const rosterBalance = balanced && rulesVersion >= 12;
+  if (balanced && rulesVersion >= 11 && duelMoves[data.id]) {
+    return withNames(duelMoves[data.id], undefined, data, balanced, true);
+  }
   const names = legacyNames ? undefined : MOVE_NAMES[data.id];
-  if (featured[data.id]) return withNames(featured[data.id], names, data, balanced);
+  if (featured[data.id]) return withNames(featured[data.id], names, data, balanced, false, rosterBalance);
   const phrases = repertoire[data.id];
   if (!phrases) return null;
   const [jab, neutral, up, down] = phrases;
@@ -251,5 +254,7 @@ export function movesFor(data, legacySignatures = false, legacyNames = legacySig
     names,
     data,
     balanced,
+    false,
+    rosterBalance,
   );
 }
