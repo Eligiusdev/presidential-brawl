@@ -1900,3 +1900,8 @@ html[data-mobile] .ob-roster-head .roster-search-input { padding-block: 5px; }
   html[data-mobile] .ob-main .ob-tile-art { max-height: 48px; }
   html[data-mobile] .online-browser-head .console-tagline { display: none; }
 }
+
+html[data-mobile] .online-browser-rooms .online-panel-body { gap: 6px; }
+html[data-mobile] .online-room-summary { display: none; }
+html[data-mobile] .online-room-list { flex: 1 0 96px; }
+html[data-mobile] .online-join-row { flex-shrink: 0; }
