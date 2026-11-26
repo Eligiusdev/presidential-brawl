@@ -10,8 +10,11 @@ export function installDesignViewport(): void {
   const apply = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const scaled = width < DESIGN_WIDTH || height < DESIGN_HEIGHT;
-    const scale = scaled ? width / DESIGN_WIDTH : 1;
+    const mobile = width <= 620 || (height <= 520 && width <= 1024) ||
+      (window.matchMedia('(any-pointer: coarse)').matches && width <= 1100);
+    document.documentElement.toggleAttribute('data-mobile', mobile);
+    const scaled = !mobile && (width < DESIGN_WIDTH || height < DESIGN_HEIGHT);
+    const scale = scaled ? Math.min(1, width / DESIGN_WIDTH) : 1;
     const designHeight = scaled && width > height
       ? Math.round(DESIGN_WIDTH * height / width)
       : DESIGN_HEIGHT;

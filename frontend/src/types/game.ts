@@ -58,6 +58,7 @@ export interface GameConfig {
     p1: KeyBindings;
     p2: KeyBindings;
     touchMode: TouchMode;
+    touchMovement?: 'buttons' | 'joystick';
     touchScale: number;
     touchLayout?: Partial<Record<'light' | 'heavy' | 'dash' | 'ult' | 'reload', { x: number; y: number; scale?: number }>>;
     touchJoystick?: { x: number; y: number; scale?: number };

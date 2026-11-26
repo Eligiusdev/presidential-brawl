@@ -76,6 +76,7 @@ export const DEFAULT_CONFIG: GameConfig = {
     p1: DEFAULT_P1_KEYS,
     p2: DEFAULT_P2_KEYS,
     touchMode: 'auto',
+    touchMovement: 'buttons',
     touchScale: 1.0,
     touchLayout: {
       light: { x: 71, y: 15 },

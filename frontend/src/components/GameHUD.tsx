@@ -1,3 +1,4 @@
+import { FighterName } from './FighterName';
 import { VictoryShowcase } from './VictoryShowcase';
 import { CampaignBracket } from './CampaignBracket';
 import { PRESIDENTS_DATA } from "../data/presidents";
@@ -434,7 +435,7 @@ export function GameHUD({
                           {f.isAI && <span className="rounded bg-[#1a2740] px-1.5 py-px text-[9px] tracking-[.08em] text-[#9ecbff]">CPU</span>}
                         </div>
                         <div className="truncate font-display text-xs font-bold leading-tight text-white sm:text-sm">
-                          {f.name}
+                          <FighterName fighter={pres} name={f.name} />
                         </div>
                         <div className="mt-1.5 flex items-center gap-2">
                           <div className="flex items-center gap-1">
@@ -555,6 +556,7 @@ export function GameHUD({
       {/* Mobile Touch Controls */}
       {showTouch && (
         <TouchControls
+          movement={config.controls.touchMovement}
           scale={config.controls.touchScale ?? 1}
           layout={config.controls.touchLayout}
           joystick={config.controls.touchJoystick}

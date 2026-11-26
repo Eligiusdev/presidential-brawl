@@ -1,3 +1,4 @@
+import { FighterName } from '../components/FighterName';
 import { useMemo, useState } from 'react';
 import { ArrowLeft, Crown, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -68,7 +69,7 @@ export function GalleryPage() {
                 <span className="ob-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Crown className="h-3 w-3" />{info.era}</span>
               </div>
               <div className="ob-hero-name">
-                <h3>{info.name}</h3>
+                <h3><FighterName fighter={info} /></h3>
                 <p>{info.title} · {info.role}</p>
               </div>
               <div className="ob-quote">«{info.taunt}»</div>
@@ -122,7 +123,7 @@ export function GalleryPage() {
                   <span className="ob-tile-art">
                     <FighterPreview president={d} selected={selected} />
                   </span>
-                  <span className="ob-tile-name">{d.name}</span>
+                  <span className="ob-tile-name"><FighterName fighter={d} /></span>
                 </button>
               );
             })}

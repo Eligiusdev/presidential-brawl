@@ -343,10 +343,12 @@ export function OnlinePage() {
 
               <div className="online-create-summary"><Check className="h-4 w-4" /> {summary}</div>
 
+              <p className="online-tip"><Wifi className="h-3.5 w-3.5" /> Comparte el código de la sala con tus amigos. Podrás cambiar el escenario desde la sala de espera.</p>
+            </div>
+            <div className="online-create-footer">
               <button type="button" data-gamepad-initial className="console-btn console-btn-primary online-create-submit" onClick={createRoom}>
                 <Swords className="h-4 w-4" /> Crear sala
               </button>
-              <p className="online-tip"><Wifi className="h-3.5 w-3.5" /> Comparte el código de la sala con tus amigos. Podrás cambiar el escenario desde la sala de espera.</p>
             </div>
           </section>
         </div>

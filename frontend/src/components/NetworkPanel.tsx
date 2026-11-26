@@ -104,6 +104,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   const onActiveRef = useRef(onActive);
   onActiveRef.current = onActive;
   const playing = Boolean(room?.playing && !room.standings);
+  const showTouch = config.controls.touchMode === 'on' ||
+    (config.controls.touchMode === 'auto' && ('ontouchstart' in window || navigator.maxTouchPoints > 0));
   const actions = () => new Set([...pressed.current.values(), ...touch.current]);
   const send = (message: object) => {
     if (socket.current?.readyState === WebSocket.OPEN && socket.current.bufferedAmount < 32000) {
@@ -450,7 +452,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     <OnlineMatchHUD snap={snapshot} room={room} localSlot={seat.slot} />
     <div className="online-arena">
       <canvas ref={canvas} className="pixel-canvas block h-full w-full object-contain" aria-label="Arena multijugador" />
-      {playing && !recovering && !incompatible && <div data-gamepad-ignore className="network-touch"><TouchControls inline scale={config.controls.touchScale ?? 1} layout={config.controls.touchLayout} joystick={config.controls.touchJoystick} onAction={(action, down) => {
+      {showTouch && playing && !recovering && !incompatible && <div data-gamepad-ignore className="network-touch"><TouchControls inline movement={config.controls.touchMovement} scale={config.controls.touchScale ?? 1} layout={config.controls.touchLayout} joystick={config.controls.touchJoystick} onAction={(action, down) => {
         const touchStarted = performanceMetricsEnabled && down ? performance.now() : null;
         if (down) {
           if (action === 'jump' && !actions().has('jump')) jumpSequence.current = sequence.current + 1;

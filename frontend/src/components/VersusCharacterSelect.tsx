@@ -1,3 +1,4 @@
+import { FighterName } from './FighterName';
 import { useMemo, useState } from 'react';
 import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Settings, Sliders, Swords, Users } from 'lucide-react';
 import { FighterPreview } from './FighterPreview';
@@ -109,7 +110,7 @@ export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel
                 <span className="ob-tag">{info.role}</span>
               </div>
               <div className="ob-hero-name">
-                <h3>{info.name}</h3>
+                <h3><FighterName fighter={info} /></h3>
                 <p>{info.title} · {info.role}</p>
               </div>
               <div className="ob-quote">«{info.taunt}»</div>
@@ -134,8 +135,8 @@ export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel
           <div className="ob-roster-head">
             <h3>Personajes</h3>
             <div className="flex gap-1.5 mb-2">
-              <button type="button" className={`flex-1 rounded-md py-1.5 text-xs font-bold ${activeSlot === 0 ? 'bg-[#ffcc33] text-[#0b0e17]' : 'bg-[#162033] text-[#94a3b8] hover:text-white'}`} onClick={() => { sound.uiClick(); setActiveSlot(0); }}>J1: {p1.name}</button>
-              <button type="button" className={`flex-1 rounded-md py-1.5 text-xs font-bold ${activeSlot === 1 ? 'bg-[#38bdf8] text-[#0b0e17]' : 'bg-[#162033] text-[#94a3b8] hover:text-white'}`} onClick={() => { sound.uiClick(); setActiveSlot(1); }}>{vsAI ? 'IA' : 'J2'}: {p2.name}</button>
+              <button type="button" className={`flex-1 rounded-md py-1.5 text-xs font-bold ${activeSlot === 0 ? 'bg-[#ffcc33] text-[#0b0e17]' : 'bg-[#162033] text-[#94a3b8] hover:text-white'}`} onClick={() => { sound.uiClick(); setActiveSlot(0); }}>J1: <FighterName fighter={p1} /></button>
+              <button type="button" className={`flex-1 rounded-md py-1.5 text-xs font-bold ${activeSlot === 1 ? 'bg-[#38bdf8] text-[#0b0e17]' : 'bg-[#162033] text-[#94a3b8] hover:text-white'}`} onClick={() => { sound.uiClick(); setActiveSlot(1); }}>{vsAI ? 'IA' : 'J2'}: <FighterName fighter={p2} /></button>
             </div>
             <RosterDisplay display={display} />
             <div className="ob-filters" aria-label="Filtros" onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
@@ -157,7 +158,7 @@ export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel
                   style={ring ? { ['--ring' as any]: ring } : undefined}
                   onClick={() => pick(realIdx)}>
                   <span className="ob-tile-art"><FighterPreview president={d} selected={isP1 || isP2} /></span>
-                  <span className="ob-tile-name">{d.name}</span>
+                  <span className="ob-tile-name"><FighterName fighter={d} /></span>
                   {(isP1 || isP2) && <span className="ob-tile-badges">
                     {isP1 && <span className="ob-badge" style={{ background: '#ffcc33' }}>J1</span>}
                     {isP2 && <span className="ob-badge" style={{ background: '#38bdf8' }}>{vsAI ? 'IA' : 'J2'}</span>}

@@ -1,3 +1,4 @@
+import { FighterName } from './FighterName';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { ultimateText } from '../engine/presidentUltimates';
 import { movesFor } from '../combat/roster.js';
@@ -195,7 +196,7 @@ export function CharacterSelect({
           <FighterPreview president={activeFighter} selected large />
           <div className="fighter-showcase-caption">
             <span>{campaignSelection || activeSlot === 0 ? 'Jugador 1' : vsAI ? 'Rival IA' : 'Jugador 2'}</span>
-            <h3>{activeFighter.name}</h3>
+            <h3><FighterName fighter={activeFighter} /></h3>
             <p>{activeFighter.title} · {activeFighter.role}</p>
             <div className="fighter-showcase-ultimate"><Crown size={15} aria-hidden="true" />{ultimateText(activeFighter).name}</div>
           </div>
@@ -231,7 +232,7 @@ export function CharacterSelect({
                 activeSlot === 0 ? 'bg-[#ffcc33] text-[#0b0e17]' : 'text-[#94a3b8] hover:text-white'
               }`}
             >
-              Eligiendo J1: {p1.name}
+              Eligiendo J1: <FighterName fighter={p1} />
             </button>
             {!campaignSelection && <button
               onClick={() => {
@@ -242,7 +243,7 @@ export function CharacterSelect({
                 activeSlot === 1 ? 'bg-[#38bdf8] text-[#0b0e17]' : 'text-[#94a3b8] hover:text-white'
               }`}
             >
-              {remoteOpponent ? "J2 elige desde su dispositivo" : <>Eligiendo {vsAI ? 'IA' : 'J2'}: {p2.name}</>}
+              {remoteOpponent ? "J2 elige desde su dispositivo" : <>Eligiendo {vsAI ? 'IA' : 'J2'}: <FighterName fighter={p2} /></>}
             </button>}
           </div>
 
@@ -321,7 +322,7 @@ export function CharacterSelect({
                   <div className="mb-2 overflow-hidden rounded border border-[#2a344d]">
                     <FighterPreview president={d} selected={isP1 || isP2} />
                   </div>
-                  <div className="font-display text-xs font-bold text-white leading-tight truncate w-full">{d.name}</div>
+                  <div className="font-display text-xs font-bold text-white leading-tight truncate w-full"><FighterName fighter={d} /></div>
                   <div className="mt-0.5 text-[10px] text-[#94a3b8] truncate w-full">
                     {d.role}
                   </div>
@@ -492,7 +493,7 @@ export function FighterPreviewCard({
             <PortraitCanvas president={president} className="h-24 w-24" animate />
           </div>
           <div className="min-w-0">
-            <h3 className="font-display text-lg font-bold text-white leading-tight truncate">{president.name}</h3>
+            <h3 className="font-display text-lg font-bold text-white leading-tight truncate"><FighterName fighter={president} /></h3>
             <div className="text-xs text-[#94a3b8] truncate">
               {president.title} · {president.role}
             </div>

@@ -1,4 +1,4 @@
-import { Crown, Crosshair, RotateCcw, Swords, Zap } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Crown, Crosshair, RotateCcw, Swords, Zap } from 'lucide-react';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { sound } from '../audio/soundEngine';
 import type { PlayerAction } from '../types/game';
@@ -12,6 +12,14 @@ const actions = [
 ] as const;
 const stickActions = ['left', 'right', 'down', 'jump'] as const;
 const radius = 42;
+
+export function touchDirectionButtons(held: readonly PlayerAction[]) {
+  let horizontal: 'left' | 'right' | undefined;
+  for (const action of held) {
+    if (action === 'left' || action === 'right') horizontal = action;
+  }
+  return { horizontal, jump: held.includes('jump'), down: held.includes('down') };
+}
 
 type TouchLayout = Partial<Record<'light' | 'heavy' | 'dash' | 'ult' | 'reload', { x: number; y: number; scale?: number }>>;
 type TouchJoystick = { x: number; y: number; scale?: number };
@@ -28,7 +36,7 @@ export function touchStickActions(dx: number, dy: number, active: ReadonlySet<Pl
   };
 }
 
-export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false, scale = 1, layout, joystick }: {
+export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false, scale = 1, layout, joystick, movement = 'buttons' }: {
   onAction: (action: PlayerAction, active: boolean) => void;
   ultReady?: boolean;
   hasGun?: boolean;
@@ -36,6 +44,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
   scale?: number;
   layout?: TouchLayout;
   joystick?: TouchJoystick;
+  movement?: 'buttons' | 'joystick';
 }) {
   const callback = useRef(onAction);
   callback.current = onAction;
@@ -81,10 +90,9 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
       window.removeEventListener('blur', release);
       window.removeEventListener('pagehide', release);
       document.removeEventListener('visibilitychange', visibility);
-      for (const action of active.current) callback.current(action, false);
-      active.current.clear();
+      release();
     };
-  }, []);
+  }, [movement]);
 
   useEffect(() => {
     if (hasGun || !active.current.has('reload')) return;
@@ -93,6 +101,26 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     }
     setAction('reload', false);
   }, [hasGun]);
+
+  const syncButtons = () => {
+    const { horizontal, jump, down } = touchDirectionButtons([...buttons.current.values()]);
+    for (const action of ['left', 'right'] as const) {
+      if (action !== horizontal) setAction(action, false);
+    }
+    if (horizontal) setAction(horizontal, true);
+    setAction('jump', jump);
+    setAction('down', down);
+  };
+
+  const pressButton = (event: PointerEvent<HTMLButtonElement>, action: PlayerAction) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    sound.init();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    buttons.current.set(event.pointerId, action);
+    if (movement === 'buttons' && stickActions.some(direction => direction === action)) syncButtons();
+    else setAction(action, true);
+  };
 
   const startStick = (e: PointerEvent<HTMLDivElement>) => {
     if (stick.current || e.button !== 0) return;
@@ -126,7 +154,8 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     const action = buttons.current.get(pointer);
     if (!action) return;
     buttons.current.delete(pointer);
-    if (![...buttons.current.values()].includes(action)) setAction(action, false);
+    if (movement === 'buttons' && stickActions.some(direction => direction === action)) syncButtons();
+    else if (![...buttons.current.values()].includes(action)) setAction(action, false);
   };
 
   const releasePointer = ({ pointerId }: { pointerId: number }) => {
@@ -146,17 +175,29 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     height: `calc(clamp(102px, 25dvh, 166px) * ${joystick.scale ?? 1})`,
   } : undefined;
 
-  return <div className={`touch-deck ${inline ? 'touch-deck-inline' : ''}`} aria-label="Controles táctiles" style={{ ['--touch-scale' as any]: scale }}>
-    <div className="touch-stick-zone" aria-label="Control de movimiento" style={joyStyle} onPointerDown={startStick}
+  return <div className={`touch-deck touch-deck-${movement} ${inline ? 'touch-deck-inline' : ''}`} aria-label="Controles táctiles" style={{ ['--touch-scale' as any]: scale }}>
+    {movement === 'buttons' ? <div className="touch-dpad" role="group" aria-label="Movimiento">
+      {([
+        ['left', 'Izquierda', ChevronLeft], ['right', 'Derecha', ChevronRight],
+        ['jump', 'Saltar', ChevronUp], ['down', 'Abajo', ChevronDown],
+      ] as const).map(([action, label, Icon]) => (
+        <button key={action} type="button" className={`touch-direction direction-${action}`}
+          aria-label={label} aria-pressed={pressed.includes(action)}
+          onContextMenu={e => e.preventDefault()} onPointerDown={e => pressButton(e, action)}
+          onLostPointerCapture={releasePointer}>
+          <Icon size={24} aria-hidden="true" />
+        </button>
+      ))}
+    </div> : <div className="touch-stick-zone" aria-label="Control de movimiento" style={joyStyle} onPointerDown={startStick}
       onPointerMove={moveStick} onPointerUp={releasePointer} onPointerCancel={releasePointer} onLostPointerCapture={releasePointer}>
       <div className={`touch-stick ${origin ? 'touch-stick-active' : ''}`}
         style={origin ? { left: origin.x, top: origin.y } : undefined}>
         <div className="touch-knob" style={{ transform: `translate(${offset.x * 0.65}px, ${offset.y * 0.65}px)` }} />
       </div>
-    </div>
+    </div>}
     <div className="touch-action-grid">
       {actions.filter(({ action }) => action !== 'reload' || hasGun).map(({ action, label, Icon }) => {
-        const pos = layout?.[action];
+        const pos = movement === 'joystick' ? layout?.[action] : undefined;
         const baseScale = action === 'reload' ? 0.88 : 1;
         const btnScale = baseScale * (pos?.scale ?? 1);
         const sizeStyle = { width: `calc(var(--touch-size) * ${btnScale})`, height: `calc(var(--touch-size) * ${btnScale})` };
@@ -165,14 +206,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
           aria-pressed={pressed.includes(action)} aria-label={label} title={label}
           style={{ ...sizeStyle, ...posStyle }}
           onContextMenu={e => e.preventDefault()}
-          onPointerDown={e => {
-            if (e.button !== 0) return;
-            e.preventDefault();
-            sound.init();
-            e.currentTarget.setPointerCapture(e.pointerId);
-            buttons.current.set(e.pointerId, action);
-            setAction(action, true);
-          }}
+          onPointerDown={e => pressButton(e, action)}
           onPointerUp={e => releaseButton(e.pointerId)} onPointerCancel={e => releaseButton(e.pointerId)}
           onLostPointerCapture={e => releaseButton(e.pointerId)}>
           <Icon size={22} strokeWidth={2.4} aria-hidden="true" />

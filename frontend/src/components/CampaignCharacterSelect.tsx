@@ -1,3 +1,4 @@
+import { FighterName } from './FighterName';
 import { useMemo, useState } from 'react';
 import { ArrowLeft, Crown, Settings, Sliders, Swords } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
@@ -82,7 +83,7 @@ export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, o
                 <span className="ob-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Crown className="h-3 w-3" />{info.era}</span>
               </div>
               <div className="ob-hero-name">
-                <h3>{info.name}</h3>
+                <h3><FighterName fighter={info} /></h3>
                 <p>{info.title} · {info.role}</p>
               </div>
               <div className="ob-quote">«{info.taunt}»</div>
@@ -125,7 +126,7 @@ export function CampaignCharacterSelect({ roster, selected, onSelect, onStart, o
                   style={isSelected ? { ['--ring' as any]: '#ffcc33' } : undefined}
                   onClick={() => { sound.uiClick(); onSelect(realIdx); }}>
                   <span className="ob-tile-art"><FighterPreview president={d} selected={isSelected} /></span>
-                  <span className="ob-tile-name">{d.name}</span>
+                  <span className="ob-tile-name"><FighterName fighter={d} /></span>
                 </button>
               );
             })}

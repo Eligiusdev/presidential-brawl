@@ -207,14 +207,23 @@ export function ConfigPage() {
 
               <div className="rounded-lg border border-[#252f47] bg-[#141b2d] p-4 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div><div className="text-sm font-bold text-white">Controles táctiles en pantalla</div><div className="text-xs text-[#94a3b8]">Joystick virtual + botones de acción para móvil</div></div>
+                  <div><div className="text-sm font-bold text-white">Controles táctiles en pantalla</div><div className="text-xs text-[#94a3b8]">Movimiento y botones de acción para móvil</div></div>
                   <div className="flex gap-2">{(['auto','on','off'] as TouchMode[]).map(tm => <button key={tm} onClick={() => updateControls('touchMode', tm)} className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase ${config.controls.touchMode===tm ? 'border-[#ffcc33] bg-[#ffcc33] text-[#0b0e17]' : 'border-[#2a344d] bg-[#101522] text-[#94a3b8]'}`}>{tm==='auto'?'Auto':tm==='on'?'Siempre ON':'OFF'}</button>)}</div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Control de movimiento">
+                  {(['buttons', 'joystick'] as const).map(movement => (
+                    <button key={movement} type="button" className="console-btn"
+                      aria-pressed={(config.controls.touchMovement ?? 'buttons') === movement}
+                      onClick={() => updateControls('touchMovement', movement)}>
+                      {movement === 'buttons' ? 'Cruceta' : 'Joystick'}
+                    </button>
+                  ))}
                 </div>
                 <SliderField label="Tamaño de botones táctiles (global)" value={config.controls.touchScale ?? 1} min={0.5} max={4} step={0.05} format={v=>`${Math.round(v*100)}%`} onChange={v=>updateControls('touchScale', v)} />
                 <div className="rounded-lg border border-[#2a3a55] bg-[#0d1524] p-4 flex items-center justify-between gap-4 flex-wrap">
                   <div>
                     <div className="text-sm font-semibold text-white">Editor de diseño táctil</div>
-                    <div className="text-xs text-[#94a3b8]">Abre pantalla completa para mover y cambiar tamaño de cada botón.</div>
+                    <div className="text-xs text-[#94a3b8]">Personaliza el joystick y sus botones de acción.</div>
                   </div>
                   <button type="button" className="console-btn console-btn-primary" onClick={() => { sound.uiConfirm(); setTouchEditor(true); }}>Editar pantalla completa</button>
                 </div>

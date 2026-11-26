@@ -1,3 +1,4 @@
+import { FighterName } from './FighterName';
 import { Landmark, Radio, Zap } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
@@ -101,7 +102,7 @@ export function OnlineMatchHUD({ snap, room, localSlot, crtClass }: {
                   <div className="flex items-center gap-1 font-display text-[10px] font-extrabold uppercase tracking-[.14em]">
                     <span style={{ color: accent }}>J{p.pi + 1}{isYou ? ' · TÚ' : ''}</span>
                   </div>
-                  <div className="truncate font-display text-xs font-bold leading-tight text-white sm:text-sm">{pres.name}</div>
+                  <div className="truncate font-display text-xs font-bold leading-tight text-white sm:text-sm"><FighterName fighter={pres} /></div>
                   <div className="mt-1 flex items-center gap-1">
                     {Array.from({ length: maxStocks }).map((_, i) => (
                       <span key={i} className="h-2.5 w-2.5 rotate-45 rounded-[2px] border border-[#0b1222]"

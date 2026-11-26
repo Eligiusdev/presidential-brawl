@@ -1,3 +1,4 @@
+import { FighterName } from './FighterName';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Ban, Check, ChevronLeft, ChevronRight, Copy, Crown, LogOut, Settings, Shuffle, Sliders, Swords, UserX, Users, WifiOff } from 'lucide-react';
 import { PRESIDENTS_DATA } from '../data/presidents';
@@ -136,7 +137,7 @@ export function OnlineLobby({ room, slot, send, leave, onOpenConfig }: {
                     onClick={() => { sound.uiConfirm(); send({ type: 'ban', targetSlot: i }); }}><Ban className="h-3.5 w-3.5" /></button>
                 </>}
               </div>
-              <div className="ob-slot-name">{p?.name ? `${p.name} · ` : ''}{fighter ? fighter.name : p ? 'Eligiendo…' : 'Esperando jugador'}</div>
+              <div className="ob-slot-name">{p?.name ? `${p.name} · ` : ''}{fighter ? <FighterName fighter={fighter} /> : p ? 'Eligiendo…' : 'Esperando jugador'}</div>
               <div className={`ob-slot-state ${p?.ready ? 'on' : ''}`}>
                 {!p ? 'Libre' : !p.connected ? 'Reconectando' : p.ready ? <><Check className="h-3.5 w-3.5" />Listo</> : 'En selección'}
               </div>
@@ -212,7 +213,7 @@ export function OnlineLobby({ room, slot, send, leave, onOpenConfig }: {
               {self?.ready && <span className="ob-tag ready"><Check className="h-3 w-3" />Listo</span>}
             </div>
             <div className="ob-hero-name">
-              <h3>{info.name}</h3>
+              <h3><FighterName fighter={info} /></h3>
               <p>{info.title} · {info.role}</p>
             </div>
             <div className="ob-quote">«{info.taunt}»</div>
@@ -267,7 +268,7 @@ export function OnlineLobby({ room, slot, send, leave, onOpenConfig }: {
               <span className="ob-tile-art">
                 <FighterPreview president={d} selected={mine || pickers.length > 0} />
               </span>
-              <span className="ob-tile-name">{d.name}</span>
+              <span className="ob-tile-name"><FighterName fighter={d} /></span>
               {mine && <span className="ob-tile-lock"><Check className="h-3 w-3" /></span>}
               {pickers.length > 0 && <span className="ob-tile-badges">
                 {pickers.map(p => <span key={p.slot} className="ob-badge" style={{ background: p.color }}>J{p.slot + 1}{p.ready ? '✓' : ''}</span>)}
