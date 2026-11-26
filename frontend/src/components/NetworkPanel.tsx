@@ -227,9 +227,9 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         }
         if (last) {
           if (data.world.winnerPi !== null && last.world.winnerPi === null) sound.win();
-          else if (data.players.some(p => p.stocks < last.players[p.slot].stocks)) sound.ko();
+          else if (data.players.some(p => p.stocks < (last.players.find(prev => prev.slot === p.slot)?.stocks ?? p.stocks))) sound.ko();
           else if (data.cine && !last.cine) sound.siren();
-          else if (data.players.some(p => p.damage > last.players[p.slot].damage)) sound.hit();
+          else if (data.players.some(p => p.damage > (last.players.find(prev => prev.slot === p.slot)?.damage ?? p.damage))) sound.hit();
         }
         if (data.tick % 3 === 0 || !last || data.world.winnerPi !== null) {
           setHud(data.players);

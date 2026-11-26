@@ -189,3 +189,26 @@ func (m *Match) SnapshotJSON() []byte {
 	b, _ := json.Marshal(m.richSnapshot())
 	return b
 }
+
+// NetworkSnapshotJSON uses the simulation frame as the transport sequence.
+// World.T retains the combat clock, which intentionally pauses during hitstop.
+func (m *Match) NetworkSnapshotJSON(ack, slots []int) ([]byte, error) {
+    snap := m.richSnapshot()
+    snap.Tick = uint32(m.Frame)
+    snap.Ack = ack
+    if len(slots) != 0 {
+        snap.Players = append([]*RichFighter(nil), snap.Players...)
+        for i, player := range snap.Players {
+            if player.Slot >= 0 && player.Slot < len(slots) {
+                mapped := *player
+                mapped.Slot = slots[player.Slot]
+                snap.Players[i] = &mapped
+            }
+        }
+        snap.Standings = append([]int(nil), snap.Standings...)
+        for i, slot := range snap.Standings {
+            if slot >= 0 && slot < len(slots) { snap.Standings[i] = slots[slot] }
+        }
+    }
+    return json.Marshal(snap)
+}
