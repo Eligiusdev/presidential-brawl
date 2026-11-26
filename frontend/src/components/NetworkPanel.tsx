@@ -1,4 +1,4 @@
-import { encodeBinaryInput } from '../network/binaryInput';
+import { encodeBinaryInput, inputIsDue, inputMask, type SentInput } from '../network/binaryInput';
 import { ROOM_PROTOCOL, ROOM_RESUME_MS } from '../network/roomProtocol.mjs';
 import { AdaptiveRenderQuality } from '../engine/renderPerformance';
 import { preloadMatchArt } from '../engine/matchArt';
@@ -22,6 +22,7 @@ import type { GameConfig, PlayerAction } from '../types/game';
 import { OnlineLobby } from './OnlineLobby';
 import { TouchControls } from './TouchControls';
 
+const jumpInputMask = inputMask(new Set(['jump']));
 const keys = new Map<string, PlayerAction>();
 for (const bindings of [DEFAULT_P1_KEYS, DEFAULT_P2_KEYS]) {
   for (const action of Object.keys(bindings) as PlayerAction[]) {
@@ -92,6 +93,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   const sequence = useRef(0);
   const binaryInput = useRef(false);
   const jumpSequence = useRef(-1);
+  const lastSentInput = useRef<SentInput | null>(null);
   const reconnect = useRef<number | undefined>(undefined);
   const canvas = useRef<HTMLCanvasElement>(null);
   const samples = useRef<Samples | null>(null);
@@ -121,11 +123,16 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   const sendInput = () => {
     if (!socket.current || authenticatedSocket.current !== socket.current) return;
     if (socket.current.readyState !== WebSocket.OPEN || socket.current.bufferedAmount >= 32000) return;
-    const seq = ++sequence.current;
     const held = actions();
+    const mask = inputMask(held);
+    const now = performance.now();
+    if (!inputIsDue(lastSentInput.current, mask, now)) return;
+    const seq = ++sequence.current;
     const frame = binaryInput.current ? encodeBinaryInput(seq, held) : null;
     if (frame) socket.current.send(frame);
     else socket.current.send(JSON.stringify({ type: 'input', seq, actions: [...held] }));
+    if ((mask & jumpInputMask) && !((lastSentInput.current?.mask ?? 0) & jumpInputMask)) jumpSequence.current = seq;
+    lastSentInput.current = { mask, at: now };
     return seq;
   };
   const clearInput = () => { pressed.current.clear(); touch.current.clear(); sendInput(); };
@@ -157,6 +164,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     const ws = new WebSocket(roomSocketUrl());
     ws.binaryType = 'arraybuffer';
     binaryInput.current = false;
+    lastSentInput.current = null;
     socket.current = ws;
     if (previous && previous !== ws) try { previous.close(); } catch {}
     let lastReply = performance.now();
@@ -205,6 +213,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         pressed.current.clear();
         touch.current.clear();
         jumpSequence.current = -1;
+        lastSentInput.current = null;
         saveSeat(data);
         retryUntil.current = 0;
         setRecovering(false);
@@ -408,7 +417,6 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       e.preventDefault();
       if (e.repeat) return;
       if (e.type === 'keydown') {
-        if (action === 'jump' && !actions().has('jump')) jumpSequence.current = sequence.current + 1;
         pressed.current.set(e.code, action);
       }
       else pressed.current.delete(e.code);
@@ -419,6 +427,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     window.addEventListener('keyup', key);
     window.addEventListener('blur', clearInput);
     document.addEventListener('visibilitychange', visibility);
+    lastSentInput.current = null;
+    sendInput();
     const timer = window.setInterval(sendInput, 1000 / 30);
     raf = requestAnimationFrame(frame);
     return () => {
@@ -472,7 +482,6 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         hasGun={localFighter?.wk === 'mg' || localFighter?.wk === 'rocket'} movement={config.controls.touchMovement} scale={config.controls.touchScale ?? 1} layout={config.controls.touchLayout} joystick={config.controls.touchJoystick} onAction={(action, down) => {
         const touchStarted = performanceMetricsEnabled && down ? performance.now() : null;
         if (down) {
-          if (action === 'jump' && !actions().has('jump')) jumpSequence.current = sequence.current + 1;
           touch.current.add(action);
         } else touch.current.delete(action);
         const seq = sendInput();
