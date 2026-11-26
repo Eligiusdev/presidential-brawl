@@ -2,6 +2,7 @@ package rooms
 
 import (
 	"encoding/json"
+	"errors"
 	"slices"
 	"time"
 
@@ -21,22 +22,24 @@ type ConfirmedFrame struct {
 }
 
 type RollbackSync struct {
-	Type       string           `json:"type"`
-	MatchID    int              `json:"matchId"`
-	Frame      int              `json:"frame"`
-	RoomSlots  []int            `json:"roomSlots"`
-	Inputs     []ConfirmedFrame `json:"inputs,omitempty"`
-	Held       []EffectiveInput `json:"held,omitempty"`
-	Checkpoint json.RawMessage  `json:"checkpoint,omitempty"`
+	SyncRequest int              `json:"syncRequest,omitempty"`
+	Type        string           `json:"type"`
+	MatchID     int              `json:"matchId"`
+	Frame       int              `json:"frame"`
+	RoomSlots   []int            `json:"roomSlots"`
+	Inputs      []ConfirmedFrame `json:"inputs,omitempty"`
+	Held        []EffectiveInput `json:"held,omitempty"`
+	Checkpoint  json.RawMessage  `json:"checkpoint,omitempty"`
 }
 
 const confirmedHistorySize = 32
 
 type rollbackHistory struct {
-	match       *sim.Match
-	id          int
-	frames      [confirmedHistorySize]ConfirmedFrame
-	activeUntil time.Time
+	match        *sim.Match
+	id           int
+	frames       [confirmedHistorySize]ConfirmedFrame
+	activeUntil  time.Time
+	checkpointAt time.Time
 }
 
 // Caller holds the room lock.
@@ -66,7 +69,7 @@ func (r *Room) RecordConfirmedLocked(inputs [][]string, sequences []int) {
 
 // RollbackSyncLocked returns recent confirmed inputs, or a replacement
 // checkpoint when changing match or when the requested history expired.
-func (r *Room) RollbackSyncLocked(matchID int, after *int) (RollbackSync, error) {
+func (r *Room) RollbackSyncLocked(matchID int, after *int, allowCheckpoint bool) (RollbackSync, error) {
 	r.syncHistory()
 	r.rollback.activeUntil = time.Now().Add(2 * time.Second)
 	frame := r.Match.Frame
@@ -90,6 +93,11 @@ func (r *Room) RollbackSyncLocked(matchID int, after *int) (RollbackSync, error)
 			return reply, nil
 		}
 	}
+	now := time.Now()
+	if !allowCheckpoint || now.Sub(r.rollback.checkpointAt) < 200*time.Millisecond {
+		return RollbackSync{}, errors.New("checkpoint cooling down")
+	}
+	r.rollback.checkpointAt = now
 	var err error
 	reply.Checkpoint, err = r.Match.MarshalCheckpoint()
 	latest := r.rollback.frames[frame%confirmedHistorySize]

@@ -126,3 +126,72 @@ func cloneInputs(inputs [][]string, count int) [][]string {
 	}
 	return out
 }
+
+// ConfirmBatch commits a contiguous server range and replays at most once.
+func (t *RollbackTimeline) ConfirmBatch(first int, confirmed [][][]string) CorrectionResult {
+	if len(confirmed) == 0 {
+		return CorrectionMatched
+	}
+	head := t.match.Frame
+	if first <= 0 || first+len(confirmed)-1 < first || len(confirmed) > RollbackFrames ||
+		first > head+1 || first <= head-RollbackFrames {
+		return CorrectionNeedsState
+	}
+	for i, inputs := range confirmed {
+		frame := first + i
+		if len(inputs) != len(t.match.Fighters) ||
+			(frame <= head && t.history[frame%RollbackFrames].frame != frame) {
+			return CorrectionNeedsState
+		}
+	}
+	replayFrom := 0
+	for i, inputs := range confirmed {
+		frame := first + i
+		if frame > head {
+			break
+		}
+		entry := &t.history[frame%RollbackFrames]
+		if replayFrom == 0 {
+			for slot, held := range inputs {
+				predicted := entry.used[slot]
+				if entry.confirmed {
+					predicted = entry.remote[slot]
+				} else if slot == t.localSlot {
+					predicted = entry.local
+				}
+				if !slices.Equal(predicted, held) {
+					replayFrom = frame
+					break
+				}
+			}
+		}
+		entry.remote = cloneInputs(inputs, len(t.match.Fighters))
+		entry.confirmed = true
+	}
+	if replayFrom != 0 {
+		entry := &t.history[replayFrom%RollbackFrames]
+		t.lastRemote = entry.used
+		t.match.Restore(entry.before)
+		for frame := replayFrom; frame <= head; frame++ {
+			next := &t.history[frame%RollbackFrames]
+			next.before = t.match.Save()
+			t.simulate(next)
+		}
+	}
+	for i, inputs := range confirmed {
+		frame := first + i
+		if frame <= head {
+			continue
+		}
+		entry := &t.history[frame%RollbackFrames]
+		*entry = rollbackFrame{frame: frame, before: t.match.Save(), remote: cloneInputs(inputs, len(t.match.Fighters)), confirmed: true}
+		t.simulate(entry)
+	}
+	if replayFrom != 0 {
+		return CorrectionApplied
+	}
+	return CorrectionMatched
+}
+
+func (t *RollbackTimeline) Frame() int           { return t.match.Frame }
+func (t *RollbackTimeline) SnapshotJSON() []byte { return t.match.SnapshotJSON() }

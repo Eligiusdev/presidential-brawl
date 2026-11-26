@@ -181,3 +181,33 @@ func TestRollbackEarlierConfirmationPreservesLaterConfirmedInputs(t *testing.T) 
 		t.Fatalf("later authoritative input was lost: %v", err)
 	}
 }
+
+func TestRollbackBatchPreservesNewerUnconfirmedLocalInput(t *testing.T) {
+	server := rollbackMatch(t, 2)
+	client := NewRollbackTimeline(server.Save(), 0)
+	for frame := 1; frame <= 5; frame++ {
+		predicted := []string{"right"}
+		corrected := predicted
+		if frame <= 3 {
+			corrected = nil
+		}
+		server.Step([][]string{corrected, {"left"}})
+		client.Advance(predicted)
+	}
+	confirmed := [][][]string{
+		{nil, {"left"}}, {nil, {"left"}}, {nil, {"left"}},
+	}
+	if client.ConfirmBatch(1, confirmed) != CorrectionApplied {
+		t.Fatal("expected a single correction for three confirmed frames")
+	}
+	hash, err := client.StateHash()
+	if err != nil || hash != hashMatch(t, server) {
+		t.Fatalf("replay lost unconfirmed local input: %v", err)
+	}
+	for range RollbackFrames {
+		client.Advance(nil)
+	}
+	if client.ConfirmBatch(4, [][][]string{{nil, nil}}) != CorrectionNeedsState {
+		t.Fatal("old correction must request a checkpoint")
+	}
+}

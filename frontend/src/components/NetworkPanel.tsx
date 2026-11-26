@@ -1,3 +1,4 @@
+import { LiveRollback, type SyncReply } from '../network/liveRollback';
 import { encodeBinaryInput, inputIsDue, inputMask, type SentInput } from '../network/binaryInput';
 import { ROOM_PROTOCOL, ROOM_RESUME_MS } from '../network/roomProtocol.mjs';
 import { AdaptiveRenderQuality } from '../engine/renderPerformance';
@@ -22,6 +23,7 @@ import type { GameConfig, PlayerAction } from '../types/game';
 import { OnlineLobby } from './OnlineLobby';
 import { TouchControls } from './TouchControls';
 
+const rollbackEnabled = new URLSearchParams(window.location.search).get('rollback') === '1';
 const jumpInputMask = inputMask(new Set(['jump']));
 const keys = new Map<string, PlayerAction>();
 for (const bindings of [DEFAULT_P1_KEYS, DEFAULT_P2_KEYS]) {
@@ -91,6 +93,9 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   const authenticatedSocket = useRef<WebSocket | null>(null);
   const currentSeat = useRef<Seat | null>(null);
   const sequence = useRef(0);
+  const rollbackSupported = useRef(false);
+  const rollbackRequestId = useRef(0);
+  const rollbackTimeline = useRef<LiveRollback | null>(null);
   const binaryInput = useRef(false);
   const jumpSequence = useRef(-1);
   const lastSentInput = useRef<SentInput | null>(null);
@@ -163,6 +168,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     const previous = socket.current;
     const ws = new WebSocket(roomSocketUrl());
     ws.binaryType = 'arraybuffer';
+    rollbackSupported.current = false;
+    rollbackTimeline.current?.dispose();
     binaryInput.current = false;
     lastSentInput.current = null;
     socket.current = ws;
@@ -190,7 +197,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     }
     ws.onmessage = event => {
       if (socket.current !== ws) return;
-      let data: ServerRoomMessage;
+      const networkStart = performanceMetricsEnabled ? performance.now() : 0;
+      let data: ServerRoomMessage | SyncReply;
       if (event.data instanceof ArrayBuffer) {
         const snap = decodeSnapshotFrame(event.data);
         if (!snap) return;
@@ -199,8 +207,14 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         try { data = JSON.parse(String(event.data)); } catch { return; }
       }
       lastReply = performance.now();
+      if (networkStart) samplePerformance('network', lastReply - networkStart);
+      if (data.type === 'rollbackSync') {
+        rollbackTimeline.current?.receive(data);
+        return;
+      }
       if (data.type === 'hello') {
         binaryInput.current = data.binaryInput === true;
+        rollbackSupported.current = data.checkpointVersion === 1;
         if (data.protocol !== ROOM_PROTOCOL) incompatibleProtocol();
         else send({
           ...request, protocol: ROOM_PROTOCOL, clientId: getClientId(),
@@ -375,6 +389,12 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     clearPerformanceSamples();
     pendingTouches.current = [];
     const slot = seat.slot;
+    let stopped = false;
+    if (rollbackEnabled && rollbackSupported.current) {
+      void import('../sim/wasmSim').then(module => module.loadWasmSim()).then(sim => {
+        if (!stopped && sim.online) rollbackTimeline.current = new LiveRollback(sim.online, slot, () => ++rollbackRequestId.current);
+      }).catch(() => {});
+    }
     let raf = 0;
     let nextPaintAt = performance.now();
     const paintStep = 1000 / 60;
@@ -396,9 +416,20 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       const ping = roomRef.current?.players[slot]?.ping ?? 0;
       const prediction = Math.min(8, Math.max(0, since) + Math.min(5, 1 + ping / 20));
       sound.tickMusic(buffer.latest.players.some(p => p.stocks === 1 || p.damage > 150));
+      const rollback = rollbackTimeline.current;
+      const rollbackStart = performance.now();
+      const predicted = rollback?.update(now, actions(), message =>
+        (socket.current?.bufferedAmount ?? Infinity) < 8192 && send(message));
+      if (rollback) {
+        samplePerformance('rollback', performance.now() - rollbackStart);
+        if (performanceMetricsEnabled) {
+          target.dataset.rollbackCorrections = String(rollback.corrections);
+          target.dataset.rollbackCheckpoints = String(rollback.checkpoints);
+        }
+      }
       const start = performance.now();
       const snap = buffer.latest;
-      const world = (snap.world as any)?.rich
+      const world = predicted ? worldFromRich(predicted) : (snap.world as any)?.rich
         ? worldFromRich(snap as any, buffer.previous as any, blend)
         : renderMatchState(buffer.previous, snap, blend, slot, actions(), prediction, jumpSequence.current);
       renderer.renderWorld(target, world, config, quality.quality);
@@ -432,6 +463,9 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     const timer = window.setInterval(sendInput, 1000 / 30);
     raf = requestAnimationFrame(frame);
     return () => {
+      stopped = true;
+      rollbackTimeline.current?.dispose();
+      rollbackTimeline.current = null;
       cancelAnimationFrame(raf);
       clearInterval(timer);
       window.removeEventListener('keydown', key);

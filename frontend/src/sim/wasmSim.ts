@@ -1,3 +1,4 @@
+import type { OnlineWasm } from '../network/liveRollback';
 export interface WasmConfig {
   mode?: 'versus' | 'training' | 'campaign' | 'attract';
   stocks?: number; knockback?: number; gravity?: number;
@@ -7,6 +8,7 @@ export interface WasmConfig {
 }
 
 export interface WasmSim {
+  online?: OnlineWasm;
   create(ids: string[], stage: number, seed: number, config?: WasmConfig, mode?: string): number;
   step(id: number, inputs: string[][]): number;
   snapshot(id: number): any;
@@ -67,6 +69,18 @@ export function loadWasmSim(): Promise<WasmSim> {
       } : {}),
       ...(typeof g.pbSimRestoreNetwork === 'function' ? {
         restoreNetwork: (id: number, checkpointJSON: string) => g.pbSimRestoreNetwork(id, checkpointJSON),
+      } : {}),
+      ...(typeof g.pbOnlineCreate === 'function' ? {
+        online: {
+          create: (checkpoint: string, slot: number, held: string[][] | null) => g.pbOnlineCreate(checkpoint, slot, JSON.stringify(held)),
+          advance: (id: number, held: string[]) => g.pbOnlineAdvance(id, JSON.stringify(held)),
+          confirm: (id: number, first: number, inputs: string[][][]) => g.pbOnlineConfirm(id, first, JSON.stringify(inputs)),
+          snapshot: (id: number) => {
+            const json = g.pbOnlineSnapshot(id);
+            return json ? JSON.parse(json) : null;
+          },
+          free: (id: number) => g.pbOnlineFree(id),
+        },
       } : {}),
       leave: (id, slot) => g.pbSimLeave(id, slot),
       free: (id) => g.pbSimFree(id),

@@ -27,6 +27,7 @@ const (
 )
 
 type ClientMessage struct {
+	SyncRequest int `json:"syncRequest,omitempty"`
 	MatchID int `json:"matchId,omitempty"`
 	AfterFrame *int `json:"afterFrame,omitempty"`
 	Type       ClientType `json:"type"`

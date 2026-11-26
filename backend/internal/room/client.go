@@ -114,3 +114,21 @@ func (c *Client) Close(code websocket.StatusCode, reason string) {
 	defer c.mu.Unlock()
 	_ = c.conn.Close(code, reason)
 }
+
+// TrySendRollback skips optional sync traffic when another write is active.
+func (c *Client) TrySendRollback(reply RollbackSync) error {
+	if len(reply.Checkpoint) > 0 && len(c.snapshots) != 0 {
+		return nil
+	}
+	if !c.mu.TryLock() {
+		return nil
+	}
+	defer c.mu.Unlock()
+	data, err := json.Marshal(reply)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), snapshotWriteTimeout)
+	defer cancel()
+	return c.conn.Write(ctx, websocket.MessageText, data)
+}

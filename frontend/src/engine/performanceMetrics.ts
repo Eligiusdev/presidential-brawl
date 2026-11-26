@@ -1,4 +1,4 @@
-type Sample = 'frame' | 'render' | 'simulation' | 'touch' | 'ack' | 'snapshot';
+type Sample = 'frame' | 'render' | 'simulation' | 'touch' | 'ack' | 'snapshot' | 'rollback' | 'network';
 const enabled = typeof location !== 'undefined' && new URLSearchParams(location.search).get('perf') === '1';
 export const performanceMetricsEnabled = enabled;
 const samples = new Map<Sample, number[]>();

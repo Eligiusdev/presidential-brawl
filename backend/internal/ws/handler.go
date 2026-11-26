@@ -308,15 +308,19 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 	case contract.CRollbackSync:
 		room.Mu().Lock()
 		now := time.Now()
-		if player.WS != c || room.Match == nil || now.Sub(player.RollbackSyncAt) < 250*time.Millisecond {
+		if player.WS != c || room.Match == nil || now.Sub(player.RollbackSyncAt) < 30*time.Millisecond {
 			room.Mu().Unlock()
 			return
 		}
 		player.RollbackSyncAt = now
-		reply, err := room.RollbackSyncLocked(msg.MatchID, msg.AfterFrame)
+		reply, err := room.RollbackSyncLocked(msg.MatchID, msg.AfterFrame, now.Sub(player.RollbackCheckpointAt) >= time.Second)
+		if len(reply.Checkpoint) > 0 {
+			player.RollbackCheckpointAt = now
+		}
+		reply.SyncRequest = msg.SyncRequest
 		room.Mu().Unlock()
 		if err == nil {
-			_ = c.SendJSON(reply)
+			_ = c.TrySendRollback(reply)
 		}
 
 	case contract.CInput:

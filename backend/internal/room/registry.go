@@ -27,6 +27,7 @@ type PendingInput struct {
 
 type Player struct {
 	RollbackSyncAt time.Time
+	RollbackCheckpointAt time.Time
 	Token      string
 	ClientID   string
 	Name       string
