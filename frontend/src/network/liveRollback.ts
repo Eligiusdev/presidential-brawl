@@ -67,7 +67,7 @@ export class LiveRollback {
     this.pending = true;
   }
 
-  update(now: number, local: ReadonlySet<PlayerAction>, authoritativeFrame: number) {
+  update(now: number, local: ReadonlySet<PlayerAction>, authoritativeFrame: number, skipSnapshot = false) {
     const reply = this.reply;
     this.reply = null;
     if (reply) this.apply(reply, now);
@@ -83,7 +83,15 @@ export class LiveRollback {
       this.nextAdvance += frameMs;
     }
     if (now - this.nextAdvance > frameMs * 2) this.nextAdvance = now + frameMs;
-    return this.head >= this.confirmed + maxRollback || this.head < authoritativeFrame - maxRollback ? null : (this.rendered ??= this.wasm.snapshot(this.id));
+    return this.head >= this.confirmed + maxRollback || this.head < authoritativeFrame - maxRollback ? null : (skipSnapshot ? null : (this.rendered ??= this.wasm.snapshot(this.id)));
+  }
+
+  hasRenderView(authoritativeFrame: number) {
+    return this.id >= 0 && this.head < this.confirmed + maxRollback && this.head >= authoritativeFrame - maxRollback;
+  }
+
+  renderView(authoritativeFrame: number, read: (id: number) => Float32Array | null) {
+    return this.hasRenderView(authoritativeFrame) ? read(this.id) : null;
   }
 
   private apply(reply: SyncReply, now: number) {

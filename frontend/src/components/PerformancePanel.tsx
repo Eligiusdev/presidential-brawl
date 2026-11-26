@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { clearPerformanceSamples, performanceSummary, onlinePerformanceSummary } from '../engine/performanceMetrics';
 
 const labels = {
+  bridge: 'Puente Wasm y escena', bridgeFallback: 'Escena desde servidor', pixiDraw: 'Dibujo PixiJS', pixiFrame: 'Intervalo del ticker PixiJS',
   frame: 'Intervalo entre cuadros', render: 'CPU de render', simulation: 'CPU de simulación',
   touch: 'Toque a cuadro procesado', ack: 'Toque a confirmación del servidor', snapshot: 'Intervalo de snapshots', rollback: 'Predicción y rollback', unpack: 'Descompresión y entrega', network: 'Decodificación de mensajes de red',
 } as const;

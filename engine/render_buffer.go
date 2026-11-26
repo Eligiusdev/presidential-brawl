@@ -1,7 +1,7 @@
 package sim
 
 const (
-	RenderSlots = 8
+	RenderSlots  = 8
 	RenderStride = 8
 	RenderFloats = RenderSlots * RenderStride
 )
@@ -12,8 +12,12 @@ type RenderBuffer [RenderFloats]float32
 // Coordinates are the horizontal center and feet of the fighter. Animation is
 // a state index, independent of the chosen texture atlas.
 func (t *RollbackTimeline) WriteRenderBuffer(out *RenderBuffer) {
+	writeFighterRenderBuffer(t.match.Fighters, out)
+}
+
+func writeFighterRenderBuffer(fighters []*Fighter, out *RenderBuffer) {
 	clear(out[:])
-	for _, fighter := range t.match.Fighters {
+	for _, fighter := range fighters {
 		slot := fighter.Slot
 		if slot < 0 || slot >= RenderSlots || fighter.Stocks <= 0 {
 			continue
@@ -47,4 +51,9 @@ func renderPose(f *Fighter) float32 {
 	default:
 		return 0
 	}
+}
+
+// WriteMatchRenderBuffer is also used by local Wasm consumers.
+func (m *Match) WriteMatchRenderBuffer(out *RenderBuffer) {
+	writeFighterRenderBuffer(m.Fighters, out)
 }

@@ -19,10 +19,13 @@ func registerOnlineRenderBuffer() {
 			return -1
 		}
 		timeline := onlineTimelines[args[0].Int()]
-		if timeline == nil {
+		if timeline != nil {
+			timeline.WriteRenderBuffer(&onlineRenderBuffer)
+		} else if match := matches[args[0].Int()]; match != nil {
+			match.WriteMatchRenderBuffer(&onlineRenderBuffer)
+		} else {
 			return -1
 		}
-		timeline.WriteRenderBuffer(&onlineRenderBuffer)
 		return float64(uintptr(unsafe.Pointer(&onlineRenderBuffer[0])))
 	}))
 }

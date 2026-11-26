@@ -268,3 +268,10 @@ export function paintCombatSprite(ctx: CanvasRenderingContext2D, f: RenderFighte
   const equipment = drawn && !(authored?.authored && (f.wk === 'mg' || f.wk === 'rocket')) && !bakedEquipment && f.wpn > 0 && !f.winning;
   return { drawn, equipment };
 }
+
+// The WebGL scene makes its own textures from the same decoded atlas.
+export async function fighterAtlasArt(fighter: PresidentData) {
+  const item = entry(fighter);
+  await item?.loading;
+  return item?.ready;
+}

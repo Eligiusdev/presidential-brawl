@@ -1,3 +1,4 @@
+import type { createPixiCombat } from '../render/pixiCombat';
 import { isCompactSnapshot, unpackSnapshot } from '../network/compactSnapshot';
 import { LiveRollback, type SyncReply } from '../network/liveRollback';
 import { encodeBinaryInput, inputIsDue, inputMask, type SentInput } from '../network/binaryInput';
@@ -24,6 +25,7 @@ import type { GameConfig, PlayerAction } from '../types/game';
 import { OnlineLobby } from './OnlineLobby';
 import { TouchControls } from './TouchControls';
 
+const pixiEnabled = new URLSearchParams(window.location.search).get('pixi') === '1';
 const rollbackEnabled = new URLSearchParams(window.location.search).get('rollback') === '1';
 const jumpInputMask = inputMask(new Set(['jump']));
 const keys = new Map<string, PlayerAction>();
@@ -452,9 +454,16 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     pendingTouches.current = [];
     const slot = seat.slot;
     let stopped = false;
+    let pixi: Awaited<ReturnType<typeof createPixiCombat>> | undefined;
+    let preparingPixi = false;
+    let readRenderView: ((id: number) => Float32Array | null) | undefined;
+    const startPixiFrame = () => frame(performance.now());
     if (rollbackEnabled && rollbackSupported.current) {
       void import('../sim/wasmSim').then(module => module.loadWasmSim()).then(sim => {
-        if (!stopped && sim.online) rollbackTimeline.current = new LiveRollback(sim.online, slot, () => ++rollbackRequestId.current);
+        if (!stopped && sim.online) {
+          readRenderView = sim.onlineRenderView;
+          rollbackTimeline.current = new LiveRollback(sim.online, slot, () => ++rollbackRequestId.current);
+        }
       }).catch(() => {});
     }
     let raf = 0;
@@ -465,16 +474,30 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     let previousCheckpoints = 0;
     let wasPredicting = false;
     function frame(now: number) {
-      raf = requestAnimationFrame(frame);
+      if (!pixi) raf = requestAnimationFrame(frame);
       const buffer = samples.current;
-      if (!target || !buffer || document.hidden || now + .3 < nextPaintAt) return;
+      if (!target || !buffer || document.hidden || (!pixi && now + .3 < nextPaintAt)) return;
+      if (pixiEnabled && !preparingPixi && readRenderView) {
+        preparingPixi = true;
+        void import('../render/pixiCombat').then(module => module.createPixiCombat(target, buffer.latest)).then(scene => {
+          if (stopped) { scene.destroy(); return; }
+          cancelAnimationFrame(raf);
+          target.after(scene.app.canvas);
+          target.hidden = true;
+          target.parentElement?.classList.add('pixi-combat-active');
+          pixi = scene;
+          previousPaint = 0;
+          scene.app.ticker.add(startPixiFrame);
+          scene.app.ticker.start();
+        }).catch(error => console.warn('Pixi combat unavailable', error));
+      }
       nextPaintAt += Math.max(1, Math.floor((now - nextPaintAt + .3) / paintStep) + 1) * paintStep;
       // Misma resolución interna que el modo local: pixel art escalado por CSS, no alta definición.
       const preset = PIXEL_PRESET_DIMS[config.video.pixelPreset] || PIXEL_PRESET_DIMS.modern;
       const width = Math.max(1, Math.round(preset.w * quality.quality.scale));
       const height = Math.max(1, Math.round(preset.h * quality.quality.scale));
-      if (target.width !== width) target.width = width;
-      if (target.height !== height) target.height = height;
+      if (!pixi && target.width !== width) target.width = width;
+      if (!pixi && target.height !== height) target.height = height;
       const span = Math.max(33.33, (buffer.latest.tick - buffer.previous.tick) * 1000 / 60);
       const blend = Math.min(1, (now - buffer.at) / span);
       const since = (now - buffer.at) / (1000 / 60);
@@ -483,7 +506,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       sound.tickMusic(buffer.latest.players.some(p => p.stocks === 1 || p.damage > 150));
       const rollback = rollbackTimeline.current;
       const rollbackStart = performance.now();
-      const predicted = rollback?.update(now, actions(), buffer.latest.frame ?? 0);
+      const predicted = rollback?.update(now, actions(), buffer.latest.frame ?? 0, Boolean(pixi));
+      const predicting = Boolean(predicted) || Boolean(pixi && rollback?.hasRenderView(buffer.latest.frame ?? 0));
       if (rollback) {
         const rollbackCost = performance.now() - rollbackStart;
         samplePerformance('rollback', rollbackCost);
@@ -491,8 +515,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
           markOnlinePerformance(rollback.checkpoints !== previousCheckpoints ? 'apply checkpoint' :
             rollback.corrections !== previousCorrections ? 'reconcile inputs' : 'slow prediction', undefined, rollbackCost, rollbackStart);
         }
-        if (wasPredicting !== Boolean(predicted)) markOnlinePerformance(predicted ? 'predicting' : 'authoritative fallback');
-        wasPredicting = Boolean(predicted);
+        if (wasPredicting !== predicting) markOnlinePerformance(predicting ? 'predicting' : 'authoritative fallback');
+        wasPredicting = predicting;
         previousCorrections = rollback.corrections;
         previousCheckpoints = rollback.checkpoints;
         if (performanceMetricsEnabled) {
@@ -500,13 +524,27 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
           target.dataset.rollbackCheckpoints = String(rollback.checkpoints);
         }
       }
-      const start = performance.now();
-      const snap = buffer.latest;
-      const world = predicted ? worldFromRich(predicted) : (snap.world as any)?.rich
-        ? worldFromRich(snap as any, buffer.previous as any, blend)
-        : renderMatchState(buffer.previous, snap, blend, slot, actions(), prediction, jumpSequence.current);
-      renderer.renderWorld(target, world, config, quality.quality);
-      const cost = performance.now() - start;
+      let cost: number;
+      if (pixi && readRenderView) {
+        const bridgeStart = performance.now();
+        const view = rollback?.renderView(buffer.latest.frame ?? 0, readRenderView) ?? null;
+        pixi.sync(view, buffer.latest);
+        const drawStart = performance.now();
+        if (view) samplePerformance('bridge', drawStart - bridgeStart);
+        else samplePerformance('bridgeFallback', drawStart - bridgeStart);
+        pixi.app.render();
+        cost = performance.now() - drawStart;
+        samplePerformance('pixiDraw', cost);
+        if (previousPaint) samplePerformance('pixiFrame', now - previousPaint);
+      } else {
+          const start = performance.now();
+        const snap = buffer.latest;
+        const world = predicted ? worldFromRich(predicted) : (snap.world as any)?.rich
+          ? worldFromRich(snap as any, buffer.previous as any, blend)
+          : renderMatchState(buffer.previous, snap, blend, slot, actions(), prediction, jumpSequence.current);
+        renderer.renderWorld(target, world, config, quality.quality);
+        cost = performance.now() - start;
+      }
       if (previousPaint) {
         quality.record(Math.min(160, now - previousPaint), cost);
         recordOnlineFrame(now, previousPaint);
@@ -542,6 +580,12 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     raf = requestAnimationFrame(frame);
     return () => {
       stopped = true;
+      if (pixi) {
+        pixi.app.ticker.stop();
+        pixi.destroy();
+        target.hidden = false;
+        target.parentElement?.classList.remove('pixi-combat-active');
+      }
       stopOnlinePerformance();
       rollbackTimeline.current?.dispose();
       rollbackTimeline.current = null;

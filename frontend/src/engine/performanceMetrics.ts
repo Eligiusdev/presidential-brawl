@@ -1,4 +1,4 @@
-type Sample = 'frame' | 'render' | 'simulation' | 'touch' | 'ack' | 'snapshot' | 'rollback' | 'network' | 'unpack';
+type Sample = 'frame' | 'render' | 'simulation' | 'touch' | 'ack' | 'snapshot' | 'rollback' | 'network' | 'unpack' | 'bridge' | 'bridgeFallback' | 'pixiDraw' | 'pixiFrame';
 const enabled = typeof location !== 'undefined' && new URLSearchParams(location.search).get('perf') === '1';
 export const performanceMetricsEnabled = enabled;
 const samples = new Map<Sample, number[]>();

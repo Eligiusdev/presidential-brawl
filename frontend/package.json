@@ -16,6 +16,7 @@
     "@bufbuild/protobuf": "^2.11.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "pixi.js": "^8.23.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-router-dom": "^7.6.1"
