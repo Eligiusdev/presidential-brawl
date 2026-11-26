@@ -19,6 +19,7 @@ type snapshotFrame struct {
 }
 
 type Client struct {
+	CompactSnapshots bool
 	conn          *websocket.Conn
 	mu            sync.Mutex
 	alive         bool

@@ -169,8 +169,16 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 		if err != nil {
 			log.Printf("room snapshot encoding failed: %v", err)
 		} else {
+			var compact []byte
 			for _, client := range clients {
-				client.QueueSnapshot(websocket.MessageBinary, bin)
+				frame := bin
+				if client.CompactSnapshots {
+					if compact == nil {
+						compact = compactSnapshot(bin)
+					}
+					frame = compact
+				}
+				client.QueueSnapshot(websocket.MessageBinary, frame)
 			}
 		}
 		if standings != nil {

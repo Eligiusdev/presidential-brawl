@@ -1,3 +1,4 @@
+import { isCompactSnapshot, unpackSnapshot } from '../src/network/compactSnapshot';
 import { encodeBinaryInput } from '../src/network/binaryInput';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
@@ -54,10 +55,13 @@ function waitMsg<T = any>(ws: WebSocket, pred: (m: any) => boolean, timeoutMs = 
 async function waitSnap(ws: WebSocket, pred: (s: any) => boolean, timeoutMs = 8000): Promise<any> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => { ws.off('message', onMsg); reject(new Error('snap timeout')); }, timeoutMs);
-    const onMsg = (data: WebSocket.RawData, isBinary: boolean) => {
+    const onMsg = async (data: WebSocket.RawData, isBinary: boolean) => {
       if (!isBinary) return;
       const raw = data instanceof Buffer ? new Uint8Array(data) : new Uint8Array(data as ArrayBuffer);
-      const proto = fromBinary(SnapshotSchema, raw) as any;
+      const original = new Uint8Array(raw).buffer;
+      if (!isCompactSnapshot(original)) return;
+      const decoded = await unpackSnapshot(original);
+      const proto = fromBinary(SnapshotSchema, new Uint8Array(decoded)) as any;
       const snap = proto.snapshotJson?.length
         ? JSON.parse(new TextDecoder().decode(proto.snapshotJson)) : proto;
       if (pred(snap)) { clearTimeout(t); ws.off('message', onMsg); resolve(snap); }
@@ -77,7 +81,7 @@ describe('Go sim combat parity', () => {
   afterAll(async () => { proc?.kill('SIGTERM'); });
 
   test('fighters take damage and stocks decrease through combat', async () => {
-    const ws1 = new WebSocket(`ws://127.0.0.1:${port}/api/rooms/ws`);
+    const ws1 = new WebSocket(`ws://127.0.0.1:${port}/api/rooms/ws?snapshots=gzip1`);
     await new Promise(r => ws1.on('open', r));
     ws1.send(JSON.stringify({ protocol: ROOM_PROTOCOL, type: 'create', maxPlayers: 2 }));
     const seat1 = await waitMsg<any>(ws1, m => m.type === 'seat');

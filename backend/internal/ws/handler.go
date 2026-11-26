@@ -45,6 +45,7 @@ func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(4096)
 
 	c := rooms.NewClient(conn)
+	c.CompactSnapshots = r.URL.Query().Get("snapshots") == "gzip1"
 	s.Reg.AddClient(c)
 	defer s.Reg.RemoveClient(c)
 

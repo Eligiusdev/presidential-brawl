@@ -3,7 +3,7 @@ import { clearPerformanceSamples, performanceSummary, onlinePerformanceSummary }
 
 const labels = {
   frame: 'Intervalo entre cuadros', render: 'CPU de render', simulation: 'CPU de simulación',
-  touch: 'Toque a cuadro procesado', ack: 'Toque a confirmación del servidor', snapshot: 'Intervalo de snapshots', rollback: 'Predicción y rollback', network: 'Decodificación de mensajes de red',
+  touch: 'Toque a cuadro procesado', ack: 'Toque a confirmación del servidor', snapshot: 'Intervalo de snapshots', rollback: 'Predicción y rollback', unpack: 'Descompresión y entrega', network: 'Decodificación de mensajes de red',
 } as const;
 
 export function PerformancePanel() {

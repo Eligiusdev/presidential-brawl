@@ -1,3 +1,4 @@
+import { isCompactSnapshot, unpackSnapshot } from '../network/compactSnapshot';
 import { LiveRollback, type SyncReply } from '../network/liveRollback';
 import { encodeBinaryInput, inputIsDue, inputMask, type SentInput } from '../network/binaryInput';
 import { ROOM_PROTOCOL, ROOM_RESUME_MS } from '../network/roomProtocol.mjs';
@@ -166,7 +167,9 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     setBusy(true);
     if (manual || !retryUntil.current) setStatus('');
     const previous = socket.current;
-    const ws = new WebSocket(roomSocketUrl());
+    const url = new URL(roomSocketUrl());
+    if (typeof DecompressionStream !== 'undefined') url.searchParams.set('snapshots', 'gzip1');
+    const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
     rollbackSupported.current = false;
     rollbackTimeline.current?.dispose();
@@ -195,7 +198,41 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       socket.current = null;
       ws.close();
     }
+    let unpacking = false;
+    let queuedSnapshot: MessageEvent | null = null;
+    let snapshotEpoch = 0;
     ws.onmessage = event => {
+      if (!(event.data instanceof ArrayBuffer) || !isCompactSnapshot(event.data)) {
+        handleMessage(event);
+        return;
+      }
+      lastReply = performance.now();
+      queuedSnapshot = event;
+      if (unpacking) return;
+      unpacking = true;
+      void (async () => {
+        try {
+          while (queuedSnapshot && socket.current === ws) {
+            const next = queuedSnapshot;
+            queuedSnapshot = null;
+            const start = performance.now();
+            const epoch = snapshotEpoch;
+            try {
+              const frame = await unpackSnapshot(next.data);
+              if (socket.current === ws && epoch === snapshotEpoch) {
+                handleMessage(new MessageEvent('message', { data: frame }), next.data.byteLength);
+                samplePerformance('unpack', performance.now() - start);
+              }
+            } catch {
+              // The next independently encoded state can still be applied.
+            }
+          }
+        } finally {
+          unpacking = false;
+        }
+      })();
+    };
+    function handleMessage(event: MessageEvent, wireBytes?: number) {
       if (socket.current !== ws) return;
       const networkStart = performanceMetricsEnabled ? performance.now() : 0;
       let data: ServerRoomMessage | SyncReply;
@@ -211,7 +248,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         const cost = lastReply - networkStart;
         samplePerformance('network', cost);
         if (data.type === 'snapshot' || data.type === 'rollbackSync') {
-          const bytes = typeof event.data === 'string' ? new TextEncoder().encode(event.data).byteLength : event.data.byteLength;
+          const bytes = wireBytes ?? (typeof event.data === 'string' ? new Blob([event.data]).size : event.data.byteLength);
           markOnlinePerformance(data.type === 'snapshot' ? 'snapshot' : data.checkpoint ? 'checkpoint' : 'confirmed inputs', bytes, cost, networkStart);
         }
       }
@@ -250,13 +287,15 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       if (data.type === 'room') {
         setRoom(data);
         if (!data.playing) {
+          snapshotEpoch++;
+          queuedSnapshot = null;
           samples.current = null;
           setSnapshot(null);
         }
       }
       if (data.type === 'snapshot') {
         const last = samples.current?.latest;
-        if (last && data.tick <= last.tick) return;
+        if (last && (data.frame ?? data.tick) <= (last.frame ?? last.tick)) return;
         const at = performance.now();
         if (samples.current) samplePerformance('snapshot', at - samples.current.at);
         samples.current = { previous: last ?? data, latest: data, at };
@@ -277,7 +316,22 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         const nextLocal = data.players.find(player => player.slot === currentSeat.current?.slot);
         const controlsChanged = previousLocal?.wk !== nextLocal?.wk ||
           ((previousLocal?.ultCharge ?? 0) >= 100) !== ((nextLocal?.ultCharge ?? 0) >= 100);
-        if (!last || !published || at - published.at >= 85 || controlsChanged ||
+        const previousHud = published?.snapshot;
+        const visibleChange = !previousHud || previousHud.stage !== data.stage ||
+          Math.floor(previousHud.tick / 60) !== Math.floor(data.tick / 60) ||
+          previousHud.world.hzPhase !== data.world.hzPhase ||
+          Boolean(previousHud.world.stageNightStart) !== Boolean(data.world.stageNightStart) ||
+          previousHud.players.length !== data.players.length ||
+          data.players.some((player, index) => {
+            const before = previousHud.players[index];
+            return before.slot !== player.slot || before.fighterId !== player.fighterId ||
+              Math.floor(before.damage) !== Math.floor(player.damage) || before.stocks !== player.stocks ||
+              Math.floor(before.ultCharge) !== Math.floor(player.ultCharge) ||
+              Boolean(before.hitFlash) !== Boolean(player.hitFlash) ||
+              Boolean(before.stun) !== Boolean(player.stun) || before.floating !== player.floating ||
+              before.combo !== player.combo || before.wk !== player.wk;
+          });
+        if (!last || !published || (visibleChange && at - published.at >= 85) || controlsChanged ||
             published.snapshot.world.winnerPi !== data.world.winnerPi) {
           publishedHud.current = { snapshot: data, at };
           setSnapshot(data);
