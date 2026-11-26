@@ -1,6 +1,9 @@
 package sim
 
-import "slices"
+import (
+	"encoding/json"
+	"slices"
+)
 
 // RollbackFrames bounds both the replay work and the number of retained checkpoints.
 const RollbackFrames = 8
@@ -49,7 +52,7 @@ func (t *RollbackTimeline) Reset(checkpoint Checkpoint, remote [][]string) bool 
 func (t *RollbackTimeline) Advance(local []string) int {
 	frame := t.match.Frame + 1
 	entry := &t.history[frame%RollbackFrames]
-	*entry = rollbackFrame{frame: frame, before: t.match.Save(), local: slices.Clone(local)}
+	*entry = rollbackFrame{frame: frame, before: t.saveFrame(), local: slices.Clone(local)}
 	t.simulate(entry)
 	return frame
 }
@@ -96,10 +99,10 @@ func (t *RollbackTimeline) Confirm(frame int, remote [][]string) CorrectionResul
 		return CorrectionMatched
 	}
 	t.lastRemote = entry.used
-	t.match.Restore(entry.before)
+	t.restoreFrame(entry.before)
 	for i := frame; i <= latest; i++ {
 		next := &t.history[i%RollbackFrames]
-		next.before = t.match.Save()
+		next.before = t.saveFrame()
 		t.simulate(next)
 	}
 	return CorrectionApplied
@@ -171,10 +174,10 @@ func (t *RollbackTimeline) ConfirmBatch(first int, confirmed [][][]string) Corre
 	if replayFrom != 0 {
 		entry := &t.history[replayFrom%RollbackFrames]
 		t.lastRemote = entry.used
-		t.match.Restore(entry.before)
+		t.restoreFrame(entry.before)
 		for frame := replayFrom; frame <= head; frame++ {
 			next := &t.history[frame%RollbackFrames]
-			next.before = t.match.Save()
+			next.before = t.saveFrame()
 			t.simulate(next)
 		}
 	}
@@ -184,7 +187,7 @@ func (t *RollbackTimeline) ConfirmBatch(first int, confirmed [][][]string) Corre
 			continue
 		}
 		entry := &t.history[frame%RollbackFrames]
-		*entry = rollbackFrame{frame: frame, before: t.match.Save(), remote: cloneInputs(inputs, len(t.match.Fighters)), confirmed: true}
+		*entry = rollbackFrame{frame: frame, before: t.saveFrame(), remote: cloneInputs(inputs, len(t.match.Fighters)), confirmed: true}
 		t.simulate(entry)
 	}
 	if replayFrom != 0 {
@@ -193,5 +196,18 @@ func (t *RollbackTimeline) ConfirmBatch(first int, confirmed [][][]string) Corre
 	return CorrectionMatched
 }
 
-func (t *RollbackTimeline) Frame() int           { return t.match.Frame }
-func (t *RollbackTimeline) SnapshotJSON() []byte { return t.match.SnapshotJSON() }
+func (t *RollbackTimeline) Frame() int { return t.match.Frame }
+func (t *RollbackTimeline) SnapshotJSON() []byte {
+	payload, _ := json.Marshal(t.match.NetworkSnapshot(nil, nil))
+	return payload
+}
+
+// The private timeline owns these definitions. Simulation reads them and
+// replaces attack specs wholesale. Mutable playback data is still cloned.
+func (t *RollbackTimeline) saveFrame() Checkpoint {
+	return Checkpoint{state: cloneMatch(&t.match, false)}
+}
+
+func (t *RollbackTimeline) restoreFrame(checkpoint Checkpoint) {
+	t.match = *cloneMatch(checkpoint.state, false)
+}

@@ -18,7 +18,7 @@ type Checkpoint struct {
 }
 
 func (m *Match) Save() Checkpoint {
-	return Checkpoint{state: cloneMatch(m)}
+	return Checkpoint{state: cloneMatch(m, true)}
 }
 
 // Restore copies the checkpoint again so it can be replayed more than once.
@@ -27,7 +27,7 @@ func (m *Match) Restore(checkpoint Checkpoint) bool {
 	if checkpoint.state == nil {
 		return false
 	}
-	state := cloneMatch(checkpoint.state)
+	state := cloneMatch(checkpoint.state, true)
 	state.OnEnd = m.OnEnd
 	*m = *state
 	return true
@@ -51,7 +51,7 @@ func clonePointers[T any](values []*T, clone func(*T) *T) []*T {
 	return out
 }
 
-func cloneMatch(m *Match) *Match {
+func cloneMatch(m *Match, copyDefinitions bool) *Match {
 	out := *m
 	out.OnEnd = nil
 	out.RNG = copyValue(m.RNG)
@@ -60,8 +60,8 @@ func cloneMatch(m *Match) *Match {
 	out.Spawns = slices.Clone(m.Spawns)
 	out.Fighters = clonePointers(m.Fighters, func(f *Fighter) *Fighter {
 		next := *f
-		next.D = copyValue(f.D)
-		if f.D != nil {
+		if copyDefinitions && f.D != nil {
+			next.D = copyValue(f.D)
 			next.D.Ultimate = cloneUltimate(f.D.Ultimate)
 			next.D.Moves = copyValue(f.D.Moves)
 			if moves := next.D.Moves; moves != nil {
@@ -75,7 +75,9 @@ func cloneMatch(m *Match) *Match {
 		next.Atk = copyValue(f.Atk)
 		if next.Atk != nil {
 			next.Atk.Hits = maps.Clone(f.Atk.Hits)
-			next.Atk.Spec = cloneMove(f.Atk.Spec)
+			if copyDefinitions {
+				next.Atk.Spec = cloneMove(f.Atk.Spec)
+			}
 		}
 		if index := platformIndex(m, f.Pl); index >= 0 {
 			next.Pl = &out.Plats[index]
@@ -94,7 +96,9 @@ func cloneMatch(m *Match) *Match {
 	out.CrowdParticles = slices.Clone(m.CrowdParticles)
 	out.UltEffects = clonePointers(m.UltEffects, func(u *UltEffect) *UltEffect {
 		next := *u
-		next.Spec.Colors = slices.Clone(u.Spec.Colors)
+		if copyDefinitions {
+			next.Spec.Colors = slices.Clone(u.Spec.Colors)
+		}
 		next.Tr = slices.Clone(u.Tr)
 		next.Bx = slices.Clone(u.Bx)
 		next.M = slices.Clone(u.M)
@@ -102,7 +106,9 @@ func cloneMatch(m *Match) *Match {
 		next.Specialized = copyValue(u.Specialized)
 		if next.Specialized != nil {
 			next.Specialized.Origin = copyValue(u.Specialized.Origin)
-			next.Specialized.Ultimate = cloneUltimate(u.Specialized.Ultimate)
+			if copyDefinitions {
+				next.Specialized.Ultimate = cloneUltimate(u.Specialized.Ultimate)
+			}
 		}
 		return &next
 	})

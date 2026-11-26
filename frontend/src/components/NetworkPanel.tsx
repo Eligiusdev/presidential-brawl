@@ -3,7 +3,7 @@ import { encodeBinaryInput, inputIsDue, inputMask, type SentInput } from '../net
 import { ROOM_PROTOCOL, ROOM_RESUME_MS } from '../network/roomProtocol.mjs';
 import { AdaptiveRenderQuality } from '../engine/renderPerformance';
 import { preloadMatchArt } from '../engine/matchArt';
-import { clearPerformanceSamples, performanceMetricsEnabled, samplePerformance } from '../engine/performanceMetrics';
+import { clearPerformanceSamples, performanceMetricsEnabled, samplePerformance, markOnlinePerformance, recordOnlineFrame, startOnlinePerformance } from '../engine/performanceMetrics';
 import { VictoryShowcase } from './VictoryShowcase';
 import { sound } from '../audio/soundEngine';
 import { useEffect, useRef, useState } from 'react';
@@ -207,7 +207,14 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         try { data = JSON.parse(String(event.data)); } catch { return; }
       }
       lastReply = performance.now();
-      if (networkStart) samplePerformance('network', lastReply - networkStart);
+      if (networkStart) {
+        const cost = lastReply - networkStart;
+        samplePerformance('network', cost);
+        if (data.type === 'snapshot' || data.type === 'rollbackSync') {
+          const bytes = typeof event.data === 'string' ? new TextEncoder().encode(event.data).byteLength : event.data.byteLength;
+          markOnlinePerformance(data.type === 'snapshot' ? 'snapshot' : data.checkpoint ? 'checkpoint' : 'confirmed inputs', bytes, cost, networkStart);
+        }
+      }
       if (data.type === 'rollbackSync') {
         rollbackTimeline.current?.receive(data);
         return;
@@ -387,6 +394,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     const mobile = document.documentElement.hasAttribute('data-mobile');
     const quality = new AdaptiveRenderQuality(config.video.adaptiveQuality !== false, mobile ? 2 : 0);
     clearPerformanceSamples();
+    const stopOnlinePerformance = startOnlinePerformance();
     pendingTouches.current = [];
     const slot = seat.slot;
     let stopped = false;
@@ -399,6 +407,9 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     let nextPaintAt = performance.now();
     const paintStep = 1000 / 60;
     let previousPaint = 0;
+    let previousCorrections = 0;
+    let previousCheckpoints = 0;
+    let wasPredicting = false;
     function frame(now: number) {
       raf = requestAnimationFrame(frame);
       const buffer = samples.current;
@@ -418,10 +429,18 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       sound.tickMusic(buffer.latest.players.some(p => p.stocks === 1 || p.damage > 150));
       const rollback = rollbackTimeline.current;
       const rollbackStart = performance.now();
-      const predicted = rollback?.update(now, actions(), message =>
-        (socket.current?.bufferedAmount ?? Infinity) < 8192 && send(message));
+      const predicted = rollback?.update(now, actions(), buffer.latest.frame ?? 0);
       if (rollback) {
-        samplePerformance('rollback', performance.now() - rollbackStart);
+        const rollbackCost = performance.now() - rollbackStart;
+        samplePerformance('rollback', rollbackCost);
+        if (rollback.corrections !== previousCorrections || rollback.checkpoints !== previousCheckpoints || rollbackCost > 8) {
+          markOnlinePerformance(rollback.checkpoints !== previousCheckpoints ? 'apply checkpoint' :
+            rollback.corrections !== previousCorrections ? 'reconcile inputs' : 'slow prediction', undefined, rollbackCost, rollbackStart);
+        }
+        if (wasPredicting !== Boolean(predicted)) markOnlinePerformance(predicted ? 'predicting' : 'authoritative fallback');
+        wasPredicting = Boolean(predicted);
+        previousCorrections = rollback.corrections;
+        previousCheckpoints = rollback.checkpoints;
         if (performanceMetricsEnabled) {
           target.dataset.rollbackCorrections = String(rollback.corrections);
           target.dataset.rollbackCheckpoints = String(rollback.checkpoints);
@@ -435,7 +454,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       renderer.renderWorld(target, world, config, quality.quality);
       const cost = performance.now() - start;
       if (previousPaint) {
-        quality.record(now - previousPaint, cost);
+        quality.record(Math.min(160, now - previousPaint), cost);
+        recordOnlineFrame(now, previousPaint);
         samplePerformance('frame', now - previousPaint);
         samplePerformance('render', cost);
       }
@@ -460,10 +480,15 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     document.addEventListener('visibilitychange', visibility);
     lastSentInput.current = null;
     sendInput();
-    const timer = window.setInterval(sendInput, 1000 / 30);
+    const timer = window.setInterval(() => {
+      sendInput();
+      if (!document.hidden) rollbackTimeline.current?.request(performance.now(), message =>
+        (socket.current?.bufferedAmount ?? Infinity) < 8192 && send(message));
+    }, 1000 / 30);
     raf = requestAnimationFrame(frame);
     return () => {
       stopped = true;
+      stopOnlinePerformance();
       rollbackTimeline.current?.dispose();
       rollbackTimeline.current = null;
       cancelAnimationFrame(raf);
