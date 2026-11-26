@@ -81,8 +81,10 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   const [recovering, setRecovering] = useState(false);
   const retryUntil = useRef(0);
   const [busy, setBusy] = useState(false);
-  const [hud, setHud] = useState<MatchSnapshot['players']>([]);
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
+  const publishedHud = useRef<{ snapshot: MatchSnapshot; at: number } | null>(null);
+  const roomRef = useRef(room);
+  roomRef.current = room;
   const socket = useRef<WebSocket | null>(null);
   const authenticatedSocket = useRef<WebSocket | null>(null);
   const currentSeat = useRef<Seat | null>(null);
@@ -136,7 +138,6 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       setIncompatible(false);
       setRoom(null);
       setSeat(null);
-      setHud([]);
       setSnapshot(null);
       samples.current = null;
       currentSeat.current = null;
@@ -211,8 +212,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         setRoom(data);
         if (!data.playing) {
           samples.current = null;
-          setHud([]);
-      setSnapshot(null);
+          setSnapshot(null);
         }
       }
       if (data.type === 'snapshot') {
@@ -229,12 +229,18 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         }
         if (last) {
           if (data.world.winnerPi !== null && last.world.winnerPi === null) sound.win();
-          else if (data.players.some(p => p.stocks < last.players[p.slot].stocks)) sound.ko();
+          else if (data.players.some(p => p.stocks < (last.players.find(player => player.slot === p.slot)?.stocks ?? p.stocks))) sound.ko();
           else if (data.cine && !last.cine) sound.siren();
-          else if (data.players.some(p => p.damage > last.players[p.slot].damage)) sound.hit();
+          else if (data.players.some(p => p.damage > (last.players.find(player => player.slot === p.slot)?.damage ?? p.damage))) sound.hit();
         }
-        if (data.tick % 3 === 0 || !last || data.world.winnerPi !== null) {
-          setHud(data.players);
+        const published = publishedHud.current;
+        const previousLocal = published?.snapshot.players.find(player => player.slot === currentSeat.current?.slot);
+        const nextLocal = data.players.find(player => player.slot === currentSeat.current?.slot);
+        const controlsChanged = previousLocal?.wk !== nextLocal?.wk ||
+          ((previousLocal?.ultCharge ?? 0) >= 100) !== ((nextLocal?.ultCharge ?? 0) >= 100);
+        if (!last || !published || at - published.at >= 85 || controlsChanged ||
+            published.snapshot.world.winnerPi !== data.world.winnerPi) {
+          publishedHud.current = { snapshot: data, at };
           setSnapshot(data);
         }
       }
@@ -331,7 +337,6 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     samples.current = null;
     setRoom(null);
     setSeat(null);
-    setHud([]);
     setSnapshot(null);
     setBusy(false);
     setStatus('');
@@ -347,19 +352,20 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     const target = canvas.current;
     if (!target) return;
     const renderer = new PixelRenderer();
-    const quality = new AdaptiveRenderQuality(config.video.adaptiveQuality !== false, window.matchMedia('(pointer: coarse)').matches);
+    const mobile = document.documentElement.hasAttribute('data-mobile');
+    const quality = new AdaptiveRenderQuality(config.video.adaptiveQuality !== false, mobile ? 2 : 0);
     clearPerformanceSamples();
     pendingTouches.current = [];
     const slot = seat.slot;
     let raf = 0;
-    let lastPaint = performance.now() - 1000 / 60;
+    let nextPaintAt = performance.now();
     const paintStep = 1000 / 60;
     let previousPaint = 0;
     function frame(now: number) {
       raf = requestAnimationFrame(frame);
       const buffer = samples.current;
-      if (!target || !buffer || now - lastPaint < paintStep - .3) return;
-      lastPaint += Math.max(1, Math.floor((now - lastPaint) / paintStep)) * paintStep;
+      if (!target || !buffer || document.hidden || now + .3 < nextPaintAt) return;
+      nextPaintAt += Math.max(1, Math.floor((now - nextPaintAt + .3) / paintStep) + 1) * paintStep;
       // Misma resolución interna que el modo local: pixel art escalado por CSS, no alta definición.
       const preset = PIXEL_PRESET_DIMS[config.video.pixelPreset] || PIXEL_PRESET_DIMS.modern;
       const width = Math.max(1, Math.round(preset.w * quality.quality.scale));
@@ -369,7 +375,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       const span = Math.max(33.33, (buffer.latest.tick - buffer.previous.tick) * 1000 / 60);
       const blend = Math.min(1, (now - buffer.at) / span);
       const since = (now - buffer.at) / (1000 / 60);
-      const ping = room?.players[slot]?.ping ?? 0;
+      const ping = roomRef.current?.players[slot]?.ping ?? 0;
       const prediction = Math.min(8, Math.max(0, since) + Math.min(5, 1 + ping / 20));
       sound.tickMusic(buffer.latest.players.some(p => p.stocks === 1 || p.damage > 150));
       const start = performance.now();
@@ -479,10 +485,10 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
           });
           return <ol>{[...teams.values()].sort((a,b)=>a.best-b.best).map(t => <li key={t.team}>
             <strong>Equipo {String.fromCharCode(65+t.team)}</strong>
-            <div style={{ fontSize: 12, opacity: .8 }}>{t.slots.map(s => { const hp = hud.find(h => h.slot === s); const f = PRESIDENTS_DATA.find(d => d.id === hp?.fighterId); return `J${s+1}${f?` · ${f.name}`:''}`; }).join(' · ')}</div>
+            <div style={{ fontSize: 12, opacity: .8 }}>{t.slots.map(s => { const hp = (samples.current?.latest ?? snapshot)?.players.find(h => h.slot === s); const f = PRESIDENTS_DATA.find(d => d.id === hp?.fighterId); return `J${s+1}${f?` · ${f.name}`:''}`; }).join(' · ')}</div>
           </li>)}</ol>;
         })() : <ol>{room.standings.map(slot => {
-          const hp = hud.find(h => h.slot === slot); const fighter = PRESIDENTS_DATA.find(d => d.id === hp?.fighterId);
+          const hp = (samples.current?.latest ?? snapshot)?.players.find(h => h.slot === slot); const fighter = PRESIDENTS_DATA.find(d => d.id === hp?.fighterId);
           return <li key={slot}>J{slot + 1}{fighter ? ` · ${fighter.name}` : ''}</li>;
         })}</ol>}
         {room.hostSlot === seat.slot && <button onClick={() => send({ type: 'lobby' })}>{room.mode === 'champion' && (room.championNext ?? 0) > 0 && (room.championNext ?? 0) < (room.championSize ?? 0) ? 'Siguiente duelo' : 'Volver a la sala'}</button>}

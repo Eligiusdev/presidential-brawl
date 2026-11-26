@@ -15,8 +15,8 @@ export class AdaptiveRenderQuality {
   private misses = 0;
   private goodWindows = 0;
 
-  constructor(private adaptive = true, preferEfficiency = false) {
-    this.tier = adaptive && preferEfficiency ? 1 : 0;
+  constructor(private adaptive = true, initialTier: boolean | 0 | 1 | 2 = false) {
+    this.tier = adaptive ? Number(initialTier) : 0;
   }
 
   get quality(): RenderQuality { return profiles[this.tier]; }

@@ -1952,3 +1952,51 @@ html[data-mobile] .online-join-row { flex-shrink: 0; }
     --attack-size: clamp(34px, calc(40px * var(--touch-scale)), 48px);
   }
 }
+
+@media (orientation: landscape) {
+  html[data-mobile] .apex-title:has(.console-title-layout) { justify-content: safe center; }
+  html[data-mobile] .console-title-layout {
+    grid-template-columns: minmax(0, 36%) minmax(0, 1fr);
+    max-height: 100%;
+    min-height: 0;
+    overflow: auto;
+    gap: clamp(8px, 2vw, 22px);
+  }
+  html[data-mobile] .console-title-layout .console-menu {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: center;
+  }
+  html[data-mobile] .console-title-layout .console-menu-item {
+    grid-template-columns: 26px minmax(0, 1fr);
+    min-height: 44px;
+    white-space: normal;
+  }
+  html[data-mobile] .console-title-layout .console-menu-icon { width: 26px; height: 26px; }
+  html[data-mobile] .console-title-layout .console-game-title { font-size: clamp(1.3rem, 5vw, 2.6rem); overflow-wrap: anywhere; }
+  html[data-mobile] .ob-roster-head .roster-search { margin-bottom: 2px; }
+  html[data-mobile] .ob-roster-actions { flex-direction: row; align-items: center; flex-wrap: wrap; }
+  html[data-mobile] .ob-roster-actions > :is(button, div) { flex: 1 1 auto; }
+  html[data-mobile] .ob-roster-actions .ob-status { flex-basis: 100%; }
+  html[data-mobile] .online-browser-head { flex-wrap: wrap; gap: 4px 10px; }
+  html[data-mobile] .online-browser-heading { gap: 3px; }
+  html[data-mobile] .online-browser-head-actions { gap: 4px; }
+  html[data-mobile] .online-match .apex-arena-backdrop { display: none; }
+}
+
+html[data-mobile] .online-match .apex-arena-backdrop { filter: none; transform: none; }
+
+@media (orientation: landscape) {
+  html[data-mobile] .online-browser-grid { grid-template-rows: minmax(0, 1fr); gap: 6px; }
+  html[data-mobile] .online-panel-head { padding-block: 5px; }
+  html[data-mobile] .online-create-submit { min-height: 44px; }
+  html[data-mobile] .online-browser-heading .console-modal-kicker { display: none; }
+}
+
+@media (orientation: landscape) and (max-height: 420px) {
+  html[data-mobile] .online-browser-heading { flex-direction: row; align-items: center; gap: 8px; }
+  html[data-mobile] .online-browser-heading .console-game-title { font-size: 1.25rem; }
+  html[data-mobile] .online-browser-head-actions .console-btn { min-height: 32px; padding-inline: 8px; }
+  html[data-mobile] .online-panel-body { padding-block: 5px; }
+  html[data-mobile] .online-panel-kicker { display: none; }
+}

@@ -1,32 +1,34 @@
 const DESIGN_WIDTH = 1280;
 const DESIGN_HEIGHT = 720;
 
-/**
- * Keeps the desktop composition on smaller screens by scaling the whole app as
- * one canvas. The canvas always fills the screen width; in landscape its design
- * height follows the viewport aspect so there are no side letterboxes.
- */
 export function installDesignViewport(): void {
+  const root = document.documentElement;
+  const coarsePointer = window.matchMedia('(any-pointer: coarse)');
+  let frame = 0;
+
   const apply = () => {
+    frame = 0;
     const width = window.innerWidth;
     const height = window.innerHeight;
     const mobile = width <= 620 || (height <= 520 && width <= 1024) ||
-      (window.matchMedia('(any-pointer: coarse)').matches && width <= 1100);
-    document.documentElement.toggleAttribute('data-mobile', mobile);
+      (coarsePointer.matches && Math.min(width, height) <= 850);
     const scaled = !mobile && (width < DESIGN_WIDTH || height < DESIGN_HEIGHT);
     const scale = scaled ? Math.min(1, width / DESIGN_WIDTH) : 1;
-    const designHeight = scaled && width > height
-      ? Math.round(DESIGN_WIDTH * height / width)
-      : DESIGN_HEIGHT;
 
-    document.documentElement.style.setProperty('--app-scale', String(scale));
-    document.documentElement.style.setProperty('--app-height', `${designHeight}px`);
-    if (scaled) document.documentElement.setAttribute('data-scaled', 'true');
-    else document.documentElement.removeAttribute('data-scaled');
+    root.toggleAttribute('data-mobile', mobile);
+    root.style.setProperty('--app-scale', String(scale));
+    root.style.setProperty('--app-height', `${scaled && width > height ? Math.round(DESIGN_WIDTH * height / width) : DESIGN_HEIGHT}px`);
+    if (scaled) root.setAttribute('data-scaled', 'true');
+    else root.removeAttribute('data-scaled');
+  };
+
+  const schedule = () => {
+    if (!frame) frame = window.requestAnimationFrame(apply);
   };
 
   apply();
-  window.addEventListener('resize', apply);
-  window.addEventListener('orientationchange', apply);
-  window.visualViewport?.addEventListener('resize', apply);
+  window.addEventListener('resize', schedule);
+  window.addEventListener('orientationchange', schedule);
+  window.visualViewport?.addEventListener('resize', schedule);
+  coarsePointer.addEventListener('change', schedule);
 }
