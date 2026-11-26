@@ -2,7 +2,7 @@ import { paintIllustratedPlatform } from './platformArt';
 import { markOnlinePerformance, performanceMetricsEnabled } from './performanceMetrics';
 import { fullQuality, type RenderQuality } from './renderPerformance';
 import type { RoomCapacity } from '../data/stages';
-import { paintUltimatePreview, paintUltimateSprite } from './ultimateSprites';
+import { paintUltimatePreview, paintUltimateSprite, ultimateVisualState } from './ultimateSprites';
 import { type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { stageArt, stageHazardColumns, stageNightMix } from './stageAtmosphere';
 import { fighterArtPath, paintCombatSprite, paintFighterThumbnail, paintSprite, spritePortrait } from './fighterSprites';
@@ -3212,7 +3212,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     }
     // Keep the emblem behind the fighters and leave hit warnings legible.
     for (const u of world.ults) {
-      const state = u.specialized;
+      const state = ultimateVisualState(u.specialized);
       if (!state) continue;
       paintUltimateSprite(ctx, u, {
         x: sx(state.point.x), y: sy(state.point.y),
@@ -3542,7 +3542,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     const sy = (v: number) => this.sy(v);
     const sw = (v: number) => this.sw(v);
 
-    const special = u.specialized;
+    const special = ultimateVisualState(u.specialized);
     if (special) {
       const { ultimate: { spec }, point, box, active } = special;
       const [primary, highlight] = spec.colors;

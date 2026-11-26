@@ -1,3 +1,4 @@
+import 'pixi.js/prepare';
 import { Application, Assets, BitmapText, Container, ImageSource, Rectangle, Sprite, Texture } from 'pixi.js';
 import { PRESIDENTS_DATA } from '../data/presidents';
 import { STAGES_DATA } from '../data/stages';
@@ -5,6 +6,7 @@ import { fighterAtlasArt } from '../engine/fighterSprites';
 import { stageArtUrl } from '../engine/stageAtmosphere';
 import type { MatchSnapshot } from '../network/matchState';
 import { createFighterVisualSync } from './syncFighterVisuals';
+import { createPixiUltimates } from './pixiUltimates';
 import { createArenaAtlas } from './pixiArenaArt';
 import { Field, MAX_PLAYERS, STRIDE } from './wasmBridge';
 
@@ -56,6 +58,10 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
     }
     for (const platform of platforms) world.addChild(platform);
 
+    const { dot, ring, streak } = art.effectTextures;
+    const ultimates = createPixiUltimates(world, dot, ring, streak, ownedTextures);
+    const ultimateArtReady = ultimates.load(initial.players);
+
     const ids = new Array<string>(MAX_PLAYERS).fill('');
     initial.players.forEach((player, index) => {
       const slot = (player as { pi?: number }).pi ?? index;
@@ -81,6 +87,7 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
     }));
     // Wait for every upload source before constructing or destroying the scene.
     const atlasResults = await Promise.allSettled(atlasById.values());
+    await ultimateArtReady;
     const failed = atlasResults.find(result => result.status === 'rejected');
     if (failed?.status === 'rejected') throw failed.reason;
     const visuals = await Promise.all(ids.map(async (id, slot) => {
@@ -129,7 +136,7 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
     app.canvas.className = target.className;
     app.canvas.setAttribute('aria-label', 'Arena multijugador WebGL');
     app.canvas.dataset.renderer = 'pixi';
-    return {
+    const scene = {
       app,
       sync(state: Float32Array | null, snapshot: MatchSnapshot) {
         if (!state) {
@@ -157,6 +164,7 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
             body.scale.set(body.scale.x < 0 ? -pose.scale : pose.scale, pose.scale);
           }
         }
+        ultimates.sync(snapshot);
         const main = snapshot.world.main;
         const ledges = snapshot.world.plats;
         for (let i = 0; i < platforms.length; i++) {
@@ -211,6 +219,10 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
       },
       destroy,
     };
+    scene.sync(null, initial);
+    await app.renderer.prepare.upload([app.stage, ...ownedTextures, dot]);
+    ultimates.warmup(() => app.render());
+    return scene;
   } catch (error) {
     destroy();
     throw error;

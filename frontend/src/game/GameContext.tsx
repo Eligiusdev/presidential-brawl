@@ -451,7 +451,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     engine.updateConfig(config);
     engine.startAttractScene();
     const onKeyDown = (e: KeyboardEvent) => {
-      if (onlineActive.current || configOpenRef.current || matchConfigOpenRef.current || screenRef.current === 'CUSTOMIZE') return;
+      if (onlineActive.current || configOpenRef.current || matchConfigOpenRef.current) return;
       if (screenRef.current === 'REPLAY') {
         if (!e.repeat && (e.code === 'Space' || e.code === 'KeyP')) { e.preventDefault(); setReplayPaused((p) => !p); }
         else if (!e.repeat && e.code === 'Escape') { e.preventDefault(); setReplayPaused((p) => !p); }
@@ -511,7 +511,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (lastScreen !== curScreen) { lastPaint = 0; nextPaintAt = now; lastScreen = curScreen; }
       const nextAdaptive = videoRef.current.adaptiveQuality !== false;
       if (nextAdaptive !== adaptive) { adaptive = nextAdaptive; quality = new AdaptiveRenderQuality(adaptive, mobile); }
-      if (canvasRef.current && curScreen !== 'CUSTOMIZE' && (now + .3 >= nextPaintAt)) {
+      if (canvasRef.current && (now + .3 >= nextPaintAt)) {
         const start = performance.now();
         const period = 1000 / 60; nextPaintAt += Math.max(1, Math.floor((now - nextPaintAt) / period) + 1) * period;
         if (fighting && startedSimulation) samplePerformance('simulation', simulationCost);

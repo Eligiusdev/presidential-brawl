@@ -456,6 +456,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     let stopped = false;
     let pixi: Awaited<ReturnType<typeof createPixiCombat>> | undefined;
     let preparingPixi = false;
+    let pixiWarmupFrames = 0;
     let readRenderView: ((id: number) => Float32Array | null) | undefined;
     const startPixiFrame = () => frame(performance.now());
     if (rollbackEnabled && rollbackSupported.current) {
@@ -487,6 +488,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
           target.parentElement?.classList.add('pixi-combat-active');
           pixi = scene;
           previousPaint = 0;
+          pixiWarmupFrames = 24;
+          if (performanceMetricsEnabled) clearPerformanceSamples();
           scene.app.ticker.add(startPixiFrame);
           scene.app.ticker.start();
         }).catch(error => console.warn('Pixi combat unavailable', error));
@@ -504,13 +507,14 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       const ping = roomRef.current?.players[slot]?.ping ?? 0;
       const prediction = Math.min(8, Math.max(0, since) + Math.min(5, 1 + ping / 20));
       sound.tickMusic(buffer.latest.players.some(p => p.stocks === 1 || p.damage > 150));
+      const measuringFrame = pixiWarmupFrames === 0;
       const rollback = rollbackTimeline.current;
       const rollbackStart = performance.now();
       const predicted = rollback?.update(now, actions(), buffer.latest.frame ?? 0, Boolean(pixi));
       const predicting = Boolean(predicted) || Boolean(pixi && rollback?.hasRenderView(buffer.latest.frame ?? 0));
       if (rollback) {
         const rollbackCost = performance.now() - rollbackStart;
-        samplePerformance('rollback', rollbackCost);
+        if (measuringFrame) samplePerformance('rollback', rollbackCost);
         if (rollback.corrections !== previousCorrections || rollback.checkpoints !== previousCheckpoints || rollbackCost > 8) {
           markOnlinePerformance(rollback.checkpoints !== previousCheckpoints ? 'apply checkpoint' :
             rollback.corrections !== previousCorrections ? 'reconcile inputs' : 'slow prediction', undefined, rollbackCost, rollbackStart);
@@ -530,12 +534,15 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         const view = rollback?.renderView(buffer.latest.frame ?? 0, readRenderView) ?? null;
         pixi.sync(view, buffer.latest);
         const drawStart = performance.now();
-        if (view) samplePerformance('bridge', drawStart - bridgeStart);
-        else samplePerformance('bridgeFallback', drawStart - bridgeStart);
+        if (measuringFrame) samplePerformance(view ? 'bridge' : 'bridgeFallback', drawStart - bridgeStart);
         pixi.app.render();
         cost = performance.now() - drawStart;
-        samplePerformance('pixiDraw', cost);
-        if (previousPaint) samplePerformance('pixiFrame', now - previousPaint);
+        if (measuringFrame) {
+          samplePerformance('pixiDraw', cost);
+          if (previousPaint) samplePerformance('pixiFrame', now - previousPaint);
+        } else {
+          pixiWarmupFrames--;
+        }
       } else {
           const start = performance.now();
         const snap = buffer.latest;
@@ -545,7 +552,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         renderer.renderWorld(target, world, config, quality.quality);
         cost = performance.now() - start;
       }
-      if (previousPaint) {
+      if (previousPaint && measuringFrame) {
         quality.record(Math.min(160, now - previousPaint), cost);
         recordOnlineFrame(now, previousPaint);
         samplePerformance('frame', now - previousPaint);
