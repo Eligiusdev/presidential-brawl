@@ -11,6 +11,10 @@ import (
 
 var matches = map[int]*sim.Match{}
 var nextID = 1
+var checkpoints = map[int]map[int]sim.Checkpoint{}
+var nextCheckpointID = 1
+
+const maxCheckpointsPerMatch = 120
 
 type createOpts struct {
 	Mode          string `json:"mode"`
@@ -80,6 +84,55 @@ func main() {
 		return string(m.SnapshotJSON())
 	}))
 
+	js.Global().Set("pbSimSave", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) < 1 {
+			return -1
+		}
+		id := args[0].Int()
+		match := matches[id]
+		if match == nil || len(checkpoints[id]) >= maxCheckpointsPerMatch {
+			return -1
+		}
+		if checkpoints[id] == nil {
+			checkpoints[id] = make(map[int]sim.Checkpoint)
+		}
+		handle := nextCheckpointID
+		nextCheckpointID++
+		checkpoints[id][handle] = match.Save()
+		return handle
+	}))
+
+	js.Global().Set("pbSimRestore", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) < 2 {
+			return false
+		}
+		id := args[0].Int()
+		match := matches[id]
+		return match != nil && match.Restore(checkpoints[id][args[1].Int()])
+	}))
+
+	js.Global().Set("pbSimDropCheckpoint", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) >= 2 {
+			delete(checkpoints[args[0].Int()], args[1].Int())
+		}
+		return nil
+	}))
+
+	js.Global().Set("pbSimStateHash", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) < 1 {
+			return nil
+		}
+		match := matches[args[0].Int()]
+		if match == nil {
+			return nil
+		}
+		hash, err := match.StateHash()
+		if err != nil {
+			return nil
+		}
+		return hash
+	}))
+
 	js.Global().Set("pbSimLeave", js.FuncOf(func(this js.Value, args []js.Value) any {
 		if len(args) < 2 { return nil }
 		if m := matches[args[0].Int()]; m != nil { m.Leave(args[1].Int()) }
@@ -88,6 +141,7 @@ func main() {
 
 	js.Global().Set("pbSimFree", js.FuncOf(func(this js.Value, args []js.Value) any {
 		if len(args) < 1 { return nil }
+		delete(checkpoints, args[0].Int())
 		delete(matches, args[0].Int())
 		return nil
 	}))

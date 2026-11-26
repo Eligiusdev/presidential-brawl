@@ -10,6 +10,10 @@ export interface WasmSim {
   create(ids: string[], stage: number, seed: number, config?: WasmConfig, mode?: string): number;
   step(id: number, inputs: string[][]): number;
   snapshot(id: number): any;
+  save?(id: number): number;
+  restore?(id: number, checkpoint: number): boolean;
+  dropCheckpoint?(id: number, checkpoint: number): void;
+  stateHash?(id: number): string | null;
   leave(id: number, slot: number): void;
   free(id: number): void;
 }
@@ -47,6 +51,12 @@ export function loadWasmSim(): Promise<WasmSim> {
         JSON.stringify(config ?? {}), config?.mode ?? 'versus'),
       step: (id, inputs) => g.pbSimStep(id, JSON.stringify(inputs)),
       snapshot: (id) => JSON.parse(g.pbSimSnapshot(id)),
+      ...(typeof g.pbSimSave === 'function' ? {
+        save: (id: number) => g.pbSimSave(id),
+        restore: (id: number, checkpoint: number) => g.pbSimRestore(id, checkpoint),
+        dropCheckpoint: (id: number, checkpoint: number) => g.pbSimDropCheckpoint(id, checkpoint),
+        stateHash: (id: number) => g.pbSimStateHash(id),
+      } : {}),
       leave: (id, slot) => g.pbSimLeave(id, slot),
       free: (id) => g.pbSimFree(id),
     };

@@ -23,3 +23,6 @@ func (r *RNG) Int(n int) int {
 	}
 	return int(r.Uint32() % uint32(n))
 }
+
+// State returns the generator cursor without advancing it.
+func (r *RNG) State() uint32 { return r.state }

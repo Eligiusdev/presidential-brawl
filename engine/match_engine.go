@@ -185,7 +185,7 @@ type Match struct {
 	EndT int
 	Eliminated []int
 	StandingsList []int
-	OnEnd func([]int)
+	OnEnd func([]int) `json:"-"`
 	RNG, VisRNG *rng.RNG
 	HZPhase, HZMod int
 	ProjectileNext int
