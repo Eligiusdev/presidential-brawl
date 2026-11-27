@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Eye, Settings, Swords } from 'lucide-react';
+import { Download, Eye, Settings, Swords } from 'lucide-react';
 import { stageArtUrl } from '../engine/stageAtmosphere';
+import { useInstallMobileGame } from '../input/useInstallMobileGame';
 import { sound } from '../audio/soundEngine';
 
 interface TitleScreenProps {
@@ -19,6 +20,13 @@ type MenuItem = {
 };
 
 export function TitleScreen({ onOpenCombat, onOpenGallery, onOpenConfig }: TitleScreenProps) {
+  const { installed, install, helpOpen, setHelpOpen } = useInstallMobileGame();
+  const installHelp = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = installHelp.current;
+    if (helpOpen && dialog && !dialog.open) dialog.showModal();
+    if (!helpOpen && dialog?.open) dialog.close();
+  }, [helpOpen]);
   const [focusIdx, setFocusIdx] = useState(0);
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -26,12 +34,16 @@ export function TitleScreen({ onOpenCombat, onOpenGallery, onOpenConfig }: Title
     { id: 'combat', label: 'Combate', sub: 'Modos de juego y batalla', icon: Swords, action: onOpenCombat, primary: true },
     { id: 'gallery', label: 'Visualizar', sub: 'Ver cada personaje', icon: Eye, action: onOpenGallery },
     { id: 'config', label: 'Configuración', sub: 'Controles, video y audio', icon: Settings, action: onOpenConfig },
-  ], [onOpenCombat, onOpenGallery, onOpenConfig]);
+    ...(!installed && 'serviceWorker' in navigator
+      ? [{ id: 'install', label: 'Instalar juego', sub: 'Beta móvil V0.1', icon: Download, action: () => { void install(); } }]
+      : []),
+  ], [onOpenCombat, onOpenGallery, onOpenConfig, installed, install]);
 
   useEffect(() => { btnRefs.current[0]?.focus(); }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (helpOpen) return;
       if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
       if (e.code === 'ArrowDown') {
         e.preventDefault();
@@ -45,7 +57,7 @@ export function TitleScreen({ onOpenCombat, onOpenGallery, onOpenConfig }: Title
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [items.length, onOpenCombat]);
+  }, [items.length, onOpenCombat, helpOpen]);
 
   const activate = (item: MenuItem) => { sound.init(); sound.uiConfirm(); item.action(); };
 
@@ -55,6 +67,14 @@ export function TitleScreen({ onOpenCombat, onOpenGallery, onOpenConfig }: Title
       style={{ '--apex-cover': `url("${stageArtUrl('narino', 'night')}")` } as CSSProperties}
       aria-label="Pantalla de título"
     >
+      <dialog ref={installHelp} aria-labelledby="pwa-install-heading"
+        onCancel={event => { event.preventDefault(); setHelpOpen(false); }}
+        className="m-auto w-[min(90vw,28rem)] rounded-xl bg-[#111e34] p-5 text-white backdrop:bg-black/70">
+        <h2 id="pwa-install-heading" className="text-xl font-bold">Instalar Presidential Brawl</h2>
+        <p className="mt-2">En Android, abre el menú de Chrome y toca «Instalar aplicación» o «Añadir a pantalla de inicio».</p>
+        <p className="mt-2">En iPhone, abre el juego en Safari y toca «Compartir» y «Añadir a pantalla de inicio».</p>
+        <button type="button" className="console-btn mt-4" onClick={() => setHelpOpen(false)} autoFocus>Cerrar</button>
+      </dialog>
       <div className="console-title-layout">
         <div className="console-title-lockup">
           <svg viewBox="0 0 64 40" className="console-crest" aria-hidden="true">
