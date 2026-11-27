@@ -82,6 +82,7 @@ describe('Go sim combat parity', () => {
 
   test('fighters take damage and stocks decrease through combat', async () => {
     const ws1 = new WebSocket(`ws://127.0.0.1:${port}/api/rooms/ws?snapshots=gzip1`);
+    const hello = waitMsg<{ checkpointVersion: number }>(ws1, m => m.type === "hello");
     await new Promise(r => ws1.on('open', r));
     ws1.send(JSON.stringify({ protocol: ROOM_PROTOCOL, type: 'create', maxPlayers: 2 }));
     const seat1 = await waitMsg<any>(ws1, m => m.type === 'seat');
@@ -113,7 +114,7 @@ describe('Go sim combat parity', () => {
       return reply;
     };
     const checkpoint = await requestSync();
-    expect(checkpoint.checkpoint.version).toBe(1);
+    expect(checkpoint.checkpoint.version).toBe((await hello).checkpointVersion);
     expect(checkpoint.checkpoint.state.Frame).toBe(checkpoint.frame);
     expect(checkpoint.roomSlots).toEqual([0, 1]);
     await new Promise(resolve => setTimeout(resolve, 300));
