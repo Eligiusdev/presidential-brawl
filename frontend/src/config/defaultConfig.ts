@@ -6,6 +6,8 @@ export const DEFAULT_P1_KEYS: KeyBindings = {
   jump: ['KeyW'],
   down: ['KeyS'],
   light: ['KeyJ'],
+  medium: ['KeyH'],
+  special: ['KeyN'],
   heavy: ['KeyK'],
   dash: ['KeyL'],
   ult: ['KeyC', 'Space'],
@@ -18,6 +20,8 @@ export const DEFAULT_P2_KEYS: KeyBindings = {
   jump: ['ArrowUp'],
   down: ['ArrowDown'],
   light: ['KeyU', 'Numpad1'],
+  medium: ['Numpad4'],
+  special: ['Numpad5'],
   heavy: ['KeyI', 'Numpad2'],
   dash: ['KeyO', 'Numpad3'],
   ult: ['KeyM', 'Numpad0', 'Enter'],
@@ -35,6 +39,8 @@ export const DEFAULT_GAMEPAD_BINDINGS: GamepadBindings = {
   dash: [4, 5],
   ult: [6, 7],
   reload: [11],
+  medium: [],
+  special: [],
 };
 
 export const PAD_BUTTON_LABELS = [
@@ -108,6 +114,8 @@ export const ACTION_LABELS: Record<PlayerAction, string> = {
   dash: 'Dash / Esquive',
   ult: 'Ultimate (Decreto Supremo)',
   reload: 'Recargar Arma',
+  medium: 'Ataque medio',
+  special: 'Pulso / Atrás: reflejo',
 };
 
 const STORAGE_KEY = 'presidential_brawl_apex_config_v2';

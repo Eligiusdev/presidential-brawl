@@ -92,6 +92,7 @@ type ErrorMessage struct {
 
 type HelloMessage struct {
 	CheckpointVersion int `json:"checkpointVersion,omitempty"`
+	InputMask uint16 `json:"inputMask,omitempty"`
 	BinaryInput bool `json:"binaryInput,omitempty"`
 	Type     string `json:"type"`
 	Protocol int    `json:"protocol"`

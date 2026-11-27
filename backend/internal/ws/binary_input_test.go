@@ -13,7 +13,11 @@ func TestBinaryInputDecoding(t *testing.T) {
 		!slices.Equal(msg.Actions, []string{"right", "light", "reload"}) {
 		t.Fatalf("invalid decoded input: %+v", msg)
 	}
-	for _, bad := range [][]byte{{42}, {0, 0, 0, 0, 0, 2}, {0, 0, 0, 128, 0, 0}} {
+	extended, ok := decodeBinaryInput([]byte{0, 0, 0, 0, 0, 6})
+	if !ok || !slices.Equal(extended.Actions, []string{"medium", "special"}) {
+		t.Fatalf("invalid technique input: %+v", extended)
+	}
+	for _, bad := range [][]byte{{42}, {0, 0, 0, 0, 0, 8}, {0, 0, 0, 128, 0, 0}} {
 		if _, ok := decodeBinaryInput(bad); ok {
 			t.Fatalf("accepted invalid frame %v", bad)
 		}

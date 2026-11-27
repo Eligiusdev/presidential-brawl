@@ -18,6 +18,7 @@ var Colors = []string{"#fb5969", "#60a5fa", "#facc15", "#4ade80", "#fb923c", "#c
 var Actions = map[string]bool{
 	"left": true, "right": true, "jump": true, "down": true,
 	"light": true, "heavy": true, "dash": true, "ult": true, "reload": true,
+	"medium": true, "special": true,
 }
 
 type PendingInput struct {

@@ -1,7 +1,7 @@
 import type { createPixiCombat } from '../render/pixiCombat';
 import { isCompactSnapshot, unpackSnapshot } from '../network/compactSnapshot';
 import { LiveRollback, type SyncReply } from '../network/liveRollback';
-import { encodeBinaryInput, inputIsDue, inputMask, type SentInput } from '../network/binaryInput';
+import { encodeBinaryInput, inputIsDue, inputMask, techniqueInputMask, type SentInput } from '../network/binaryInput';
 import { ROOM_PROTOCOL, ROOM_RESUME_MS } from '../network/roomProtocol.mjs';
 import { AdaptiveRenderQuality } from '../engine/renderPerformance';
 import { preloadMatchArt } from '../engine/matchArt';
@@ -100,6 +100,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   const rollbackRequestId = useRef(0);
   const rollbackTimeline = useRef<LiveRollback | null>(null);
   const binaryInput = useRef(false);
+  const techniqueSupport = useRef(false);
+  const [showTechniques, setShowTechniques] = useState(false);
   const jumpSequence = useRef(-1);
   const lastSentInput = useRef<SentInput | null>(null);
   const reconnect = useRef<number | undefined>(undefined);
@@ -120,7 +122,14 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   const playing = Boolean(room?.playing && !room.standings);
   const showTouch = config.controls.touchMode === 'on' ||
     (config.controls.touchMode === 'auto' && ('ontouchstart' in window || navigator.maxTouchPoints > 0));
-  const actions = () => new Set([...pressed.current.values(), ...touch.current]);
+  const actions = () => {
+    const held = new Set([...pressed.current.values(), ...touch.current]);
+    if (!techniqueSupport.current) {
+      held.delete('medium');
+      held.delete('special');
+    }
+    return held;
+  };
   const send = (message: object) => {
     if (socket.current?.readyState === WebSocket.OPEN && socket.current.bufferedAmount < 32000) {
       socket.current.send(JSON.stringify(message));
@@ -176,6 +185,8 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     rollbackSupported.current = false;
     rollbackTimeline.current?.dispose();
     binaryInput.current = false;
+    techniqueSupport.current = false;
+    setShowTechniques(false);
     lastSentInput.current = null;
     socket.current = ws;
     if (previous && previous !== ws) try { previous.close(); } catch {}
@@ -260,7 +271,9 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       }
       if (data.type === 'hello') {
         binaryInput.current = data.binaryInput === true;
-        rollbackSupported.current = data.checkpointVersion === 1;
+        techniqueSupport.current = ((data.inputMask ?? 0) & techniqueInputMask) === techniqueInputMask;
+        setShowTechniques(techniqueSupport.current);
+        rollbackSupported.current = data.checkpointVersion === 2;
         if (data.protocol !== ROOM_PROTOCOL) incompatibleProtocol();
         else send({
           ...request, protocol: ROOM_PROTOCOL, clientId: getClientId(),
@@ -642,7 +655,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     <OnlineMatchHUD snap={snapshot} room={room} localSlot={seat.slot} />
     <div className="online-arena">
       <canvas ref={canvas} className="pixel-canvas block h-full w-full object-contain" aria-label="Arena multijugador" />
-      {showTouch && playing && !recovering && !incompatible && <div data-gamepad-ignore className="network-touch"><TouchControls inline ultReady={(localFighter?.ultCharge ?? 0) >= 100}
+      {showTouch && playing && !recovering && !incompatible && <div data-gamepad-ignore className="network-touch"><TouchControls inline techniques={showTechniques} ultReady={(localFighter?.ultCharge ?? 0) >= 100}
         hasGun={localFighter?.wk === 'mg' || localFighter?.wk === 'rocket'} movement={config.controls.touchMovement} scale={config.controls.touchScale ?? 1} layout={config.controls.touchLayout} joystick={config.controls.touchJoystick} onAction={(action, down) => {
         const touchStarted = performanceMetricsEnabled && down ? performance.now() : null;
         if (down) {

@@ -3,6 +3,8 @@ package sim
 import "math"
 
 type Input struct {
+	Medium bool `json:",omitempty"`
+	Special bool `json:",omitempty"`
 	Left, Right, Jump, Down, Light, Heavy, Dash, Ult, Reload bool
 }
 
@@ -14,6 +16,8 @@ func parseInput(actions []string) Input {
 		case "right": in.Right = true
 		case "jump": in.Jump = true
 		case "down": in.Down = true
+		case "medium": in.Medium = true
+		case "special": in.Special = true
 		case "light": in.Light = true
 		case "heavy": in.Heavy = true
 		case "dash": in.Dash = true
@@ -25,6 +29,8 @@ func parseInput(actions []string) Input {
 }
 
 type InputEdge struct {
+	Medium bool `json:",omitempty"`
+	Special bool `json:",omitempty"`
 	Left, Right, Jump, Down, Light, Heavy, Dash, Ult, Reload bool
 }
 
@@ -35,6 +41,7 @@ func edge(now, prev Input) InputEdge {
 		Light: now.Light && !prev.Light, Heavy: now.Heavy && !prev.Heavy,
 		Dash: now.Dash && !prev.Dash, Ult: now.Ult && !prev.Ult,
 		Reload: now.Reload && !prev.Reload,
+		Medium: now.Medium && !prev.Medium, Special: now.Special && !prev.Special,
 	}
 }
 
@@ -68,6 +75,10 @@ type KOVis struct {
 }
 
 type Fighter struct {
+	ReflectTicks int `json:",omitempty"`
+	ReflectFace int `json:",omitempty"`
+	ChainMove uint8 `json:",omitempty"`
+	ChainTicks uint8 `json:",omitempty"`
 	Slot int
 	ID string
 	D *PresidentData
@@ -163,6 +174,7 @@ func (f *Fighter) Reset(x, y float64, first bool, stocks int) {
 	f.LastAttacker = -1
 	f.DamageDealt, f.KOsDelivered, f.PerfectDodges = 0, 0, 0
 	f.JabStep = 0
+	f.ReflectTicks, f.ReflectFace, f.ChainMove, f.ChainTicks = 0, 0, 0, 0
 	f.Floating, f.FastFall = false, false
 	f.FloatT, f.FloatMax = 115, 115
 	f.AirJ = 2
