@@ -3,6 +3,8 @@ package sim
 import "math"
 
 type Input struct {
+	Assist1 bool `json:",omitempty"`
+	Assist2 bool `json:",omitempty"`
 	Medium bool `json:",omitempty"`
 	Special bool `json:",omitempty"`
 	Left, Right, Jump, Down, Light, Heavy, Dash, Ult, Reload bool
@@ -16,6 +18,8 @@ func parseInput(actions []string) Input {
 		case "right": in.Right = true
 		case "jump": in.Jump = true
 		case "down": in.Down = true
+		case "assist1": in.Assist1 = true
+		case "assist2": in.Assist2 = true
 		case "medium": in.Medium = true
 		case "special": in.Special = true
 		case "light": in.Light = true

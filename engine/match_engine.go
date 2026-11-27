@@ -166,6 +166,7 @@ type Match struct {
 	Blast Blast
 	Spawns []Point
 	Fighters []*Fighter
+	Tag *TagMatchState `json:"tag,omitempty"`
 	Projectiles []*Projectile
 	Items []*Item
 	Particles []Particle
@@ -396,12 +397,14 @@ func (m *Match) Step(inputs [][]string) uint32 {
 			// dos jugadores locales: el segundo input también se aplica en updateFighter
 		}
 		if m.Telegraph != nil && m.Telegraph.F == i { f.Inv = int(math.Max(float64(f.Inv), 15)) }
+		if m.Tag != nil { m.updateTagTeam(f, parsed[i]) }
 		m.updateFighter(f, parsed[i])
 	}
 	m.resolveIndividualStrikes()
 	m.updateUltEffects()
 	m.updateProjectiles()
 	m.updateItems()
+	if m.Tag != nil { m.finishTagStep() }
 
 	if m.Telegraph != nil {
 		m.Telegraph.T++

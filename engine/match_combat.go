@@ -14,7 +14,19 @@ type damageSpec struct {
 func (m *Match) updateFighter(f *Fighter, in Input) {
 	if f.Dead > 0 {
 		f.Dead--
-		if f.Dead == 0 && f.Stocks > 0 { f.Reset(m.Main.X+m.Main.W/2-f.W/2, -110, false, f.Stocks) }
+		if f.Dead == 0 && f.Stocks > 0 {
+            if m.Tag == nil {
+                f.Reset(m.Main.X+m.Main.W/2-f.W/2, -110, false, f.Stocks)
+            } else {
+                team := &m.Tag.Teams[f.Slot]
+                for i, member := range team.Members {
+                    if member.Health > 0 {
+                        m.swapTagFighter(f, team, uint8(i), true)
+                        break
+                    }
+                }
+            }
+        }
 		return
 	}
 	if f.Winning {
@@ -584,6 +596,7 @@ func (m *Match) hurt(f, o *Fighter, d damageSpec, dir int, source string, contac
 	if f.Atk != nil && f.Atk.Armor && !f.Atk.AR && !d.Ult && (!f.Atk.Spec.Tank || d.Dmg <= float64(Data().Limits.TankArmorDamage)) {
 		f.Atk.AR = true
 		f.Pct += d.Dmg * .5
+		m.applyTagDamage(f, d.Dmg*.5)
 		f.HitFlash = 10
 		m.sound("heavy")
 		m.Shake = math.Max(m.Shake, 6)
@@ -612,6 +625,7 @@ func (m *Match) hurt(f, o *Fighter, d damageSpec, dir int, source string, contac
 		}
 	}
 	f.Pct += applied
+	m.applyTagDamage(f, applied)
 	f.HitFlash = 14
 	f.SquashX, f.SquashY = 1.28, .76
 	f.Floating, f.FastFall = false, false
@@ -644,6 +658,11 @@ func (m *Match) hurt(f, o *Fighter, d damageSpec, dir int, source string, contac
 func (m *Match) comboMult(n int) float64 { return 1 + math.Min(.6, math.Max(0, float64(n-1)*.08)) }
 
 func (m *Match) triggerKO(f *Fighter, attacker int) {
+    if m.Tag != nil {
+        team := &m.Tag.Teams[f.Slot]
+        team.Members[team.Active].Health, team.Members[team.Active].BlueHealth = 0, 0
+        team.AssistTicks = 0
+    }
 	m.burst(f.CX(), f.Y+f.H*.48, "#fff", 56, 10, 30, "")
 	m.sound("ko")
 	m.crowdReaction("win", f.CX(), 38, 96)

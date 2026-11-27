@@ -26,3 +26,36 @@ export function createRenderReader(memory: WebAssembly.Memory, refresh: (id: num
     return view;
   };
 }
+
+export const TAG_HUD_STRIDE = 20;
+export const TAG_HUD_MEMBER_STRIDE = 5;
+
+export enum TagHUDField {
+  MemberCount,
+  ActiveMember,
+  Ki,
+  SparkingTicks,
+  SparkingUsed,
+  FirstMember,
+}
+
+export enum TagHUDMemberField {
+  FighterId,
+  Health,
+  MaxHealth,
+  BlueHealth,
+  AssistCooldown,
+}
+
+export function createTagHUDReader(memory: WebAssembly.Memory, refresh: (id: number) => number) {
+  let view: Uint32Array | null = null;
+  return (id: number): Uint32Array | null => {
+    const pointer = refresh(id);
+    if (pointer < 0) return null;
+    const buffer = memory.buffer;
+    if (!view || view.buffer !== buffer || view.byteOffset !== pointer) {
+      view = new Uint32Array(buffer, pointer, MAX_PLAYERS * TAG_HUD_STRIDE);
+    }
+    return view;
+  };
+}
