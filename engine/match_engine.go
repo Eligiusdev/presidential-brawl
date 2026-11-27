@@ -350,6 +350,16 @@ func (m *Match) aliveOpponent(f *Fighter) *Fighter {
 	return best
 }
 
+// SetLiveRules is called between ticks for local matches.
+func (m *Match) SetLiveRules(difficulty int, hazard string) bool {
+	if difficulty < 0 || difficulty > 3 || (hazard != "off" && hazard != "normal" && hazard != "frenetic") { return false }
+	m.Cfg.AIDifficulty, m.Cfg.Hazard = difficulty, hazard
+	for seat, fighter := range m.Fighters {
+		if fighter.CPU || (m.Tag != nil && m.Tag.Teams[seat].CPU) { fighter.Difficulty = difficulty }
+	}
+	return true
+}
+
 func (m *Match) Step(inputs [][]string) uint32 {
 	m.SoundEvents = nil
 	m.Frame++
@@ -381,7 +391,7 @@ func (m *Match) Step(inputs [][]string) uint32 {
 	parsed := make([]Input, len(m.Fighters))
 	for i := range m.Fighters {
 		var acts []string
-		if m.Mode == "attract" || m.Fighters[i].TrainingDummy || (m.Tag != nil && m.Tag.Teams[i].CPU) {
+		if m.Mode == "attract" || m.Fighters[i].TrainingDummy || m.Fighters[i].CPU || (m.Tag != nil && m.Tag.Teams[i].CPU) {
 			acts = m.aiInput(m.Fighters[i])
 		} else if m.Capacity > 2 || m.Mode == "campaign" || m.Mode == "versus" {
 			if i < len(inputs) { acts = inputs[i] }

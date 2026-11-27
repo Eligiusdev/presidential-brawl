@@ -6,20 +6,11 @@ import (
 	"github.com/presidential-brawl/engine/internal/rng"
 )
 
-type aiBrain struct {
-	cool int
-	strafe int
-	rng *rng.RNG
-}
-
-var aiBrains = map[int]*aiBrain{}
-
 func (m *Match) aiInput(f *Fighter) []string {
-	b := aiBrains[f.Slot]
-	if b == nil {
-		b = &aiBrain{rng: rng.NewRNG(uint32(f.Slot+1)*7919 + m.Seed)}
-		aiBrains[f.Slot] = b
-	}
+	state := f.AIRNG
+	if state == 0 { state = uint32(f.Slot+1)*7919 + m.Seed }
+	random := rng.NewRNG(state)
+	defer func() { f.AIRNG = random.State() }()
 	o := m.aliveOpponent(f)
 	if o == nil { return nil }
 	var out []string
@@ -68,27 +59,27 @@ func (m *Match) aiInput(f *Fighter) []string {
 		}
 	}
 
-	b.cool--
-	if b.cool <= 0 {
-		b.strafe = b.rng.Int(3) - 1
-		b.cool = 12 + b.rng.Int(int(24/aggro)+1)
+	f.AICool--
+	if f.AICool <= 0 {
+		f.AIStrafe = random.Int(3) - 1
+		f.AICool = 12 + random.Int(int(24/aggro)+1)
 	}
 
 	if dist < 78 && f.On && o.On {
-		if b.rng.Float() < .55 { out = append(out, "light") }
-		if b.rng.Float() < .35 { out = append(out, "heavy") }
-		if b.strafe != 0 { out = append(out, actionToward(float64(b.strafe))) }
+		if random.Float() < math.Min(.88, .32 + .22*aggro) { out = append(out, "light") }
+		if random.Float() < math.Min(.70, .16 + .20*aggro) { out = append(out, "heavy") }
+		if f.AIStrafe != 0 { out = append(out, actionToward(float64(f.AIStrafe))) }
 		if o.Dead > 0 { out = append(out, actionToward(float64(dir))) }
 		return out
 	}
-	if dist < 220 && !f.On && b.rng.Float() < .5 {
+	if dist < 220 && !f.On && random.Float() < .5 {
 		out = append(out, "light")
 		if dy < -60 { out = append(out, "jump") } else if dy > 60 { out = append(out, "down") }
 	}
 	if dist > 60 {
 		out = append(out, actionToward(dx))
-		if f.On && b.rng.Float() < .06*aggro { out = append(out, "jump") }
-		if f.DashCD <= 0 && dist > 320 && b.rng.Float() < .05*aggro { out = append(out, "dash") }
+		if f.On && random.Float() < .06*aggro { out = append(out, "jump") }
+		if f.DashCD <= 0 && dist > 320 && random.Float() < .05*aggro { out = append(out, "dash") }
 	}
 	return dedupe(out)
 }

@@ -8,7 +8,7 @@ import { stageArtUrl } from '../engine/stageAtmosphere';
 import { STAGES_DATA } from '../data/stages';
 import type { MatchSnapshot } from '../network/matchState';
 import { loadWasmSim } from '../sim/wasmSim';
-import type { PlayerAction } from '../types/game';
+import type { HazardFrequency, PlayerAction } from '../types/game';
 
 type Teams = [string[], string[]];
 type Settings = { teams: Teams; stage: number; solo: boolean };
@@ -31,6 +31,21 @@ export function TagDuelPage() {
   const [solo, setSolo] = useState(true);
   const [match, setMatch] = useState<Settings | null>(null);
   const [preview, setPreview] = useState({ seat: 0, slot: 0 });
+  const [difficulty, setDifficulty] = useState(1);
+  const [hazards, setHazards] = useState<HazardFrequency>('normal');
+  const rules = useRef({ difficulty, hazards });
+  rules.current = { difficulty, hazards };
+  const rulesFields = <fieldset className="my-2 grid gap-2">
+    <legend className="font-semibold">Reglas</legend>
+    <label>Dificultad de la IA <select className="ml-2 bg-[#172a43]" value={difficulty}
+      onChange={event => setDifficulty(Number(event.target.value))}>
+      {['Novato', 'Competitiva', 'Leyenda', 'Brutal'].map((label, index) => <option key={label} value={index}>{label}</option>)}
+    </select></label>
+    <label>Peligros del escenario <select className="ml-2 bg-[#172a43]" value={hazards}
+      onChange={event => setHazards(event.target.value as HazardFrequency)}>
+      <option value="off">Desactivados</option><option value="normal">Normal</option><option value="frenetic">Frenético</option>
+    </select></label>
+  </fieldset>;
   const [paused, setPaused] = useState(false);
   const pause = useRef(false);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -88,7 +103,7 @@ export function TagDuelPage() {
       const readScene = wasm.onlineRenderView;
       if (!readTeam || !readScene) throw Error('El Duelo 3v3 requiere la versión actual de Wasm.');
       const id = wasm.create(match.teams.flat(), match.stage, Date.now() & 0x7fffffff, {
-        mode: match.solo ? 'tag-solo' : 'tag', items: 'off', hazard: 'off', hitstop: true,
+        mode: match.solo ? 'tag-solo' : 'tag', items: 'off', hazard: rules.current.hazards, aiDifficulty: rules.current.difficulty, hitstop: true,
       });
       if (typeof id !== 'number' || id < 1) throw Error('No se pudo crear el duelo.');
       free = () => wasm.free(id);
@@ -107,7 +122,13 @@ export function TagDuelPage() {
       let previous = performance.now();
       let elapsed = 0;
       const inputs: Action[][] = [[], []];
+      let appliedRules = rules.current;
       const frame = (now: number) => {
+        const selected = rules.current;
+        if (selected.difficulty !== appliedRules.difficulty || selected.hazards !== appliedRules.hazards) {
+          wasm.setRules?.(id, selected.difficulty, selected.hazards);
+          appliedRules = selected;
+        }
         if (pause.current) {
           clear();
           previous = now;
@@ -184,6 +205,7 @@ export function TagDuelPage() {
     <dialog ref={dialog} className="m-auto max-h-[90dvh] w-[min(92vw,34rem)] overflow-auto rounded-xl bg-[#111e34] p-5 text-white backdrop:bg-black/70"
       aria-labelledby="tag-pause-title" onCancel={event => { event.preventDefault(); resume(); }}>
       <h2 id="tag-pause-title" className="text-xl font-bold">Duelo en pausa</h2>
+      {rulesFields}
       <TagControlGuide />
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" className="console-btn" autoFocus onClick={resume}>Continuar</button>
@@ -245,6 +267,10 @@ export function TagDuelPage() {
         <figcaption className="p-2 text-sm">{arenaStage.name} · {arenaStage.city}</figcaption>
       </figure>
     </div>
+    <details className="w-full max-w-[720px] rounded-lg bg-[#111e34] p-3">
+      <summary className="cursor-pointer font-semibold">Reglas de partida</summary>
+      {rulesFields}
+    </details>
     <details className="w-full max-w-[720px] rounded-lg bg-[#111e34] p-3">
       <summary className="cursor-pointer font-semibold">Controles del duelo</summary>
       <TagControlGuide />

@@ -4,6 +4,7 @@ export interface WasmConfig {
   mode?: 'versus' | 'training' | 'campaign' | 'attract' | 'tag' | 'tag-solo';
   stocks?: number; knockback?: number; gravity?: number;
   hazard?: string; items?: string; voteGain?: number;
+  cpuOpponent?: boolean;
   startFullVote?: boolean; aiDifficulty?: number;
   hitstop?: boolean; campaignRound?: number;
 }
@@ -13,6 +14,7 @@ export interface WasmSim {
   tagHUDView?(id: number): Uint32Array | null;
   onlineRenderView?(id: number): Float32Array | null;
   create(ids: string[], stage: number, seed: number, config?: WasmConfig, mode?: string): number;
+  setRules?(id: number, difficulty: number, hazard: string): boolean;
   step(id: number, inputs: string[][]): number;
   snapshot(id: number): any;
   save?(id: number): number;
@@ -62,6 +64,7 @@ export function loadWasmSim(): Promise<WasmSim> {
     return {
       create: (ids, stage, seed, config) => g.pbSimCreate(JSON.stringify(ids), stage, seed,
         JSON.stringify(config ?? {}), config?.mode ?? 'versus'),
+      setRules: typeof g.pbSimSetRules === 'function' ? (id, difficulty, hazard) => g.pbSimSetRules(id, difficulty, hazard) : undefined,
       step: (id, inputs) => g.pbSimStep(id, JSON.stringify(inputs)),
       snapshot: (id) => JSON.parse(g.pbSimSnapshot(id)),
       ...(typeof g.pbSimSave === 'function' ? {

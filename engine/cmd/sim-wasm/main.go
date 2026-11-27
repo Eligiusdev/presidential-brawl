@@ -26,7 +26,8 @@ type createOpts struct {
 	Items         string `json:"items"`
 	VoteGain      float64 `json:"voteGain"`
 	StartFullVote bool   `json:"startFullVote"`
-	AIDifficulty  int    `json:"aiDifficulty"`
+	CPUOpponent bool `json:"cpuOpponent"`
+	AIDifficulty  *int    `json:"aiDifficulty"`
 	Hitstop       bool   `json:"hitstop"`
 	CampaignRound int    `json:"campaignRound"`
 }
@@ -44,6 +45,7 @@ func main() {
 		stage := args[1].Int()
 		seed := uint32(args[2].Int())
 		cfg := sim.DefaultConfig()
+		cpuOpponent := false
 		if len(args) > 3 && args[3].String() != "" {
 			var o createOpts
 			if err := json.Unmarshal([]byte(args[3].String()), &o); err == nil {
@@ -54,7 +56,8 @@ func main() {
 				if o.Items != "" { cfg.Items = o.Items }
 				if o.VoteGain > 0 { cfg.VoteGain = o.VoteGain }
 				cfg.StartFullVote = o.StartFullVote
-				if o.AIDifficulty > 0 { cfg.AIDifficulty = o.AIDifficulty }
+				if o.AIDifficulty != nil { cfg.AIDifficulty = min(3, max(0, *o.AIDifficulty)) }
+				cpuOpponent = o.CPUOpponent
 				cfg.Hitstop = o.Hitstop
 				cfg.CampaignRound = o.CampaignRound
 				cfg.Training = o.Mode == "training"
@@ -73,10 +76,18 @@ func main() {
 			m, err = sim.NewLocalMatch(ids, stage, seed, cfg, mode)
 		}
 		if err != nil { return map[string]any{"error": err.Error()} }
+		if cpuOpponent && mode == "versus" { m.Fighters[1].CPU = true }
 		id := nextID
 		nextID++
 		matches[id] = m
 		return id
+	}))
+
+	js.Global().Set("pbSimSetRules", js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if len(args) != 3 { return false }
+		m := matches[args[0].Int()]
+		if m == nil { return false }
+		return m.SetLiveRules(args[1].Int(), args[2].String())
 	}))
 
 	js.Global().Set("pbSimStep", js.FuncOf(func(this js.Value, args []js.Value) any {

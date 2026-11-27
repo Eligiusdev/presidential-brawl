@@ -145,36 +145,35 @@ func (m *Match) updateStageHazards() {
 	}
 	if m.HZPhase == 0 { return }
 	if m.HZPhase != 2 { return }
+	left, right := m.Main.X - 148, m.Main.X + m.Main.W + 114
+	switch st.Hazard {
+	case "edge-volley":
+		if mod%88 == 0 { m.wave(left, m.Main.Y-36, 1, 8.5); m.wave(right, m.Main.Y-36, -1, 8.5) }
+	case "alternating-salvo":
+		if mod%58 == 0 {
+			if (mod/58)%2 == 0 { m.wave(left, m.Main.Y-38, 1, 10) } else { m.wave(right, m.Main.Y-145, -1, 10) }
+		}
+	case "guard-march":
+		if mod%96 == 0 {
+			x, direction := left, 1
+			if (mod/96)%2 == 1 { x, direction = right, -1 }
+			m.wave(x, m.Main.Y-39, direction, 8)
+			m.wave(x, m.Main.Y-127, direction, 7)
+		}
+	case "bell":
+		if mod%82 == 0 {
+			center := m.Main.X + m.Main.W/2
+			m.wave(center+24, m.Main.Y-40, 1, 9.5)
+			m.wave(center-54, m.Main.Y-40, -1, 9.5)
+		}
+	}
 	for _, f := range m.Fighters {
 		if f.Dead > 0 || f.Stocks <= 0 { continue }
 		nudge := func(dx float64) {
 			test := Rect{f.X + dx, f.Y, f.W, f.H}
 			if !overlaps(test, m.Main) { f.X += dx }
 		}
-		w := Data().World.W
 		switch st.Hazard {
-		case "edge-volley":
-			if mod%88 == 0 { m.wave(24, m.Main.Y-36, 1, 8.5); m.wave(w-58, m.Main.Y-36, -1, 8.5) }
-		case "alternating-salvo":
-			if mod%58 == 0 {
-				side := 1
-				if (mod/58)%2 == 1 { side = -1 }
-				h := 38.0
-				if side < 0 { h = 145 }
-				m.wave(w-58, m.Main.Y-h, side, 10)
-			}
-		case "guard-march":
-			if mod%96 == 0 {
-				side := 1
-				if (mod/96)%2 == 1 { side = -1 }
-				m.wave(w-58, m.Main.Y-39, side, 8)
-				m.wave(w-58, m.Main.Y-127, side, 7)
-			}
-		case "bell":
-			if mod%82 == 0 {
-				m.wave(w/2+24, m.Main.Y-40, 1, 9.5)
-				m.wave(w/2-54, m.Main.Y-40, -1, 9.5)
-			}
 		case "crosswind", "mountain-gust":
 			side := 1
 			if (mod/88)%2 == 1 { side = -1 }
@@ -206,7 +205,7 @@ func (m *Match) updateStageHazards() {
 
 func (m *Match) wave(x, y float64, dir int, speed float64) {
 	m.addProjectile(&Projectile{X: x, Y: y, W: 34, H: 28, VX: float64(dir)*speed,
-		Life: 158, Kind: "sonic", Dir: dir, Dmg: 7, BK: 4.8, KS: .16, Ang: -52, Heavy: true})
+		Life: 158, Owner: -1, Kind: "sonic", Dir: dir, Dmg: 7, BK: 4.8, KS: .16, Ang: -52, Heavy: true})
 	m.burst(x+17, y+14, stageData(m.Stage).Palette["platformTrim"], 8, 4, 0, "")
 }
 

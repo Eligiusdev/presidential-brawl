@@ -448,7 +448,15 @@ export class GameEngine {
   }
 
   updateConfig(cfg: GameConfig) {
+    const previous = this.config.match;
     this.config = cfg;
+    if (!this.isReplaying && (previous.aiDifficulty !== cfg.match.aiDifficulty || previous.hazardFrequency !== cfg.match.hazardFrequency)) {
+      if (this.wasmMatchId != null) this.wasmSim?.setRules?.(this.wasmMatchId, cfg.match.aiDifficulty, cfg.match.hazardFrequency);
+      for (const fighter of this.fighters) if (fighter.ai) fighter.dif = cfg.match.aiDifficulty;
+      if (this.currentMatchMeta?.campaignRound !== 6) {
+        this.hazardCycle = { off: 9999999, normal: 1200, frenetic: 620 }[cfg.match.hazardFrequency];
+      }
+    }
     sound.applyConfig(cfg.audio);
   }
 
@@ -653,6 +661,7 @@ export class GameEngine {
                 voteGain: this.activeMatchCfg.voteGainMultiplier,
                 startFullVote: this.activeMatchCfg.startFullVote,
                 aiDifficulty: this.fighters[1]?.dif ?? 1,
+                cpuOpponent: mode === 'versus' && vsAI,
                 hitstop: this.config.video.hitstopEnabled,
                 campaignRound,
               },
