@@ -23,7 +23,8 @@ export default defineConfig(() => {
             source: JSON.stringify({
               version,
               files: ['index.html', 'manifest.json', 'app-icon-192.png', 'app-icon-512.png',
-                'apple-touch-icon.png', 'sim/wasm_exec.js' + wasm, 'sim/sim.wasm' + wasm, ...code],
+                 'apple-touch-icon.png', 'assets/stages/narino-day.webp', 'assets/stages/narino-night.webp',
+                'sim/wasm_exec.js' + wasm, 'sim/sim.wasm' + wasm, ...code],
             }),
           });
         },

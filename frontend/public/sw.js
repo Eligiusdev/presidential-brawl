@@ -59,7 +59,7 @@ self.addEventListener('fetch', event => {
   if (!path.startsWith('assets/') && !path.startsWith('sim/')) return;
   event.respondWith((async () => {
     const cache = await shellCache();
-    const cached = await cache?.match(request);
+    const cached = await cache?.match(request, { ignoreVary: true });
     if (cached) return cached;
     const response = await fetch(request);
     if (cache && response.ok) {
