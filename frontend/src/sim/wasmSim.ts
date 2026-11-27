@@ -1,7 +1,7 @@
 import { createRenderReader, createTagHUDReader } from '../render/wasmBridge';
 import type { OnlineWasm } from '../network/liveRollback';
 export interface WasmConfig {
-  mode?: 'versus' | 'training' | 'campaign' | 'attract' | 'tag';
+  mode?: 'versus' | 'training' | 'campaign' | 'attract' | 'tag' | 'tag-solo';
   stocks?: number; knockback?: number; gravity?: number;
   hazard?: string; items?: string; voteGain?: number;
   startFullVote?: boolean; aiDifficulty?: number;

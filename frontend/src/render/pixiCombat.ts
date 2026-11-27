@@ -7,6 +7,7 @@ import { stageArtUrl } from '../engine/stageAtmosphere';
 import type { MatchSnapshot } from '../network/matchState';
 import { createFighterVisualSync } from './syncFighterVisuals';
 import { createPixiUltimates } from './pixiUltimates';
+import { createPixiTagHUD } from './pixiTagHUD';
 import { createArenaAtlas } from './pixiArenaArt';
 import { Field, MAX_PLAYERS, STRIDE } from './wasmBridge';
 
@@ -15,7 +16,7 @@ const WIDTH = 1440;
 const HEIGHT = 810;
 const BAR_WIDTH = 140;
 
-export async function createPixiCombat(target: HTMLCanvasElement, initial: MatchSnapshot) {
+export async function createPixiCombat(target: HTMLCanvasElement, initial: MatchSnapshot, teams?: readonly string[][]) {
   const app = new Application();
   const ownedTextures: Texture[] = [];
   const ownedSources: ImageSource[] = [];
@@ -37,6 +38,8 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
   try {
     const world = new Container();
     const hud = new Container();
+    const unusedCards = new Container({ visible: false });
+    hud.addChild(unusedCards);
     const viewport = new Container();
     viewport.scale.set(960 / WIDTH);
     viewport.addChild(world, hud);
@@ -59,14 +62,14 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
     for (const platform of platforms) world.addChild(platform);
 
     const ultimates = createPixiUltimates(world, art.effectTextures, ownedTextures);
-    const ultimateArtReady = ultimates.load(initial.players);
+    const ultimateArtReady = ultimates.load(teams ? teams.flat().map(fighterId => ({ fighterId })) : initial.players);
 
     const ids = new Array<string>(MAX_PLAYERS).fill('');
     initial.players.forEach((player, index) => {
       const slot = (player as { pi?: number }).pi ?? index;
       ids[slot] = player.fighterId;
     });
-    const atlasById = new Map([...new Set(ids.filter(Boolean))].map(id => {
+    const atlasById = new Map([...new Set(teams ? teams.flat() : ids.filter(Boolean))].map(id => {
       const fighter = PRESIDENTS_DATA.find(data => data.id === id) ?? PRESIDENTS_DATA[0];
       return [id, (async () => {
         const art = await fighterAtlasArt(fighter);
@@ -89,6 +92,14 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
     await ultimateArtReady;
     const failed = atlasResults.find(result => result.status === 'rejected');
     if (failed?.status === 'rejected') throw failed.reason;
+    const readyAtlases = new Map<string, Awaited<ReturnType<typeof atlasById.get>>>();
+    const readyPoses = new Map<string, Texture[]>();
+    const emptyPoses: Texture[] = [];
+    for (const [id, pending] of atlasById) {
+      const atlas = await pending;
+      readyAtlases.set(id, atlas);
+      readyPoses.set(id, atlas.map(pose => pose.texture));
+    }
     const visuals = await Promise.all(ids.map(async (id, slot) => {
       const fighter = PRESIDENTS_DATA.find(data => data.id === id);
       const atlas = await atlasById.get(id);
@@ -122,8 +133,8 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
       ultimate.height = 4;
       ultimate.width = 0;
       card.addChild(panel, label, status, track, ultimate);
-      hud.addChild(card);
-      return { root, hud: card, body, poses: atlas?.map(pose => pose.texture) ?? [], atlas,
+      (teams ? unusedCards : hud).addChild(card);
+      return { root, hud: card, fighterId: id, body, poses: atlas?.map(pose => pose.texture) ?? [], atlas,
         ultimate, ultimateWidth: BAR_WIDTH,
         setStatus: (damage: number, stocks: number) => { status.text = `${damage}% · ${stocks} vidas`; },
       };
@@ -132,13 +143,14 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
     world.addChild(ultimates.signatures);
     for (const particle of particles) world.addChild(particle);
     const sync = createFighterVisualSync(visuals);
+    const tagHUD = teams && createPixiTagHUD(hud, teams, id => readyPoses.get(id)?.[0] ?? Texture.EMPTY);
     const fallback = new Float32Array(MAX_PLAYERS * STRIDE);
     app.canvas.className = target.className;
     app.canvas.setAttribute('aria-label', 'Arena multijugador WebGL');
     app.canvas.dataset.renderer = 'pixi';
     const scene = {
       app,
-      sync(state: Float32Array | null, snapshot: MatchSnapshot) {
+      sync(state: Float32Array | null, snapshot: MatchSnapshot, tagState: Uint32Array | null = null) {
         if (!state) {
           fallback.fill(0);
           for (let index = 0; index < snapshot.players.length; index++) {
@@ -154,6 +166,17 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
             fallback[b + Field.Stocks] = p.stocks;
           }
           state = fallback;
+        }
+        if (teams) {
+          for (let slot = 0; slot < 4; slot++) {
+            const id = (slot < 2 ? snapshot.players[slot]?.fighterId : snapshot.tagAssistIds?.[slot - 2]) ?? '';
+            const visual = visuals[slot];
+            if (visual.fighterId === id) continue;
+            visual.fighterId = id;
+            visual.atlas = readyAtlases.get(id);
+            visual.poses = readyPoses.get(id) ?? emptyPoses;
+          }
+          tagHUD?.(tagState, snapshot.tick);
         }
         sync(state);
         for (let i = 0; i < visuals.length; i++) {

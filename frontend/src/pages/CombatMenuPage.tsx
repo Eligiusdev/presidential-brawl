@@ -16,6 +16,7 @@ export function CombatMenuPage() {
   const items: MenuItem[] = useMemo(() => [
     { id: 'campaign', label: 'Cumbre Mundial', sub: 'Campaña de 7 rondas', icon: Crown, action: () => { g.setCampaignSelection(true); g.setScreen('SELECT'); }, primary: true },
     { id: 'online', label: 'En línea', sub: 'Salas y duelos online', icon: Globe, action: () => navigate('/online') },
+    { id: 'tag', label: 'Duelo 3v3', sub: 'Equipos con relevos y asistencias', icon: Swords, action: () => navigate('/tag') },
     { id: 'training', label: 'Entrenamiento', sub: 'Practica tus movimientos', icon: Dumbbell, action: () => { g.setCampaignSelection(false); g.setTrainingSelection('training'); g.setScreen('SELECT'); } },
     { id: 'tutorial', label: 'Tutorial', sub: 'Aprende a moverte y atacar', icon: Crosshair, action: () => { g.setCampaignSelection(false); g.setTrainingSelection('tutorial'); g.setScreen('SELECT'); } },
     { id: 'local', label: 'Combate local', sub: '1P · 2P en el mismo dispositivo', icon: Swords, action: () => { g.setCampaignSelection(false); g.setScreen('SELECT'); } },

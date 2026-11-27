@@ -381,7 +381,7 @@ func (m *Match) Step(inputs [][]string) uint32 {
 	parsed := make([]Input, len(m.Fighters))
 	for i := range m.Fighters {
 		var acts []string
-		if m.Mode == "attract" || m.Fighters[i].TrainingDummy {
+		if m.Mode == "attract" || m.Fighters[i].TrainingDummy || (m.Tag != nil && m.Tag.Teams[i].CPU) {
 			acts = m.aiInput(m.Fighters[i])
 		} else if m.Capacity > 2 || m.Mode == "campaign" || m.Mode == "versus" {
 			if i < len(inputs) { acts = inputs[i] }

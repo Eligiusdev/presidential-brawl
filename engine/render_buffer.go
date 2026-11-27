@@ -12,7 +12,7 @@ type RenderBuffer [RenderFloats]float32
 // Coordinates are the horizontal center and feet of the fighter. Animation is
 // a state index, independent of the chosen texture atlas.
 func (t *RollbackTimeline) WriteRenderBuffer(out *RenderBuffer) {
-	writeFighterRenderBuffer(t.match.Fighters, out)
+	t.match.WriteMatchRenderBuffer(out)
 }
 
 func writeFighterRenderBuffer(fighters []*Fighter, out *RenderBuffer) {
@@ -56,4 +56,15 @@ func renderPose(f *Fighter) float32 {
 // WriteMatchRenderBuffer is also used by local Wasm consumers.
 func (m *Match) WriteMatchRenderBuffer(out *RenderBuffer) {
 	writeFighterRenderBuffer(m.Fighters, out)
+	if m.Tag == nil { return }
+	for seat, team := range m.Tag.Teams {
+		if team.AssistTicks == 0 { continue }
+		base := (2 + seat) * RenderStride
+		out[base] = 1
+		out[base+1] = float32(team.AssistX - 30*float64(team.AssistFacing))
+		out[base+2] = float32(team.AssistY + 56)
+		out[base+3] = float32(team.AssistFacing)
+		out[base+4] = 4
+		out[base+7] = 1
+	}
 }

@@ -190,7 +190,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     if (rawPath === '/config') return;
 
-    if (rawPath === '/combat' || rawPath === '/gallery' || rawPath === '/online') {
+    if (rawPath === '/combat' || rawPath === '/gallery' || rawPath === '/online' || rawPath === '/tag') {
       const cur = screenRef.current;
       if (cur !== 'TITLE') {
         if (cur === 'PLAYING' || cur === 'PAUSED' || cur === 'VS') {
@@ -280,7 +280,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const loc = locationRef.current;
     const curPath = normPath(loc.pathname);
     if (curPath === '/config') return;
-    const menuPaths = ['/', '/combat', '/gallery', '/online'];
+    const menuPaths = ['/', '/combat', '/gallery', '/online', '/tag'];
     const viewPaths = ['/select', '/play', '/replay', '/result'];
     const legacyPath = curPath === '/visualizar' || curPath.startsWith('/room/') || /^\/result\/(defeat|censure|champion)$/.test(curPath);
     if (!screenChanged && screen === 'TITLE' && (viewPaths.includes(curPath) || legacyPath)) return;
@@ -471,7 +471,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     let lastPaint = 0, nextPaintAt = 0, lastScreen = '', backdropStage = '', backdropNight = -1;
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
-      const rawDt = now - last; last = now; if (onlineActive.current) return;
+      const rawDt = now - last; last = now; if (onlineActive.current || normPath(locationRef.current.pathname) === "/tag") return;
       acc += Math.min(50, Math.max(0, rawDt));
       const curScreen = screenRef.current;
       const isAttract = curScreen === 'TITLE' || curScreen === 'SELECT';

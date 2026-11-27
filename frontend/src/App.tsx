@@ -4,6 +4,7 @@ import { GameLayout } from './game/GameLayout';
 import { TitlePage } from './pages/TitlePage';
 import { SelectPage } from './pages/SelectPage';
 import { CombatMenuPage } from './pages/CombatMenuPage';
+import { TagDuelPage } from './pages/TagDuelPage';
 import { OnlinePage } from './pages/OnlinePage';
 import { GalleryPage } from './pages/GalleryPage';
 import { PlayPage } from './pages/PlayPage';
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/" element={<GameLayout />}>
           <Route index element={<TitlePage />} />
           <Route path="combat" element={<CombatMenuPage />} />
+          <Route path="tag" element={<TagDuelPage />} />
           <Route path="online" element={<OnlinePage />} />
           <Route path="gallery" element={<GalleryPage />} />
           <Route path="visualizar" element={<Navigate to="/gallery" replace />} />
