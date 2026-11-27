@@ -103,6 +103,7 @@ type RichFighter struct {
 }
 
 type RichSnapshot struct {
+	TagAssistIDs *[2]string `json:"tagAssistIds,omitempty"`
 	Frame     int `json:"frame,omitempty"`
 	Type      string `json:"type"`
 	Tick      uint32 `json:"tick"`
@@ -171,6 +172,12 @@ func (m *Match) richSnapshot() *RichSnapshot {
 		Zones: m.UltEffects, Projectiles: m.Projectiles,
 		Cine: m.Cine, Telegraph: m.Telegraph,
 		Standings: m.StandingsList, WinnerPi: m.WinnerPi,
+	}
+	if m.Tag != nil {
+		snap.TagAssistIDs = &[2]string{}
+		for seat, team := range m.Tag.Teams {
+			if team.AssistTicks != 0 { snap.TagAssistIDs[seat] = team.Members[team.AssistMember].FighterID }
+		}
 	}
 	for i := range snap.Ack { snap.Ack[i] = -1 }
 	return snap

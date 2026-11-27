@@ -49,6 +49,17 @@ func TestTagCoreParity(t *testing.T) {
 			left.Members[0].Health <= 700 || len(m.Projectiles) < 2 {
 			t.Fatal("simultaneous assists or reserve recovery failed")
 		}
+		var scene RenderBuffer
+		m.WriteMatchRenderBuffer(&scene)
+		if scene[2*RenderStride] != 1 || scene[3*RenderStride] != 1 || scene[4*RenderStride] != 0 {
+			t.Fatal("assists did not use their fixed scene slots")
+		}
+		var hud TagHUDBuffer
+		m.WriteTagHUD(&hud)
+		if hud[1] != 1 || hud[8] == 0 || hud[9] == 0 || hud[2*TagHUDStride] != 0 {
+			t.Fatal("team HUD lost the active index, blue health or cooldown")
+		}
+
 		return hashMatch(t, m)
 	}
 	want := replay()

@@ -64,10 +64,11 @@ func main() {
 		if len(args) > 4 && args[4].String() != "" { mode = args[4].String() }
 		var m *sim.Match
 		var err error
-		if mode == "tag" {
+		if mode == "tag" || mode == "tag-solo" {
 			if len(ids) != 6 { return map[string]any{"error": "tag requires six fighters"} }
 			teams := [2][3]string{[3]string(ids[:3]), [3]string(ids[3:])}
 			m, err = sim.NewTagMatch(teams, stage, seed, cfg)
+			if err == nil && mode == "tag-solo" { m.Tag.Teams[1].CPU = true }
 		} else {
 			m, err = sim.NewLocalMatch(ids, stage, seed, cfg, mode)
 		}

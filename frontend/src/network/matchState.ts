@@ -37,6 +37,7 @@ type WireUltimate = Omit<RenderUltEffect, 'f' | 'o'> & { f: number; o: number };
 
 export interface MatchSnapshot {
   type: 'snapshot';
+  tagAssistIds?: [string, string];
   // Calls to Step, including hitstop, on servers that expose the timeline.
   frame?: number;
   tick: number;

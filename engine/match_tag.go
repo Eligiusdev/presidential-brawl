@@ -19,6 +19,7 @@ type TagMemberState struct {
 }
 
 type TagTeamState struct {
+	CPU bool `json:",omitempty"`
 	Members          [3]TagMemberState
 	Active           uint8
 	AssistMember     uint8

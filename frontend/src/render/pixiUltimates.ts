@@ -57,7 +57,7 @@ export function createPixiUltimates(world: Container,
       render();
       motes.visible = visible;
     },
-    async load(players: MatchSnapshot['players']) {
+    async load(players: readonly { fighterId: string }[]) {
       const ids = new Set(players.map(p => PRESIDENT_ULTIMATES[p.fighterId]?.id).filter(id => id !== undefined));
       await Promise.allSettled([...ids].map(async id => {
         const entry = ultimateArtSource(id);
