@@ -30,7 +30,7 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
   await app.init({
     width: 960, height: 540, autoStart: false, antialias: false,
     preference: 'webgl', resolution: Math.min(window.devicePixelRatio || 1, 1.5),
-    backgroundColor: 0x10182a,
+    backgroundColor: 0x10182a, backgroundAlpha: 1,
   });
   app.ticker.remove(app.render, app);
   app.ticker.maxFPS = 0;
@@ -58,8 +58,7 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
     }
     for (const platform of platforms) world.addChild(platform);
 
-    const { dot, ring, streak } = art.effectTextures;
-    const ultimates = createPixiUltimates(world, dot, ring, streak, ownedTextures);
+    const ultimates = createPixiUltimates(world, art.effectTextures, ownedTextures);
     const ultimateArtReady = ultimates.load(initial.players);
 
     const ids = new Array<string>(MAX_PLAYERS).fill('');
@@ -130,6 +129,7 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
       };
     }));
     for (const shot of shots) world.addChild(shot);
+    world.addChild(ultimates.signatures);
     for (const particle of particles) world.addChild(particle);
     const sync = createFighterVisualSync(visuals);
     const fallback = new Float32Array(MAX_PLAYERS * STRIDE);
@@ -220,7 +220,7 @@ export async function createPixiCombat(target: HTMLCanvasElement, initial: Match
       destroy,
     };
     scene.sync(null, initial);
-    await app.renderer.prepare.upload([app.stage, ...ownedTextures, dot]);
+    await app.renderer.prepare.upload([app.stage, ...ownedTextures, art.effectTextures.dot]);
     ultimates.warmup(() => app.render());
     return scene;
   } catch (error) {

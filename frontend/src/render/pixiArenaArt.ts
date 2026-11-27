@@ -49,6 +49,8 @@ export function createArenaAtlas(stage: StageDef, night: number, background: Tex
   ctx.lineTo(96, 162);
   ctx.fill();
 
+  ctx.fillRect(164, 148, 4, 4);
+
   const source = new ImageSource({ resource: sheet, scaleMode: 'nearest' });
   const textures: Texture[] = [];
   const texture = (x: number, y: number, w: number, h: number) => {
@@ -61,7 +63,7 @@ export function createArenaAtlas(stage: StageDef, night: number, background: Tex
   const projectiles = new Map(shotKinds.map((kind, i) => [kind, texture(i * TILE, TILE, TILE, TILE)]));
   const particle = texture(0, 128, 16, 16);
   return {
-    effectTextures: { dot: particle, ring: texture(32, 128, 64, 64), streak: texture(96, 144, 64, 32) },
+    effectTextures: { dot: particle, ring: texture(32, 128, 64, 64), streak: texture(96, 144, 64, 32), mark: texture(164, 148, 4, 4) },
     platform(floating: boolean) {
       return new NineSliceSprite({ texture: floating ? ledge : main, leftWidth: 10, rightWidth: 10,
         topHeight: floating ? 3 : 10, bottomHeight: floating ? 3 : 10 });
