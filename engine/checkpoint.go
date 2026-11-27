@@ -225,7 +225,7 @@ func (m *Match) checkpointState() checkpointState {
 	return state
 }
 
-const CheckpointVersion = 1
+const CheckpointVersion = 2
 
 type wireCheckpoint struct {
 	Version int             `json:"version"`

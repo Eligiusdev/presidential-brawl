@@ -45,6 +45,8 @@ const ov = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 interface InputFrame {
+  medium?: boolean;
+  special?: boolean;
   left: boolean;
   right: boolean;
   jump: boolean;
@@ -68,7 +70,7 @@ const EMPTY_INPUT: InputFrame = {
   reload: false,
 };
 
-const ACTIONS_ORDER: PlayerAction[] = ['left', 'right', 'jump', 'down', 'light', 'heavy', 'dash', 'ult', 'reload'];
+const ACTIONS_ORDER: PlayerAction[] = ['left', 'right', 'jump', 'down', 'light', 'heavy', 'dash', 'ult', 'reload', 'medium', 'special'];
 
 function inputToActions(inp: InputFrame): PlayerAction[] {
   const out: PlayerAction[] = [];

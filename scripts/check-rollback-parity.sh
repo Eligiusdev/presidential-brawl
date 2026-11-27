@@ -3,12 +3,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../engine"
 runner="$(go env GOROOT)/lib/wasm/go_js_wasm_exec"
-if ! native_log=$(go test -run '^TestRollbackParityFixture$' -count=1 -v .); then
+if ! native_log=$(go test -run '^Test(RollbackParityFixture|TechniqueCheckpointParity)$' -count=1 -v .); then
   printf '%s\n' "$native_log" >&2
   exit 1
 fi
 printf '%s\n' "$native_log"
-if ! wasm_log=$(GOOS=js GOARCH=wasm go test -exec "$runner" -run '^TestRollbackParityFixture$' -count=1 -v .); then
+if ! wasm_log=$(GOOS=js GOARCH=wasm go test -exec "$runner" -run '^Test(RollbackParityFixture|TechniqueCheckpointParity)$' -count=1 -v .); then
   printf '%s\n' "$wasm_log" >&2
   exit 1
 fi
@@ -20,3 +20,13 @@ if [[ -z "$native_hash" || "$native_hash" != "$wasm_hash" ]]; then
   exit 1
 fi
 printf 'Rollback parity verified: %s\n' "$native_hash"
+
+for size in 2 8; do
+  native_technique_hash=$(sed -n "s/.*technique-hash-$size=//p" <<<"$native_log")
+  wasm_technique_hash=$(sed -n "s/.*technique-hash-$size=//p" <<<"$wasm_log")
+  if [[ -z "$native_technique_hash" || "$native_technique_hash" != "$wasm_technique_hash" ]]; then
+    printf 'Technique parity mismatch (%s players): native=%s wasm=%s\n' "$size" "$native_technique_hash" "$wasm_technique_hash" >&2
+    exit 1
+  fi
+  printf 'Technique parity verified (%s players): %s\n' "$size" "$native_technique_hash"
+done

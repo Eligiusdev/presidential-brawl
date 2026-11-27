@@ -19,7 +19,7 @@ export type HazardFrequency = 'off' | 'normal' | 'frenetic';
 export type ItemSpawnRate = 'off' | 'normal' | 'chaos';
 export type TouchMode = 'auto' | 'on' | 'off';
 
-export type PlayerAction = 'left' | 'right' | 'jump' | 'down' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload';
+export type PlayerAction = 'left' | 'right' | 'jump' | 'down' | 'light' | 'heavy' | 'dash' | 'ult' | 'reload' | 'medium' | 'special';
 
 export type KeyBindings = Record<PlayerAction, string[]>;
 export type GamepadBindings = Record<PlayerAction, number[]>;

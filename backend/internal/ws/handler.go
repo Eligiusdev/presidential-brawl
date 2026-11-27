@@ -49,7 +49,7 @@ func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request) {
 	s.Reg.AddClient(c)
 	defer s.Reg.RemoveClient(c)
 
-	_ = c.SendJSON(contract.HelloMessage{Type: "hello", Protocol: contract.Protocol, BinaryInput: true, CheckpointVersion: sim.CheckpointVersion})
+	_ = c.SendJSON(contract.HelloMessage{Type: "hello", Protocol: contract.Protocol, BinaryInput: true, InputMask: binaryInputMask, CheckpointVersion: sim.CheckpointVersion})
 
 	ctx := r.Context()
 	for {

@@ -1,7 +1,8 @@
 import type { PlayerAction } from '../types/game';
 
 // Wire order is shared with backend/internal/ws/binary_input.go.
-const actions: readonly PlayerAction[] = ['left', 'right', 'jump', 'down', 'light', 'heavy', 'dash', 'ult', 'reload'];
+const actions: readonly PlayerAction[] = ['left', 'right', 'jump', 'down', 'light', 'heavy', 'dash', 'ult', 'reload', 'medium', 'special'];
+export const techniqueInputMask = (1 << 9) | (1 << 10);
 
 export function inputMask(held: ReadonlySet<PlayerAction>): number {
   let mask = 0;

@@ -5,6 +5,8 @@ import type { PlayerAction } from '../types/game';
 
 const actions = [
   { action: 'light', label: 'Golpe normal', Icon: Swords },
+  { action: 'medium', label: 'Ataque medio', Icon: Swords },
+  { action: 'special', label: 'Pulso / Atrás: reflejo', Icon: Zap },
   { action: 'heavy', label: 'Golpe cargado', Icon: Crosshair },
   { action: 'dash', label: 'Esquivar', Icon: Zap },
   { action: 'ult', label: 'Supremo', Icon: Crown },
@@ -36,11 +38,12 @@ export function touchStickActions(dx: number, dy: number, active: ReadonlySet<Pl
   };
 }
 
-export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false, scale = 1, layout, joystick, movement = 'buttons' }: {
+export function TouchControls({ onAction, ultReady = false, hasGun = true, inline = false, scale = 1, layout, joystick, movement = 'buttons', techniques = false }: {
   onAction: (action: PlayerAction, active: boolean) => void;
   ultReady?: boolean;
   hasGun?: boolean;
   inline?: boolean;
+  techniques?: boolean;
   scale?: number;
   layout?: TouchLayout;
   joystick?: TouchJoystick;
@@ -175,7 +178,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
     height: `calc(clamp(102px, 25dvh, 166px) * ${joystick.scale ?? 1})`,
   } : undefined;
 
-  return <div className={`touch-deck touch-deck-${movement} ${inline ? 'touch-deck-inline' : ''}`} aria-label="Controles táctiles" style={{ ['--touch-scale' as any]: scale }}>
+  return <div className={`touch-deck touch-deck-${movement} ${inline ? 'touch-deck-inline' : ''} ${techniques ? 'touch-deck-techniques' : ''}`} aria-label="Controles táctiles" style={{ ['--touch-scale' as any]: scale }}>
     {movement === 'buttons' ? <div className="touch-dpad" role="group" aria-label="Movimiento">
       {([
         ['left', 'Izquierda', ChevronLeft], ['right', 'Derecha', ChevronRight],
@@ -196,8 +199,9 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
       </div>
     </div>}
     <div className="touch-action-grid">
-      {actions.filter(({ action }) => action !== 'reload' || hasGun).map(({ action, label, Icon }) => {
-        const pos = movement === 'joystick' ? layout?.[action] : undefined;
+      {actions.filter(({ action }) => (action !== 'reload' || hasGun) &&
+        (techniques || (action !== 'medium' && action !== 'special'))).map(({ action, label, Icon }) => {
+        const pos = movement === 'joystick' && !techniques && action !== 'medium' && action !== 'special' ? layout?.[action] : undefined;
         const baseScale = action === 'reload' ? 0.88 : 1;
         const btnScale = baseScale * (pos?.scale ?? 1);
         const sizeStyle = { width: `calc(var(--touch-size) * ${btnScale})`, height: `calc(var(--touch-size) * ${btnScale})` };
@@ -209,7 +213,7 @@ export function TouchControls({ onAction, ultReady = false, hasGun = true, inlin
           onPointerDown={e => pressButton(e, action)}
           onPointerUp={e => releaseButton(e.pointerId)} onPointerCancel={e => releaseButton(e.pointerId)}
           onLostPointerCapture={e => releaseButton(e.pointerId)}>
-          <Icon size={22} strokeWidth={2.4} aria-hidden="true" />
+          {techniques && action === "light" ? "L" : techniques && action === "medium" ? "M" : techniques && action === "heavy" ? "H" : techniques && action === "special" ? "S" : <Icon size={22} strokeWidth={2.4} aria-hidden="true" />}
         </button>;
       })}
     </div>

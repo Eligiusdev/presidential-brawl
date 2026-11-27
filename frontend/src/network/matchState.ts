@@ -52,7 +52,7 @@ export interface MatchSnapshot {
 export type ServerRoomMessage = RoomState | MatchSnapshot
   | { type: 'seat'; code: string; slot: number; token: string; seq: number }
   | { type: 'error'; code: string; message: string }
-  | { type: 'hello'; protocol?: number; binaryInput?: boolean; checkpointVersion?: number } | { type: 'pong' };
+  | { type: 'hello'; protocol?: number; binaryInput?: boolean; inputMask?: number; checkpointVersion?: number } | { type: 'pong' };
 
 const projectileIds = new WeakMap<object, number>();
 let nextProjectile = 0;

@@ -2047,3 +2047,24 @@ html[data-mobile] .online-match .apex-arena-backdrop { filter: none; transform: 
     object-position: center;
   }
 }
+
+.online-match .touch-deck-techniques .touch-action-grid {
+  --technique-size: clamp(32px, 10vw, 44px);
+  inset: auto max(8px, env(safe-area-inset-right)) 8px auto;
+  display: grid;
+  grid-template: repeat(2, var(--technique-size)) / repeat(4, var(--technique-size));
+  gap: 3px;
+}
+.online-match .touch-deck-techniques .touch-action-grid button.touch-action {
+  position: static;
+  width: 100% !important;
+  height: 100% !important;
+  transform: none;
+}
+.touch-deck.touch-deck-techniques .touch-light { grid-area: 2 / 1; }
+.touch-deck.touch-deck-techniques .touch-medium { grid-area: 2 / 2; }
+.touch-deck.touch-deck-techniques .touch-heavy { grid-area: 2 / 3; }
+.touch-deck.touch-deck-techniques .touch-special { grid-area: 2 / 4; }
+.touch-deck.touch-deck-techniques .touch-dash { grid-area: 1 / 2; }
+.touch-deck.touch-deck-techniques .touch-ult { grid-area: 1 / 4; }
+.touch-deck.touch-deck-techniques .touch-reload { grid-area: 1 / 1; }

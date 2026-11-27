@@ -33,6 +33,8 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 	if in.Left { dir-- }
 
 	// timers
+	if f.ReflectTicks > 0 { f.ReflectTicks-- }
+	if f.ChainTicks > 0 { f.ChainTicks--; if f.ChainTicks == 0 { f.ChainMove = 0 } }
 	if f.Inv > 0 { f.Inv-- }
 	if f.DashCD > 0 { f.DashCD-- }
 	if f.DashDanceT > 0 { f.DashDanceT-- }
@@ -81,7 +83,7 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 		f.Stun--
 		f.Floating, f.FastFall = false, false
 		f.VX *= .985
-	} else if f.UltimateRecovery == 0 {
+	} else if f.UltimateRecovery == 0 && f.ReflectTicks == 0 {
 		// ultimate trigger
 		if f.Vote >= 100 && m.Cine == nil && m.Telegraph == nil && (just.Ult || (in.Light && in.Heavy && (just.Light || just.Heavy))) {
 			o := m.aliveOpponent(f)
@@ -118,7 +120,7 @@ func (m *Match) updateFighter(f *Fighter, in Input) {
 		// weapon pickup / fire / reload
 		m.weaponActions(f, in, just)
 		// attacks
-		m.attackActions(f, in, just, dir)
+		if f.ReflectTicks == 0 && !m.techniqueActions(f, just, dir) { m.attackActions(f, in, just, dir) }
 		if a != nil && f.Atk == a { m.advanceAttack(f) }
 	}
 
@@ -452,6 +454,12 @@ func (m *Match) advanceAttack(f *Fighter) {
 	a.T++
 	sp := a.Spec
 	t := a.T
+	if sp.MoveKind == "energy" && t == 5 {
+		x := f.CX() + 15
+		if f.Face < 0 { x = f.CX() - 39 }
+		m.addProjectile(&Projectile{X:x, Y:f.CY()-10, W:24, H:20, VX:float64(f.Face)*12,
+			Life:48, Kind:"pulse", Dir:f.Face, Owner:f.Slot, Dmg:5*f.Power(), BK:3, KS:.08, Ang:-18})
+	}
 	if sp.Balanced && sp.Frames != nil && t == sp.Frames.Startup+1 {
 		if sp.Effect == "seal" || sp.Effect == "barrier" {
 			life := Data().Limits.FieldLifetime
@@ -554,6 +562,13 @@ func (m *Match) resolveIndividualStrikes() {
 
 func (m *Match) hurt(f, o *Fighter, d damageSpec, dir int, source string, contact *Rect) bool {
 	if f.Inv > 0 || f.Dead > 0 { return false }
+	if source == "melee" && o != nil && f.canReflect(dir) && !d.Ult && !d.Pierce {
+		o.VX = -float64(dir)*7
+		if o.Stun < 10 { o.Stun = 10 }
+		o.Atk = nil
+		m.reflectCue(f)
+		return true
+	}
 	if f.Atk != nil && f.Atk.Spec.Effect == "hover" && !d.Ult && !d.Pierce {
 		fr := f.Atk.Spec.Frames
 		if fr == nil || (f.Atk.T > fr.Startup && f.Atk.T <= fr.Startup+fr.Active) { return false }
@@ -701,6 +716,13 @@ func (m *Match) updateProjectiles() {
 			for _, o := range m.Fighters {
 				if o.Slot == p.Owner || o.Dead > 0 || o.Stocks <= 0 || p.Done[o.Slot] { continue }
 				if !overlaps(Rect{p.X, p.Y, p.W, p.H}, o.Rect()) { continue }
+				if p.VX != 0 && o.canReflect(p.Dir) {
+					p.Owner, p.Dir, p.VX = o.Slot, -p.Dir, -p.VX
+					p.OwnerColor, p.OwnerHighlight = o.D.Palette.Base, o.D.Palette.Highlight
+					clear(p.Done)
+					m.reflectCue(o)
+					break
+				}
 				var attacker *Fighter
 				if p.Owner >= 0 && p.Owner < len(m.Fighters) { attacker = m.Fighters[p.Owner] }
 				if m.hurt(o, attacker, damageSpec{Dmg: p.Dmg, BK: p.BK, KS: p.KS, Ang: p.Ang, Heavy: p.Heavy}, p.Dir, "projectile", &Rect{p.X, p.Y, p.W, p.H}) {

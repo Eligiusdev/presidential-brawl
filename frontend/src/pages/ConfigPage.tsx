@@ -454,7 +454,7 @@ const KEY_ROWS: Array<Array<{ code: string; label: string; w?: number }>> = [
 
 const ACTION_COLORS: Record<PlayerAction, string> = {
   left:'#38bdf8', right:'#38bdf8', jump:'#4ade80', down:'#94a3b8',
-  light:'#f59e0b', heavy:'#f97316', dash:'#a78bfa', ult:'#ffcc33', reload:'#f43f5e',
+  medium:'#60a5fa', special:'#22d3ee', light:'#f59e0b', heavy:'#f97316', dash:'#a78bfa', ult:'#ffcc33', reload:'#f43f5e',
 };
 
 function KeyboardPreview({ bindings }: { bindings: Record<PlayerAction, string[]> }) {
