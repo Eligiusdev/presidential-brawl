@@ -79,6 +79,10 @@ type KOVis struct {
 }
 
 type Fighter struct {
+	CPU bool `json:",omitempty"`
+	AICool int `json:",omitempty"`
+	AIStrafe int `json:",omitempty"`
+	AIRNG uint32 `json:",omitempty"`
 	ReflectTicks int `json:",omitempty"`
 	ReflectFace int `json:",omitempty"`
 	ChainMove uint8 `json:",omitempty"`

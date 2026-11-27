@@ -67,6 +67,7 @@ export function MatchSettingsModal({ open, onClose, value, onChange, inMatch = f
             <button type="button" className="console-btn" onClick={() => { sound.uiConfirm(); onChange(structuredClone(DEFAULT_CONFIG.match)); }}><RotateCcw className="h-4 w-4" />Restaurar reglas</button>
             <div className="flex gap-2">
               <button type="button" className="console-btn" onClick={onClose}>Cerrar</button>
+              {inMatch && <p className="self-center text-xs text-slate-300">La dificultad y los peligros se aplican en la partida local.</p>}
               {inMatch && <button type="button" data-gamepad-initial className="console-btn console-btn-primary" onClick={() => { sound.uiConfirm(); onClose(); onRestart?.(); }}>Aplicar y reiniciar</button>}
             </div>
           </div>

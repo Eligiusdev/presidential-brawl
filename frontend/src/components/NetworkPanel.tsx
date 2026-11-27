@@ -273,7 +273,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         binaryInput.current = data.binaryInput === true;
         techniqueSupport.current = ((data.inputMask ?? 0) & techniqueInputMask) === techniqueInputMask;
         setShowTechniques(techniqueSupport.current);
-        rollbackSupported.current = data.checkpointVersion === 2;
+        rollbackSupported.current = data.checkpointVersion === 3;
         if (data.protocol !== ROOM_PROTOCOL) incompatibleProtocol();
         else send({
           ...request, protocol: ROOM_PROTOCOL, clientId: getClientId(),
