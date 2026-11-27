@@ -1,3 +1,4 @@
+import { FighterSelectionCard } from './FighterSelectionCard';
 import { FighterName } from './FighterName';
 import { useMemo, useState } from 'react';
 import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Settings, Sliders, Swords, Users } from 'lucide-react';
@@ -78,8 +79,8 @@ export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel
       </header>
 
       <div className="ob-main">
-        <section className="ob-preview" aria-label="Vista previa">
-          <div className="ob-stage-carousel" aria-label="Escenario">
+        <section className="ob-preview fighter-selection-preview" aria-label="Vista previa" style={{ overflow: 'auto' }}>
+          <div className="ob-stage-carousel" aria-label="Escenario" style={{ position: 'static', width: 'min(100%, 420px)', margin: '0 0 8px', flexShrink: 0 }}>
             <button type="button" className="ob-stage-nav" aria-label="Escenario anterior" onClick={() => setStage(stageSel - 1)}><ChevronLeft className="h-4 w-4" /></button>
             <div className="ob-stage-slide">
               <img src={stageArt} alt="" draggable={false} />
@@ -94,15 +95,10 @@ export function VersusCharacterSelect({ roster, sel, stageSel, vsAI, onChangeSel
             </div>
           </div>
 
-          <div className="ob-character-card" style={{ ['--accent' as any]: info.palette.accent.base }}>
-            <div className="ob-card-bg" aria-hidden>
-              <div className="ob-bg-stage" style={{ backgroundImage: `url("${stageArt}")` }} />
-              <div className="ob-bg-color" style={{ background: `radial-gradient(120% 90% at 78% 30%, color-mix(in srgb, ${info.palette.accent.base} 24%, transparent), transparent 58%), linear-gradient(90deg, rgba(8,13,24,.18) 0%, rgba(8,13,24,.04) 45%, rgba(8,13,24,.22) 100%)` }} />
-            </div>
-            <div className="ob-hero-art" style={{ paddingTop: 24 }}>
-              <div className="ob-hero-fighter me solo">
-                <FighterPreview president={info} selected large />
-              </div>
+          <div className="ob-character-card" style={{ flex: 'none', ['--accent' as any]: info.palette.accent.base }}>
+            <div className="grid grid-cols-2 gap-2 p-2">
+              <FighterSelectionCard fighter={p1} label="Jugador 1" selected={activeSlot === 0} onSelect={() => setActiveSlot(0)} />
+              <FighterSelectionCard fighter={p2} label={vsAI ? 'IA' : 'Jugador 2'} selected={activeSlot === 1} onSelect={() => setActiveSlot(1)} />
             </div>
             <div className="ob-char-info" style={{ background: 'linear-gradient(180deg,rgba(8,13,24,.62) 0%,rgba(8,13,24,.88) 24%,rgba(8,13,24,.95) 100%)' }}>
               <div className="ob-hero-tags" style={{ flexWrap: 'wrap' }}>

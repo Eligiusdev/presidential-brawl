@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { TouchControls } from '../components/TouchControls';
 import { DEFAULT_P1_KEYS, DEFAULT_P2_KEYS } from '../config/defaultConfig';
 import { PRESIDENTS_DATA } from '../data/presidents';
-import { fighterArtPath, fighterAsset } from '../engine/fighterSprites';
+import { FighterSelectionCard } from '../components/FighterSelectionCard';
 import { stageArtUrl } from '../engine/stageAtmosphere';
 import { STAGES_DATA } from '../data/stages';
 import type { MatchSnapshot } from '../network/matchState';
@@ -238,14 +238,8 @@ export function TagDuelPage() {
       </select></label>
     </div>
     <div className="tag-duel-teams">
-      {fighter && <article className="flex min-w-0 items-center gap-3 rounded-lg bg-[#111e34] p-3">
-        <img className="h-20 w-16 shrink-0 object-contain" alt="" src={fighterAsset(fighterArtPath(fighter), 'thumb.webp')} />
-        <div className="min-w-0">
-          <h2 className="font-bold">{fighter.name}</h2>
-          <p className="text-sm text-sky-200">{fighter.title} · {fighter.era}</p>
-          <p className="text-sm">{fighter.role}</p>
-        </div>
-      </article>}
+      {fighter && <FighterSelectionCard fighter={fighter}
+        label={`Equipo ${preview.seat + 1} · ${preview.slot === 0 ? 'Titular' : `Reserva ${preview.slot}`}`} selected />}
       <figure className="overflow-hidden rounded-lg bg-[#111e34]">
         <img className="aspect-video w-full object-cover" src={stageArtUrl(arenaStage.id, 'day')} alt="" />
         <figcaption className="p-2 text-sm">{arenaStage.name} · {arenaStage.city}</figcaption>
