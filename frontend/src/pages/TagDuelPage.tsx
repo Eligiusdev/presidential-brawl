@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { TouchControls } from '../components/TouchControls';
 import { DEFAULT_P1_KEYS, DEFAULT_P2_KEYS } from '../config/defaultConfig';
 import { PRESIDENTS_DATA } from '../data/presidents';
+import { fighterArtPath, fighterAsset } from '../engine/fighterSprites';
+import { stageArtUrl } from '../engine/stageAtmosphere';
 import { STAGES_DATA } from '../data/stages';
 import type { MatchSnapshot } from '../network/matchState';
 import { loadWasmSim } from '../sim/wasmSim';
@@ -28,12 +30,24 @@ export function TagDuelPage() {
   const [stage, setStage] = useState(0);
   const [solo, setSolo] = useState(true);
   const [match, setMatch] = useState<Settings | null>(null);
+  const [preview, setPreview] = useState({ seat: 0, slot: 0 });
+  const [paused, setPaused] = useState(false);
+  const pause = useRef(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const arenaStage = STAGES_DATA[stage];
+  const fighter = PRESIDENTS_DATA.find(item => item.id === teams[preview.seat][preview.slot]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const [winner, setWinner] = useState<number | null>(null);
   const arena = useRef<HTMLDivElement>(null);
   const touch = useRef(new Set<Action>());
   const touchDevice = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+
+  useEffect(() => {
+    const menu = dialog.current;
+    if (paused && menu && !menu.open) menu.showModal();
+    if (!paused && menu?.open) menu.close();
+  }, [paused]);
 
   useEffect(() => {
     if (!match || !arena.current) return;
@@ -46,6 +60,16 @@ export function TagDuelPage() {
     const clear = () => { keys.clear(); touch.current.clear(); };
     const keyboard = (event: KeyboardEvent) => {
       if (event.type === 'keyup') keys.delete(event.code);
+      if (event.type === 'keydown' && event.code === 'Escape' && !event.repeat &&
+          !pause.current && !host.parentElement?.querySelector('[data-tag-finished]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        clear();
+        pause.current = true;
+        setPaused(true);
+        return;
+      }
+      if (pause.current) return;
       if (event.altKey || event.ctrlKey || event.metaKey || !bindings.has(event.code)) return;
       if (event.target instanceof Element && event.target.closest('button,a,select,input')) return;
       event.preventDefault();
@@ -84,6 +108,13 @@ export function TagDuelPage() {
       let elapsed = 0;
       const inputs: Action[][] = [[], []];
       const frame = (now: number) => {
+        if (pause.current) {
+          clear();
+          previous = now;
+          elapsed = 0;
+          frameId = requestAnimationFrame(frame);
+          return;
+        }
         if (!document.hidden) elapsed += Math.min(stepMs * 5, now - previous);
         previous = now;
         if (elapsed >= stepMs) {
@@ -126,7 +157,13 @@ export function TagDuelPage() {
     };
   }, [match]);
 
+  const resume = () => {
+    touch.current.clear();
+    pause.current = false;
+    setPaused(false);
+  };
   const start = () => {
+    resume();
     setReady(false);
     setWinner(null);
     setError('');
@@ -139,14 +176,28 @@ export function TagDuelPage() {
 
   if (match) return <section className="tag-duel tag-duel-playing" aria-label="Duelo 3v3">
     <div className="tag-duel-arena" ref={arena} />
-    <button type="button" className="console-btn tag-duel-exit" onClick={() => setMatch(null)}>Volver a equipos</button>
+    <button type="button" className="console-btn tag-duel-exit" onClick={() => {
+      if (!ready || winner !== null || error) { resume(); setMatch(null); return; }
+      pause.current = true;
+      setPaused(true);
+    }}>{ready && winner === null && !error ? 'Pausa' : 'Volver a equipos'}</button>
+    <dialog ref={dialog} className="m-auto max-h-[90dvh] w-[min(92vw,34rem)] overflow-auto rounded-xl bg-[#111e34] p-5 text-white backdrop:bg-black/70"
+      aria-labelledby="tag-pause-title" onCancel={event => { event.preventDefault(); resume(); }}>
+      <h2 id="tag-pause-title" className="text-xl font-bold">Duelo en pausa</h2>
+      <TagControlGuide />
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" className="console-btn" autoFocus onClick={resume}>Continuar</button>
+        <button type="button" className="console-btn" onClick={start}>Reiniciar</button>
+        <button type="button" className="console-btn" onClick={() => { resume(); setMatch(null); }}>Volver a equipos</button>
+      </div>
+    </dialog>
     {!ready && !error && <p role="status" className="tag-duel-message">Preparando los luchadores…</p>}
     {error && <p role="alert" className="tag-duel-message">{error}</p>}
-    {winner !== null && <div className="tag-duel-message">
+    {winner !== null && <div data-tag-finished className="tag-duel-message">
       <h2>Ganó el equipo {winner + 1}</h2>
       <button type="button" className="console-btn" onClick={start}>Revancha</button>
     </div>}
-    {ready && winner === null && touchDevice && <>
+    {ready && !paused && winner === null && touchDevice && <>
       <TouchControls onAction={touchAction} techniques hasGun={false} />
       <div className="tag-duel-assists" aria-label="Asistencias">
         {(['assist1', 'assist2'] as const).map((action, i) => <button type="button" key={action} className="console-btn"
@@ -166,7 +217,8 @@ export function TagDuelPage() {
       {teams.map((team, seat) => <fieldset key={seat}>
         <legend>Equipo {seat + 1}</legend>
         {team.map((id, slot) => <label key={slot}>{slot === 0 ? 'Titular' : `Reserva ${slot}`}
-          <select value={id} onChange={event => {
+          <select value={id} onFocus={() => setPreview({ seat, slot })} onChange={event => {
+            setPreview({ seat, slot });
             const picked = event.target.value;
             setTeams(current => current.map((roster, i) =>
               i === seat ? roster.map((fighter, member) => member === slot ? picked : fighter) : roster) as Teams);
@@ -185,7 +237,33 @@ export function TagDuelPage() {
         <option value="cpu">CPU</option><option value="local">Jugador local</option>
       </select></label>
     </div>
-    <p>A1/A2: Q y E para J1, [ y ] para J2. Pulsa para asistir o mantén para relevar.</p>
+    <div className="tag-duel-teams">
+      {fighter && <article className="flex min-w-0 items-center gap-3 rounded-lg bg-[#111e34] p-3">
+        <img className="h-20 w-16 shrink-0 object-contain" alt="" src={fighterAsset(fighterArtPath(fighter), 'thumb.webp')} />
+        <div className="min-w-0">
+          <h2 className="font-bold">{fighter.name}</h2>
+          <p className="text-sm text-sky-200">{fighter.title} · {fighter.era}</p>
+          <p className="text-sm">{fighter.role}</p>
+        </div>
+      </article>}
+      <figure className="overflow-hidden rounded-lg bg-[#111e34]">
+        <img className="aspect-video w-full object-cover" src={stageArtUrl(arenaStage.id, 'day')} alt="" />
+        <figcaption className="p-2 text-sm">{arenaStage.name} · {arenaStage.city}</figcaption>
+      </figure>
+    </div>
+    <details className="w-full max-w-[720px] rounded-lg bg-[#111e34] p-3">
+      <summary className="cursor-pointer font-semibold">Controles del duelo</summary>
+      <TagControlGuide />
+    </details>
     <button type="button" className="console-btn" onClick={start}>Empezar duelo</button>
   </section>;
+}
+
+function TagControlGuide() {
+  return <div className="mt-2 grid gap-2 text-sm">
+    <p><strong>J1:</strong> WASD para moverte, J / H / K / N para L / M / H / S, L para esquivar, C para la definitiva y Q / E para A1 / A2.</p>
+    <p><strong>J2:</strong> flechas para moverte, U / Núm. 4 / I / Núm. 5 para L / M / H / S, O para esquivar, M para la definitiva y [ / ] para A1 / A2.</p>
+    <p><strong>Táctil:</strong> usa la cruceta y los botones de ataque. Pulsa A1 o A2 para asistir o mantén el botón para relevar.</p>
+    <p><strong>Reflejo:</strong> pulsa S mientras te alejas del rival. <strong>Pausa:</strong> Esc o el botón Pausa.</p>
+  </div>;
 }
