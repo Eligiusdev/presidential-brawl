@@ -37,6 +37,8 @@ type WireUltimate = Omit<RenderUltEffect, 'f' | 'o'> & { f: number; o: number };
 
 export interface MatchSnapshot {
   type: 'snapshot';
+  // Calls to Step, including hitstop, on servers that expose the timeline.
+  frame?: number;
   tick: number;
   ack: number[];
   stage: number;
@@ -50,7 +52,7 @@ export interface MatchSnapshot {
 export type ServerRoomMessage = RoomState | MatchSnapshot
   | { type: 'seat'; code: string; slot: number; token: string; seq: number }
   | { type: 'error'; code: string; message: string }
-  | { type: 'hello'; protocol?: number } | { type: 'pong' };
+  | { type: 'hello'; protocol?: number; binaryInput?: boolean; checkpointVersion?: number } | { type: 'pong' };
 
 const projectileIds = new WeakMap<object, number>();
 let nextProjectile = 0;

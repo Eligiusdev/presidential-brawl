@@ -11,6 +11,11 @@ import (
 
 var matches = map[int]*sim.Match{}
 var nextID = 1
+var checkpoints = map[int]map[int]sim.Checkpoint{}
+var nextCheckpointID = 1
+var onlineTimelines = map[int]*sim.RollbackTimeline{}
+
+const maxCheckpointsPerMatch = 120
 
 type createOpts struct {
 	Mode          string `json:"mode"`
@@ -27,6 +32,7 @@ type createOpts struct {
 }
 
 func main() {
+	registerOnlineRenderBuffer()
 	js.Global().Set("pbSimCreate", js.FuncOf(func(this js.Value, args []js.Value) any {
 		if len(args) < 3 {
 			return map[string]any{"error": "args: idsJson, stage, seed[, configJson]"}
@@ -80,6 +86,109 @@ func main() {
 		return string(m.SnapshotJSON())
 	}))
 
+	js.Global().Set("pbSimSave", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) < 1 {
+			return -1
+		}
+		id := args[0].Int()
+		match := matches[id]
+		if match == nil || len(checkpoints[id]) >= maxCheckpointsPerMatch {
+			return -1
+		}
+		if checkpoints[id] == nil {
+			checkpoints[id] = make(map[int]sim.Checkpoint)
+		}
+		handle := nextCheckpointID
+		nextCheckpointID++
+		checkpoints[id][handle] = match.Save()
+		return handle
+	}))
+
+	js.Global().Set("pbSimRestore", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) < 2 {
+			return false
+		}
+		id := args[0].Int()
+		match := matches[id]
+		return match != nil && match.Restore(checkpoints[id][args[1].Int()])
+	}))
+
+	js.Global().Set("pbSimRestoreNetwork", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) < 2 {
+			return false
+		}
+		id := args[0].Int()
+		match := matches[id]
+		if match == nil {
+			return false
+		}
+		checkpoint, err := sim.DecodeCheckpoint([]byte(args[1].String()))
+		if err != nil || !match.Restore(checkpoint) {
+			return false
+		}
+		delete(checkpoints, id)
+		return true
+	}))
+
+	js.Global().Set("pbSimDropCheckpoint", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) >= 2 {
+			delete(checkpoints[args[0].Int()], args[1].Int())
+		}
+		return nil
+	}))
+
+	js.Global().Set("pbSimStateHash", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) < 1 {
+			return nil
+		}
+		match := matches[args[0].Int()]
+		if match == nil {
+			return nil
+		}
+		hash, err := match.StateHash()
+		if err != nil {
+			return nil
+		}
+		return hash
+	}))
+
+	js.Global().Set("pbOnlineCreate", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) != 3 { return -1 }
+		checkpoint, err := sim.DecodeCheckpoint([]byte(args[0].String()))
+		if err != nil { return -1 }
+		timeline := sim.NewRollbackTimeline(checkpoint, args[1].Int())
+		var held [][]string
+		if timeline == nil || json.Unmarshal([]byte(args[2].String()), &held) != nil || !timeline.Reset(checkpoint, held) { return -1 }
+		id := nextID
+		nextID++
+		onlineTimelines[id] = timeline
+		return id
+	}))
+	js.Global().Set("pbOnlineAdvance", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) != 2 { return -1 }
+		timeline := onlineTimelines[args[0].Int()]
+		var held []string
+		if timeline == nil || json.Unmarshal([]byte(args[1].String()), &held) != nil { return -1 }
+		return timeline.Advance(held)
+	}))
+	js.Global().Set("pbOnlineConfirm", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) != 3 { return -1 }
+		timeline := onlineTimelines[args[0].Int()]
+		var held [][][]string
+		if timeline == nil || json.Unmarshal([]byte(args[2].String()), &held) != nil { return -1 }
+		return int(timeline.ConfirmBatch(args[1].Int(), held))
+	}))
+	js.Global().Set("pbOnlineSnapshot", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) != 1 { return nil }
+		timeline := onlineTimelines[args[0].Int()]
+		if timeline == nil { return nil }
+		return string(timeline.SnapshotJSON())
+	}))
+	js.Global().Set("pbOnlineFree", js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) == 1 { delete(onlineTimelines, args[0].Int()) }
+		return nil
+	}))
+
 	js.Global().Set("pbSimLeave", js.FuncOf(func(this js.Value, args []js.Value) any {
 		if len(args) < 2 { return nil }
 		if m := matches[args[0].Int()]; m != nil { m.Leave(args[1].Int()) }
@@ -88,6 +197,7 @@ func main() {
 
 	js.Global().Set("pbSimFree", js.FuncOf(func(this js.Value, args []js.Value) any {
 		if len(args) < 1 { return nil }
+		delete(checkpoints, args[0].Int())
 		delete(matches, args[0].Int())
 		return nil
 	}))

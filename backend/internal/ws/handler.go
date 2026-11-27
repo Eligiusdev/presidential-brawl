@@ -36,6 +36,7 @@ func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		CompressionMode: websocket.CompressionDisabled,
 		InsecureSkipVerify: true, // we checked origin above
 	})
 	if err != nil {
@@ -44,20 +45,25 @@ func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(4096)
 
 	c := rooms.NewClient(conn)
+	c.CompactSnapshots = r.URL.Query().Get("snapshots") == "gzip1"
 	s.Reg.AddClient(c)
 	defer s.Reg.RemoveClient(c)
 
-	_ = c.SendJSON(contract.HelloMessage{Type: "hello", Protocol: contract.Protocol})
+	_ = c.SendJSON(contract.HelloMessage{Type: "hello", Protocol: contract.Protocol, BinaryInput: true, CheckpointVersion: sim.CheckpointVersion})
 
 	ctx := r.Context()
 	for {
-		_, data, err := conn.Read(ctx)
+		kind, data, err := conn.Read(ctx)
 		if err != nil {
 			s.handleClose(c)
 			return
 		}
 		var msg contract.ClientMessage
-		if err := json.Unmarshal(data, &msg); err != nil {
+		if kind == websocket.MessageBinary {
+			var ok bool
+			msg, ok = decodeBinaryInput(data)
+			if !ok { continue }
+		} else if err := json.Unmarshal(data, &msg); err != nil {
 			continue
 		}
 		s.handleMessage(c, msg)
@@ -300,11 +306,26 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 	room.Mu().Unlock()
 
 	switch msg.Type {
-	case contract.CInput:
-		if room.Match == nil || room.Standings != nil {
+	case contract.CRollbackSync:
+		room.Mu().Lock()
+		now := time.Now()
+		if player.WS != c || room.Match == nil || now.Sub(player.RollbackSyncAt) < 30*time.Millisecond {
+			room.Mu().Unlock()
 			return
 		}
-		if msg.Seq <= player.Seq || len(msg.Actions) > len(rooms.Actions) {
+		player.RollbackSyncAt = now
+		reply, err := room.RollbackSyncLocked(msg.MatchID, msg.AfterFrame, now.Sub(player.RollbackCheckpointAt) >= time.Second)
+		if len(reply.Checkpoint) > 0 {
+			player.RollbackCheckpointAt = now
+		}
+		reply.SyncRequest = msg.SyncRequest
+		room.Mu().Unlock()
+		if err == nil {
+			_ = c.TrySendRollback(reply)
+		}
+
+	case contract.CInput:
+		if len(msg.Actions) > len(rooms.Actions) {
 			return
 		}
 		for _, a := range msg.Actions {
@@ -322,6 +343,10 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 			}
 		}
 		room.Mu().Lock()
+		if player.WS != c || room.Match == nil || room.Standings != nil || msg.Seq <= player.Seq {
+			room.Mu().Unlock()
+			return
+		}
 		player.Seq = msg.Seq
 		last := player.Input
 		if len(player.Pending) > 0 {
@@ -562,6 +587,7 @@ func (s *Server) handleMessage(c *rooms.Client, msg contract.ClientMessage) {
 			}
 		}
 		room.Match = nil
+		room.ClearRollbackLocked()
 		room.MatchSlots = nil
 		room.Standings = nil
 		room.ChampionSlot = -1

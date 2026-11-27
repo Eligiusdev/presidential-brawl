@@ -32,6 +32,24 @@ jobs:
           node-version: '24'
           cache: npm
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+          cache: false
+
+      - name: Validate and build the Wasm engine
+        run: |
+          bash scripts/check-rollback-parity.sh
+          bash scripts/check-rollback-network.sh
+          mkdir -p frontend/public/sim
+          (cd engine && GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -o ../frontend/public/sim/sim.wasm ./cmd/sim-wasm)
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" frontend/public/sim/
+          jq -n --arg version "$GITHUB_SHA" \
+            --arg sha256 "$(sha256sum frontend/public/sim/sim.wasm | cut -d ' ' -f1)" \
+            --argjson bytes "$(wc -c < frontend/public/sim/sim.wasm)" \
+            '{version: $version, sha256: $sha256, bytes: $bytes}' > frontend/public/sim/manifest.json
+
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
@@ -43,6 +61,7 @@ jobs:
 
       - name: Build game for GitHub Pages
         env:
+          VITE_WASM_VERSION: ${{ github.sha }}
           VITE_ROOM_API_BASE_URL: ${{ vars.ROOM_API_BASE_URL || 'https://presidential-brawl-api.onrender.com' }}
         run: npm run build --prefix frontend -- --base="${{ steps.pages.outputs.base_path }}/"
 
@@ -92,3 +111,9 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify public Wasm binary
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          bash scripts/verify-pages-wasm.sh "$PAGES_URL" frontend/dist/sim/manifest.json

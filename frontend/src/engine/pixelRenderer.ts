@@ -1,6 +1,8 @@
+import { paintIllustratedPlatform } from './platformArt';
+import { markOnlinePerformance, performanceMetricsEnabled } from './performanceMetrics';
 import { fullQuality, type RenderQuality } from './renderPerformance';
 import type { RoomCapacity } from '../data/stages';
-import { paintUltimatePreview, paintUltimateSprite } from './ultimateSprites';
+import { paintUltimatePreview, paintUltimateSprite, ultimateVisualState } from './ultimateSprites';
 import { type PresidentUltimate, type UltimateOrigin } from './presidentUltimates';
 import { stageArt, stageHazardColumns, stageNightMix } from './stageAtmosphere';
 import { fighterArtPath, paintCombatSprite, paintFighterThumbnail, paintSprite, spritePortrait } from './fighterSprites';
@@ -1982,6 +1984,8 @@ export class PixelRenderer extends LegacyFighterGeometry {
   private offCtx: CanvasRenderingContext2D;
   private lightCanvas: HTMLCanvasElement;
   private lightCtx: CanvasRenderingContext2D;
+  private arenaRasters = new Map<HTMLImageElement, HTMLCanvasElement>();
+  private textRasters = new Map<string, { canvas: HTMLCanvasElement; x: number; y: number }>();
   private pxW = 640;
   private pxH = 360;
   private camX = 720;
@@ -2012,6 +2016,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     const dim = target?.width && target.height ? { w: target.width, h: target.height } :
       { w: Math.round(preset.w * quality.scale), h: Math.round(preset.h * quality.scale) };
     if (this.pxW !== dim.w || this.pxH !== dim.h) {
+      this.arenaRasters.clear();
       this.pxW = dim.w;
       this.pxH = dim.h;
       this.offCanvas.width = dim.w;
@@ -2740,7 +2745,18 @@ export class PixelRenderer extends LegacyFighterGeometry {
     const draw = (art: HTMLImageElement) => {
       const zoom = Math.max(W * 1.16 / art.width, H * 1.1 / art.height);
       const w = art.width * zoom, h = art.height * zoom;
-      ctx.drawImage(art, (W - w) / 2 - drift, (H - h) / 2 - rise, w, h);
+      let raster = this.arenaRasters.get(art);
+      if (!raster) {
+        if (this.arenaRasters.size >= 2) this.arenaRasters.clear();
+        raster = document.createElement('canvas');
+        raster.width = Math.ceil(w);
+        raster.height = Math.ceil(h);
+        const layer = raster.getContext('2d');
+        if (!layer) return;
+        layer.drawImage(art, 0, 0, raster.width, raster.height);
+        this.arenaRasters.set(art, raster);
+      }
+      ctx.drawImage(raster, Math.round((W - w) / 2 - drift), Math.round((H - h) / 2 - rise));
     };
     ctx.save();
     ctx.imageSmoothingEnabled = true;
@@ -2758,52 +2774,6 @@ export class PixelRenderer extends LegacyFighterGeometry {
     ctx.fillRect(-20, -20, W + 40, H + 40);
     ctx.restore();
     return true;
-  }
-
-  private drawIllustratedPlatform(ctx: CanvasRenderingContext2D, stage: StageDef, night: number,
-    x: number, y: number, w: number, h: number, floating = false) {
-    if (w <= 0 || h <= 0) return;
-    const base = floating ? stage.palette.floatMain : stage.palette.platformMain;
-    const ledge = floating ? stage.palette.floatTop : stage.palette.platformTop;
-    const bevel = Math.min(this.sw(floating ? 6 : 10), h / 3, w / 5);
-    const edge = Math.max(1, this.sw(2));
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + w, y);
-    ctx.lineTo(x + w, y + h - bevel);
-    ctx.lineTo(x + w - bevel, y + h);
-    ctx.lineTo(x + bevel, y + h);
-    ctx.lineTo(x, y + h - bevel);
-    ctx.closePath();
-    ctx.clip();
-    const shading = ctx.createLinearGradient(0, y, 0, y + h);
-    shading.addColorStop(0, mixHex(ledge, '#516083', night * 0.42));
-    shading.addColorStop(0.16, mixHex(base, '#172239', night * 0.40));
-    shading.addColorStop(1, mixHex(base, '#080d17', 0.64 + night * 0.10));
-    ctx.fillStyle = shading;
-    ctx.fillRect(x, y, w, h);
-    const art = stageArt(stage.id, night >= 0.5 ? 'night' : 'day');
-    if (art) {
-      ctx.save();
-      ctx.imageSmoothingEnabled = true;
-      ctx.globalAlpha = floating ? 0.18 : 0.26;
-      ctx.drawImage(art, 0, art.height * 0.81, art.width, art.height * 0.17, x, y, w, h);
-      ctx.restore();
-    }
-    ctx.fillStyle = mixHex(ledge, '#9faed3', night * 0.36);
-    ctx.fillRect(x, y, w, edge);
-    ctx.fillStyle = stage.palette.platformTrim;
-    ctx.fillRect(x, y + bevel, w, edge);
-    ctx.fillStyle = 'rgba(8, 13, 22, 0.55)';
-    ctx.fillRect(x, y + h - edge, w, edge);
-    if (!floating) {
-      const spacing = Math.max(8, this.sw(84));
-      for (let offset = spacing; offset < w; offset += spacing) {
-        ctx.fillRect(x + offset, y + bevel * 2, 1, h - bevel * 2);
-      }
-    }
-    ctx.restore();
   }
 
   private drawArenaHazard(ctx: CanvasRenderingContext2D, world: WorldRenderContext) {
@@ -3104,6 +3074,14 @@ export class PixelRenderer extends LegacyFighterGeometry {
   }
 
   renderWorld(targetCanvas: HTMLCanvasElement, world: WorldRenderContext, cfg: GameConfig, quality: RenderQuality = fullQuality) {
+    const profiling = performanceMetricsEnabled && Boolean(world.online);
+    let sectionStart = profiling ? performance.now() : 0;
+    const endSection = (kind: string) => {
+      if (!profiling) return;
+      const now = performance.now();
+      if (now - sectionStart >= 4) markOnlinePerformance(kind, undefined, now - sectionStart, sectionStart);
+      sectionStart = now;
+    };
     this.syncBufferSize(cfg, quality, world.online ? targetCanvas : undefined);
     this.updateCamera(world);
     const ctx = this.offCtx;
@@ -3139,6 +3117,8 @@ export class PixelRenderer extends LegacyFighterGeometry {
     ctx.restore();
     if (!world.legacyHazards) this.drawArenaHazard(ctx, world);
 
+    endSection("canvas background");
+
     // Main Platform (Ornate 16-bit Palace Stone Pedestal with Chromatic Smart Outline)
     const M = world.main;
     const mx = sx(M.x);
@@ -3148,9 +3128,9 @@ export class PixelRenderer extends LegacyFighterGeometry {
     const mainOutline = tintOutlineHex(world.stage.palette.platformMain, 0.3);
     const floatOutline = tintOutlineHex(world.stage.palette.floatMain, 0.28);
     if (illustrated) {
-      this.drawIllustratedPlatform(ctx, world.stage, night, mx, my, mw, mh);
+      paintIllustratedPlatform(ctx, world.stage, night, mx, my, mw, mh, false, sw, stageArt(world.stage.id, night >= .5 ? 'night' : 'day'));
       for (const p of world.plats) {
-        if (!campal) this.drawIllustratedPlatform(ctx, world.stage, night, sx(p.x), sy(p.y), sw(p.w), sw(16), true);
+        if (!campal) paintIllustratedPlatform(ctx, world.stage, night, sx(p.x), sy(p.y), sw(p.w), sw(16), true, sw, stageArt(world.stage.id, night >= .5 ? 'night' : 'day'));
       }
     } else {
       this.pxRect(ctx, mx - 1, my - 1, mw + 2, mh + 2, mainOutline);
@@ -3232,7 +3212,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     }
     // Keep the emblem behind the fighters and leave hit warnings legible.
     for (const u of world.ults) {
-      const state = u.specialized;
+      const state = ultimateVisualState(u.specialized);
       if (!state) continue;
       paintUltimateSprite(ctx, u, {
         x: sx(state.point.x), y: sy(state.point.y),
@@ -3502,24 +3482,58 @@ export class PixelRenderer extends LegacyFighterGeometry {
 
     ctx.restore();
 
+    endSection("canvas world");
     const dCtx = targetCanvas.getContext('2d');
     if (dCtx) {
       dCtx.imageSmoothingEnabled = false;
       dCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
       dCtx.drawImage(this.offCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
     }
+    endSection("canvas present");
   }
 
   private drawArcadeText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number) {
+    const font = `900 ${Math.max(10, size)}px "Chakra Petch", Impact, system-ui`;
+    const key = `${font}:${text}`;
+    const stroke = Math.max(2, Math.round(size / 5));
+    const paint = (target: CanvasRenderingContext2D, px: number, py: number) => {
+      target.textAlign = 'center';
+      target.lineJoin = 'round';
+      target.font = font;
+      target.lineWidth = stroke;
+      target.strokeStyle = '#07090f';
+      target.fillStyle = '#ffd23f';
+      target.strokeText(text, px, py);
+      target.fillText(text, px, py);
+    };
+    if (document.fonts?.status !== 'loading' && text.length <= 80 && size <= 140) {
+      let raster = this.textRasters.get(key);
+      if (!raster) {
+        if (this.textRasters.size >= 32) this.textRasters.delete(this.textRasters.keys().next().value!);
+        const canvas = document.createElement('canvas');
+        const layer = canvas.getContext('2d');
+        if (layer) {
+          layer.font = font;
+          layer.textAlign = 'center';
+          const metrics = layer.measureText(text);
+          const left = Math.ceil(metrics.actualBoundingBoxLeft + stroke);
+          const right = Math.ceil(metrics.actualBoundingBoxRight + stroke);
+          const top = Math.ceil(metrics.actualBoundingBoxAscent + stroke);
+          const bottom = Math.ceil(metrics.actualBoundingBoxDescent + stroke);
+          canvas.width = Math.max(1, left + right);
+          canvas.height = Math.max(1, top + bottom);
+          paint(layer, left, top);
+          raster = { canvas, x: left, y: top };
+          this.textRasters.set(key, raster);
+        }
+      }
+      if (raster) {
+        ctx.drawImage(raster.canvas, Math.round(x) - raster.x, Math.round(y) - raster.y);
+        return;
+      }
+    }
     ctx.save();
-    ctx.textAlign = 'center';
-    ctx.lineJoin = 'round';
-    ctx.font = `900 ${Math.max(10, size)}px "Chakra Petch", Impact, system-ui`;
-    ctx.lineWidth = Math.max(2, Math.round(size / 5));
-    ctx.strokeStyle = '#07090f';
-    ctx.strokeText(text, Math.round(x), Math.round(y));
-    ctx.fillStyle = '#ffd23f';
-    ctx.fillText(text, Math.round(x), Math.round(y));
+    paint(ctx, Math.round(x), Math.round(y));
     ctx.restore();
   }
 
@@ -3528,7 +3542,7 @@ export class PixelRenderer extends LegacyFighterGeometry {
     const sy = (v: number) => this.sy(v);
     const sw = (v: number) => this.sw(v);
 
-    const special = u.specialized;
+    const special = ultimateVisualState(u.specialized);
     if (special) {
       const { ultimate: { spec }, point, box, active } = special;
       const [primary, highlight] = spec.colors;

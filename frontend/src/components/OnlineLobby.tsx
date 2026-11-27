@@ -240,7 +240,7 @@ export function OnlineLobby({ room, slot, send, leave, onOpenConfig }: {
           <RosterDisplay display={display} />
           <div className="ob-filters" aria-label="Filtros de personajes"
             onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
-            {REGION_TABS.filter(rt => rt.id !== 'custom').map(rt => {
+            {REGION_TABS.map(rt => {
               const count = roster.filter(fighter => matchesFilter(fighter, rt.id)).length;
               return <button key={rt.id} type="button" aria-pressed={filter === rt.id}
                 onClick={() => { sound.uiClick(); setFilter(rt.id); }}>

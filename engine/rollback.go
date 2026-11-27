@@ -1,0 +1,213 @@
+package sim
+
+import (
+	"encoding/json"
+	"slices"
+)
+
+// RollbackFrames bounds both the replay work and the number of retained checkpoints.
+const RollbackFrames = 8
+
+type rollbackFrame struct {
+	frame     int
+	before    Checkpoint
+	local     []string
+	remote    [][]string
+	used      [][]string
+	confirmed bool
+}
+
+// RollbackTimeline owns a speculative simulation. Frame numbers count calls to
+// Step, including hitstop, and are independent of the simulation tick.
+type RollbackTimeline struct {
+	match            Match
+	localSlot        int
+	confirmedThrough int
+	lastRemote       [][]string
+	history          [RollbackFrames]rollbackFrame
+}
+
+func NewRollbackTimeline(checkpoint Checkpoint, localSlot int) *RollbackTimeline {
+	t := &RollbackTimeline{localSlot: localSlot}
+	if !t.Reset(checkpoint, nil) {
+		return nil
+	}
+	return t
+}
+
+// Reset applies a full authoritative checkpoint and clears speculative history.
+// remote is the authoritative held-input state at that checkpoint.
+func (t *RollbackTimeline) Reset(checkpoint Checkpoint, remote [][]string) bool {
+	if checkpoint.state == nil || t.localSlot < 0 || t.localSlot >= len(checkpoint.state.Fighters) ||
+		(remote != nil && len(remote) != len(checkpoint.state.Fighters)) {
+		return false
+	}
+	t.match.Restore(checkpoint)
+	t.confirmedThrough = t.match.Frame
+	t.history = [RollbackFrames]rollbackFrame{}
+	t.lastRemote = cloneInputs(remote, len(t.match.Fighters))
+	return true
+}
+
+func (t *RollbackTimeline) Advance(local []string) int {
+	frame := t.match.Frame + 1
+	entry := &t.history[frame%RollbackFrames]
+	*entry = rollbackFrame{frame: frame, before: t.saveFrame(), local: slices.Clone(local)}
+	t.simulate(entry)
+	return frame
+}
+
+type CorrectionResult uint8
+
+const (
+	CorrectionIgnored CorrectionResult = iota
+	CorrectionApplied
+	CorrectionMatched
+	CorrectionNeedsState
+)
+
+// Confirm applies the server's effective inputs for an already simulated frame.
+// Confirmed frames use server inputs for every slot. Later predicted frames
+// keep their buffered local input. A correction outside the window
+// requires an authoritative checkpoint instead of unbounded re-simulation.
+func (t *RollbackTimeline) Confirm(frame int, remote [][]string) CorrectionResult {
+	if frame <= t.confirmedThrough || frame > t.match.Frame || len(remote) != len(t.match.Fighters) {
+		return CorrectionIgnored
+	}
+	entry := &t.history[frame%RollbackFrames]
+	if entry.frame != frame {
+		return CorrectionNeedsState
+	}
+	if entry.confirmed {
+		return CorrectionIgnored
+	}
+	latest := t.match.Frame
+	entry.remote = cloneInputs(remote, len(t.match.Fighters))
+	entry.confirmed = true
+	same := true
+	for slot, held := range remote {
+		predicted := entry.used[slot]
+		if slot == t.localSlot {
+			predicted = entry.local
+		}
+		if !slices.Equal(predicted, held) {
+			same = false
+			break
+		}
+	}
+	if same {
+		return CorrectionMatched
+	}
+	t.lastRemote = entry.used
+	t.restoreFrame(entry.before)
+	for i := frame; i <= latest; i++ {
+		next := &t.history[i%RollbackFrames]
+		next.before = t.saveFrame()
+		t.simulate(next)
+	}
+	return CorrectionApplied
+}
+
+func (t *RollbackTimeline) simulate(entry *rollbackFrame) {
+	entry.used = t.lastRemote
+	if entry.confirmed {
+		t.lastRemote = entry.remote
+		t.match.Step(entry.remote)
+		return
+	}
+	inputs := slices.Clone(t.lastRemote)
+	inputs[t.localSlot] = entry.local
+	t.match.Step(inputs)
+}
+
+func (t *RollbackTimeline) StateHash() (string, error) { return t.match.StateHash() }
+
+func cloneInputs(inputs [][]string, count int) [][]string {
+	out := make([][]string, count)
+	for i, held := range inputs {
+		out[i] = slices.Clone(held)
+	}
+	return out
+}
+
+// ConfirmBatch commits a contiguous server range and replays at most once.
+func (t *RollbackTimeline) ConfirmBatch(first int, confirmed [][][]string) CorrectionResult {
+	if len(confirmed) == 0 {
+		return CorrectionMatched
+	}
+	head := t.match.Frame
+	if first <= 0 || first+len(confirmed)-1 < first || len(confirmed) > RollbackFrames ||
+		first > head+1 || first <= head-RollbackFrames {
+		return CorrectionNeedsState
+	}
+	for i, inputs := range confirmed {
+		frame := first + i
+		if len(inputs) != len(t.match.Fighters) ||
+			(frame <= head && t.history[frame%RollbackFrames].frame != frame) {
+			return CorrectionNeedsState
+		}
+	}
+	replayFrom := 0
+	for i, inputs := range confirmed {
+		frame := first + i
+		if frame > head {
+			break
+		}
+		entry := &t.history[frame%RollbackFrames]
+		if replayFrom == 0 {
+			for slot, held := range inputs {
+				predicted := entry.used[slot]
+				if entry.confirmed {
+					predicted = entry.remote[slot]
+				} else if slot == t.localSlot {
+					predicted = entry.local
+				}
+				if !slices.Equal(predicted, held) {
+					replayFrom = frame
+					break
+				}
+			}
+		}
+		entry.remote = cloneInputs(inputs, len(t.match.Fighters))
+		entry.confirmed = true
+	}
+	if replayFrom != 0 {
+		entry := &t.history[replayFrom%RollbackFrames]
+		t.lastRemote = entry.used
+		t.restoreFrame(entry.before)
+		for frame := replayFrom; frame <= head; frame++ {
+			next := &t.history[frame%RollbackFrames]
+			next.before = t.saveFrame()
+			t.simulate(next)
+		}
+	}
+	for i, inputs := range confirmed {
+		frame := first + i
+		if frame <= head {
+			continue
+		}
+		entry := &t.history[frame%RollbackFrames]
+		*entry = rollbackFrame{frame: frame, before: t.saveFrame(), remote: cloneInputs(inputs, len(t.match.Fighters)), confirmed: true}
+		t.simulate(entry)
+	}
+	if replayFrom != 0 {
+		return CorrectionApplied
+	}
+	return CorrectionMatched
+}
+
+func (t *RollbackTimeline) Frame() int { return t.match.Frame }
+func (t *RollbackTimeline) SnapshotJSON() []byte {
+	payload, _ := json.Marshal(t.match.NetworkSnapshot(nil, nil))
+	return payload
+}
+
+// The private timeline owns these definitions. Simulation reads them and
+// replaces attack specs wholesale. Mutable playback data is still cloned.
+func (t *RollbackTimeline) saveFrame() Checkpoint {
+	return Checkpoint{state: cloneMatch(&t.match, false)}
+}
+
+func (t *RollbackTimeline) restoreFrame(checkpoint Checkpoint) {
+	t.match = *cloneMatch(checkpoint.state, false)
+}

@@ -1,7 +1,11 @@
+import type { createPixiCombat } from '../render/pixiCombat';
+import { isCompactSnapshot, unpackSnapshot } from '../network/compactSnapshot';
+import { LiveRollback, type SyncReply } from '../network/liveRollback';
+import { encodeBinaryInput, inputIsDue, inputMask, type SentInput } from '../network/binaryInput';
 import { ROOM_PROTOCOL, ROOM_RESUME_MS } from '../network/roomProtocol.mjs';
 import { AdaptiveRenderQuality } from '../engine/renderPerformance';
 import { preloadMatchArt } from '../engine/matchArt';
-import { clearPerformanceSamples, performanceMetricsEnabled, samplePerformance } from '../engine/performanceMetrics';
+import { clearPerformanceSamples, performanceMetricsEnabled, samplePerformance, markOnlinePerformance, recordOnlineFrame, startOnlinePerformance } from '../engine/performanceMetrics';
 import { VictoryShowcase } from './VictoryShowcase';
 import { sound } from '../audio/soundEngine';
 import { useEffect, useRef, useState } from 'react';
@@ -21,6 +25,9 @@ import type { GameConfig, PlayerAction } from '../types/game';
 import { OnlineLobby } from './OnlineLobby';
 import { TouchControls } from './TouchControls';
 
+const pixiEnabled = new URLSearchParams(window.location.search).get('pixi') === '1';
+const rollbackEnabled = new URLSearchParams(window.location.search).get('rollback') === '1';
+const jumpInputMask = inputMask(new Set(['jump']));
 const keys = new Map<string, PlayerAction>();
 for (const bindings of [DEFAULT_P1_KEYS, DEFAULT_P2_KEYS]) {
   for (const action of Object.keys(bindings) as PlayerAction[]) {
@@ -89,7 +96,12 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   const authenticatedSocket = useRef<WebSocket | null>(null);
   const currentSeat = useRef<Seat | null>(null);
   const sequence = useRef(0);
+  const rollbackSupported = useRef(false);
+  const rollbackRequestId = useRef(0);
+  const rollbackTimeline = useRef<LiveRollback | null>(null);
+  const binaryInput = useRef(false);
   const jumpSequence = useRef(-1);
+  const lastSentInput = useRef<SentInput | null>(null);
   const reconnect = useRef<number | undefined>(undefined);
   const canvas = useRef<HTMLCanvasElement>(null);
   const samples = useRef<Samples | null>(null);
@@ -118,8 +130,18 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
   };
   const sendInput = () => {
     if (!socket.current || authenticatedSocket.current !== socket.current) return;
+    if (socket.current.readyState !== WebSocket.OPEN || socket.current.bufferedAmount >= 32000) return;
+    const held = actions();
+    const mask = inputMask(held);
+    const now = performance.now();
+    if (!inputIsDue(lastSentInput.current, mask, now)) return;
     const seq = ++sequence.current;
-    return send({ type: 'input', seq, actions: [...actions()] }) ? seq : undefined;
+    const frame = binaryInput.current ? encodeBinaryInput(seq, held) : null;
+    if (frame) socket.current.send(frame);
+    else socket.current.send(JSON.stringify({ type: 'input', seq, actions: [...held] }));
+    if ((mask & jumpInputMask) && !((lastSentInput.current?.mask ?? 0) & jumpInputMask)) jumpSequence.current = seq;
+    lastSentInput.current = { mask, at: now };
+    return seq;
   };
   const clearInput = () => { pressed.current.clear(); touch.current.clear(); sendInput(); };
 
@@ -147,8 +169,14 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     setBusy(true);
     if (manual || !retryUntil.current) setStatus('');
     const previous = socket.current;
-    const ws = new WebSocket(roomSocketUrl());
+    const url = new URL(roomSocketUrl());
+    if (typeof DecompressionStream !== 'undefined') url.searchParams.set('snapshots', 'gzip1');
+    const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
+    rollbackSupported.current = false;
+    rollbackTimeline.current?.dispose();
+    binaryInput.current = false;
+    lastSentInput.current = null;
     socket.current = ws;
     if (previous && previous !== ws) try { previous.close(); } catch {}
     let lastReply = performance.now();
@@ -172,9 +200,44 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       socket.current = null;
       ws.close();
     }
+    let unpacking = false;
+    let queuedSnapshot: MessageEvent | null = null;
+    let snapshotEpoch = 0;
     ws.onmessage = event => {
+      if (!(event.data instanceof ArrayBuffer) || !isCompactSnapshot(event.data)) {
+        handleMessage(event);
+        return;
+      }
+      lastReply = performance.now();
+      queuedSnapshot = event;
+      if (unpacking) return;
+      unpacking = true;
+      void (async () => {
+        try {
+          while (queuedSnapshot && socket.current === ws) {
+            const next = queuedSnapshot;
+            queuedSnapshot = null;
+            const start = performance.now();
+            const epoch = snapshotEpoch;
+            try {
+              const frame = await unpackSnapshot(next.data);
+              if (socket.current === ws && epoch === snapshotEpoch) {
+                handleMessage(new MessageEvent('message', { data: frame }), next.data.byteLength);
+                samplePerformance('unpack', performance.now() - start);
+              }
+            } catch {
+              // The next independently encoded state can still be applied.
+            }
+          }
+        } finally {
+          unpacking = false;
+        }
+      })();
+    };
+    function handleMessage(event: MessageEvent, wireBytes?: number) {
       if (socket.current !== ws) return;
-      let data: ServerRoomMessage;
+      const networkStart = performanceMetricsEnabled ? performance.now() : 0;
+      let data: ServerRoomMessage | SyncReply;
       if (event.data instanceof ArrayBuffer) {
         const snap = decodeSnapshotFrame(event.data);
         if (!snap) return;
@@ -183,7 +246,21 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         try { data = JSON.parse(String(event.data)); } catch { return; }
       }
       lastReply = performance.now();
+      if (networkStart) {
+        const cost = lastReply - networkStart;
+        samplePerformance('network', cost);
+        if (data.type === 'snapshot' || data.type === 'rollbackSync') {
+          const bytes = wireBytes ?? (typeof event.data === 'string' ? new Blob([event.data]).size : event.data.byteLength);
+          markOnlinePerformance(data.type === 'snapshot' ? 'snapshot' : data.checkpoint ? 'checkpoint' : 'confirmed inputs', bytes, cost, networkStart);
+        }
+      }
+      if (data.type === 'rollbackSync') {
+        rollbackTimeline.current?.receive(data);
+        return;
+      }
       if (data.type === 'hello') {
+        binaryInput.current = data.binaryInput === true;
+        rollbackSupported.current = data.checkpointVersion === 1;
         if (data.protocol !== ROOM_PROTOCOL) incompatibleProtocol();
         else send({
           ...request, protocol: ROOM_PROTOCOL, clientId: getClientId(),
@@ -196,6 +273,7 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         pressed.current.clear();
         touch.current.clear();
         jumpSequence.current = -1;
+        lastSentInput.current = null;
         saveSeat(data);
         retryUntil.current = 0;
         setRecovering(false);
@@ -211,13 +289,15 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       if (data.type === 'room') {
         setRoom(data);
         if (!data.playing) {
+          snapshotEpoch++;
+          queuedSnapshot = null;
           samples.current = null;
           setSnapshot(null);
         }
       }
       if (data.type === 'snapshot') {
         const last = samples.current?.latest;
-        if (last && data.tick <= last.tick) return;
+        if (last && (data.frame ?? data.tick) <= (last.frame ?? last.tick)) return;
         const at = performance.now();
         if (samples.current) samplePerformance('snapshot', at - samples.current.at);
         samples.current = { previous: last ?? data, latest: data, at };
@@ -238,7 +318,22 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         const nextLocal = data.players.find(player => player.slot === currentSeat.current?.slot);
         const controlsChanged = previousLocal?.wk !== nextLocal?.wk ||
           ((previousLocal?.ultCharge ?? 0) >= 100) !== ((nextLocal?.ultCharge ?? 0) >= 100);
-        if (!last || !published || at - published.at >= 85 || controlsChanged ||
+        const previousHud = published?.snapshot;
+        const visibleChange = !previousHud || previousHud.stage !== data.stage ||
+          Math.floor(previousHud.tick / 60) !== Math.floor(data.tick / 60) ||
+          previousHud.world.hzPhase !== data.world.hzPhase ||
+          Boolean(previousHud.world.stageNightStart) !== Boolean(data.world.stageNightStart) ||
+          previousHud.players.length !== data.players.length ||
+          data.players.some((player, index) => {
+            const before = previousHud.players[index];
+            return before.slot !== player.slot || before.fighterId !== player.fighterId ||
+              Math.floor(before.damage) !== Math.floor(player.damage) || before.stocks !== player.stocks ||
+              Math.floor(before.ultCharge) !== Math.floor(player.ultCharge) ||
+              Boolean(before.hitFlash) !== Boolean(player.hitFlash) ||
+              Boolean(before.stun) !== Boolean(player.stun) || before.floating !== player.floating ||
+              before.combo !== player.combo || before.wk !== player.wk;
+          });
+        if (!last || !published || (visibleChange && at - published.at >= 85) || controlsChanged ||
             published.snapshot.world.winnerPi !== data.world.winnerPi) {
           publishedHud.current = { snapshot: data, at };
           setSnapshot(data);
@@ -355,38 +450,111 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     const mobile = document.documentElement.hasAttribute('data-mobile');
     const quality = new AdaptiveRenderQuality(config.video.adaptiveQuality !== false, mobile ? 2 : 0);
     clearPerformanceSamples();
+    const stopOnlinePerformance = startOnlinePerformance();
     pendingTouches.current = [];
     const slot = seat.slot;
+    let stopped = false;
+    let pixi: Awaited<ReturnType<typeof createPixiCombat>> | undefined;
+    let preparingPixi = false;
+    let pixiWarmupFrames = 0;
+    let readRenderView: ((id: number) => Float32Array | null) | undefined;
+    const startPixiFrame = () => frame(performance.now());
+    if (rollbackEnabled && rollbackSupported.current) {
+      void import('../sim/wasmSim').then(module => module.loadWasmSim()).then(sim => {
+        if (!stopped && sim.online) {
+          readRenderView = sim.onlineRenderView;
+          rollbackTimeline.current = new LiveRollback(sim.online, slot, () => ++rollbackRequestId.current);
+        }
+      }).catch(() => {});
+    }
     let raf = 0;
     let nextPaintAt = performance.now();
     const paintStep = 1000 / 60;
     let previousPaint = 0;
+    let previousCorrections = 0;
+    let previousCheckpoints = 0;
+    let wasPredicting = false;
     function frame(now: number) {
-      raf = requestAnimationFrame(frame);
+      if (!pixi) raf = requestAnimationFrame(frame);
       const buffer = samples.current;
-      if (!target || !buffer || document.hidden || now + .3 < nextPaintAt) return;
+      if (!target || !buffer || document.hidden || (!pixi && now + .3 < nextPaintAt)) return;
+      if (pixiEnabled && !preparingPixi && readRenderView) {
+        preparingPixi = true;
+        void import('../render/pixiCombat').then(module => module.createPixiCombat(target, buffer.latest)).then(scene => {
+          if (stopped) { scene.destroy(); return; }
+          cancelAnimationFrame(raf);
+          target.after(scene.app.canvas);
+          target.hidden = true;
+          target.parentElement?.classList.add('pixi-combat-active');
+          pixi = scene;
+          previousPaint = 0;
+          pixiWarmupFrames = 24;
+          if (performanceMetricsEnabled) clearPerformanceSamples();
+          scene.app.ticker.add(startPixiFrame);
+          scene.app.ticker.start();
+        }).catch(error => console.warn('Pixi combat unavailable', error));
+      }
       nextPaintAt += Math.max(1, Math.floor((now - nextPaintAt + .3) / paintStep) + 1) * paintStep;
       // Misma resolución interna que el modo local: pixel art escalado por CSS, no alta definición.
       const preset = PIXEL_PRESET_DIMS[config.video.pixelPreset] || PIXEL_PRESET_DIMS.modern;
       const width = Math.max(1, Math.round(preset.w * quality.quality.scale));
       const height = Math.max(1, Math.round(preset.h * quality.quality.scale));
-      if (target.width !== width) target.width = width;
-      if (target.height !== height) target.height = height;
+      if (!pixi && target.width !== width) target.width = width;
+      if (!pixi && target.height !== height) target.height = height;
       const span = Math.max(33.33, (buffer.latest.tick - buffer.previous.tick) * 1000 / 60);
       const blend = Math.min(1, (now - buffer.at) / span);
       const since = (now - buffer.at) / (1000 / 60);
       const ping = roomRef.current?.players[slot]?.ping ?? 0;
       const prediction = Math.min(8, Math.max(0, since) + Math.min(5, 1 + ping / 20));
       sound.tickMusic(buffer.latest.players.some(p => p.stocks === 1 || p.damage > 150));
-      const start = performance.now();
-      const snap = buffer.latest;
-      const world = (snap.world as any)?.rich
-        ? worldFromRich(snap as any, buffer.previous as any, blend)
-        : renderMatchState(buffer.previous, snap, blend, slot, actions(), prediction, jumpSequence.current);
-      renderer.renderWorld(target, world, config, quality.quality);
-      const cost = performance.now() - start;
-      if (previousPaint) {
-        quality.record(now - previousPaint, cost);
+      const measuringFrame = pixiWarmupFrames === 0;
+      const rollback = rollbackTimeline.current;
+      const rollbackStart = performance.now();
+      const predicted = rollback?.update(now, actions(), buffer.latest.frame ?? 0, Boolean(pixi));
+      const predicting = Boolean(predicted) || Boolean(pixi && rollback?.hasRenderView(buffer.latest.frame ?? 0));
+      if (rollback) {
+        const rollbackCost = performance.now() - rollbackStart;
+        if (measuringFrame) samplePerformance('rollback', rollbackCost);
+        if (rollback.corrections !== previousCorrections || rollback.checkpoints !== previousCheckpoints || rollbackCost > 8) {
+          markOnlinePerformance(rollback.checkpoints !== previousCheckpoints ? 'apply checkpoint' :
+            rollback.corrections !== previousCorrections ? 'reconcile inputs' : 'slow prediction', undefined, rollbackCost, rollbackStart);
+        }
+        if (wasPredicting !== predicting) markOnlinePerformance(predicting ? 'predicting' : 'authoritative fallback');
+        wasPredicting = predicting;
+        previousCorrections = rollback.corrections;
+        previousCheckpoints = rollback.checkpoints;
+        if (performanceMetricsEnabled) {
+          target.dataset.rollbackCorrections = String(rollback.corrections);
+          target.dataset.rollbackCheckpoints = String(rollback.checkpoints);
+        }
+      }
+      let cost: number;
+      if (pixi && readRenderView) {
+        const bridgeStart = performance.now();
+        const view = rollback?.renderView(buffer.latest.frame ?? 0, readRenderView) ?? null;
+        pixi.sync(view, buffer.latest);
+        const drawStart = performance.now();
+        if (measuringFrame) samplePerformance(view ? 'bridge' : 'bridgeFallback', drawStart - bridgeStart);
+        pixi.app.render();
+        cost = performance.now() - drawStart;
+        if (measuringFrame) {
+          samplePerformance('pixiDraw', cost);
+          if (previousPaint) samplePerformance('pixiFrame', now - previousPaint);
+        } else {
+          pixiWarmupFrames--;
+        }
+      } else {
+          const start = performance.now();
+        const snap = buffer.latest;
+        const world = predicted ? worldFromRich(predicted) : (snap.world as any)?.rich
+          ? worldFromRich(snap as any, buffer.previous as any, blend)
+          : renderMatchState(buffer.previous, snap, blend, slot, actions(), prediction, jumpSequence.current);
+        renderer.renderWorld(target, world, config, quality.quality);
+        cost = performance.now() - start;
+      }
+      if (previousPaint && measuringFrame) {
+        quality.record(Math.min(160, now - previousPaint), cost);
+        recordOnlineFrame(now, previousPaint);
         samplePerformance('frame', now - previousPaint);
         samplePerformance('render', cost);
       }
@@ -399,7 +567,6 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
       e.preventDefault();
       if (e.repeat) return;
       if (e.type === 'keydown') {
-        if (action === 'jump' && !actions().has('jump')) jumpSequence.current = sequence.current + 1;
         pressed.current.set(e.code, action);
       }
       else pressed.current.delete(e.code);
@@ -410,9 +577,25 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     window.addEventListener('keyup', key);
     window.addEventListener('blur', clearInput);
     document.addEventListener('visibilitychange', visibility);
-    const timer = window.setInterval(sendInput, 1000 / 30);
+    lastSentInput.current = null;
+    sendInput();
+    const timer = window.setInterval(() => {
+      sendInput();
+      if (!document.hidden) rollbackTimeline.current?.request(performance.now(), message =>
+        (socket.current?.bufferedAmount ?? Infinity) < 8192 && send(message));
+    }, 1000 / 30);
     raf = requestAnimationFrame(frame);
     return () => {
+      stopped = true;
+      if (pixi) {
+        pixi.app.ticker.stop();
+        pixi.destroy();
+        target.hidden = false;
+        target.parentElement?.classList.remove('pixi-combat-active');
+      }
+      stopOnlinePerformance();
+      rollbackTimeline.current?.dispose();
+      rollbackTimeline.current = null;
       cancelAnimationFrame(raf);
       clearInterval(timer);
       window.removeEventListener('keydown', key);
@@ -463,7 +646,6 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         hasGun={localFighter?.wk === 'mg' || localFighter?.wk === 'rocket'} movement={config.controls.touchMovement} scale={config.controls.touchScale ?? 1} layout={config.controls.touchLayout} joystick={config.controls.touchJoystick} onAction={(action, down) => {
         const touchStarted = performanceMetricsEnabled && down ? performance.now() : null;
         if (down) {
-          if (action === 'jump' && !actions().has('jump')) jumpSequence.current = sequence.current + 1;
           touch.current.add(action);
         } else touch.current.delete(action);
         const seq = sendInput();

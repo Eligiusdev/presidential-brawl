@@ -23,9 +23,13 @@ const (
 	CKick       ClientType = "kick"
 	CBan        ClientType = "ban"
 	CName       ClientType = "name"
+	CRollbackSync ClientType = "rollbackSync"
 )
 
 type ClientMessage struct {
+	SyncRequest int `json:"syncRequest,omitempty"`
+	MatchID int `json:"matchId,omitempty"`
+	AfterFrame *int `json:"afterFrame,omitempty"`
 	Type       ClientType `json:"type"`
 	Protocol   int        `json:"protocol,omitempty"`
 	MaxPlayers int        `json:"maxPlayers,omitempty"`
@@ -87,6 +91,8 @@ type ErrorMessage struct {
 }
 
 type HelloMessage struct {
+	CheckpointVersion int `json:"checkpointVersion,omitempty"`
+	BinaryInput bool `json:"binaryInput,omitempty"`
 	Type     string `json:"type"`
 	Protocol int    `json:"protocol"`
 }

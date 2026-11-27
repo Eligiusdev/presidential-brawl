@@ -2,7 +2,7 @@ package realtime
 
 import (
 	"context"
-	"encoding/json"
+	"log"
 	"sync"
 	"time"
 
@@ -24,7 +24,7 @@ func StartTicker(reg *rooms.Registry) func() {
 			case <-stop:
 				return
 			case now := <-ticker.C:
-				elapsed := float64(now.Sub(last).Milliseconds())
+				elapsed := float64(now.Sub(last)) / float64(time.Millisecond)
 				if elapsed > 100 {
 					elapsed = 100
 				}
@@ -116,7 +116,10 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 				for i := range room.Players { matchSlots[i] = i }
 			}
 			inputs := make([][]string, len(matchSlots))
+			var sequences []int
+			if room.WantsConfirmedInputsLocked(now) { sequences = make([]int, len(matchSlots)) }
 			for mi, si := range matchSlots {
+				if sequences != nil { sequences[mi] = -1 }
 				if si < 0 || si >= len(room.Players) { inputs[mi] = []string{}; continue }
 				p := room.Players[si]
 				if p == nil || p.WS == nil || now.Sub(p.InputAt) >= 500*time.Millisecond {
@@ -133,8 +136,10 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 				inp := make([]string, len(p.Input))
 				copy(inp, p.Input)
 				inputs[mi] = inp
+				if sequences != nil { sequences[mi] = p.AppliedSeq }
 			}
 			step := room.Match.Step(inputs)
+			if sequences != nil { room.RecordConfirmedLocked(inputs, sequences) }
 			if step%2 == 0 || room.Standings != nil {
 				snapshotDue = true
 			}
@@ -142,25 +147,6 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 		if !snapshotDue {
 			room.Mu().Unlock()
 			continue
-		}
-		snap := room.Match.Snapshot()
-		matchSlots := append([]int(nil), room.MatchSlots...)
-		if len(matchSlots) > 0 {
-			if m, ok := snap.(map[string]any); ok {
-				if players, ok := m["players"].([]map[string]any); ok {
-					for _, pl := range players {
-						if sl, ok := pl["slot"].(int); ok && sl >= 0 && sl < len(matchSlots) {
-							pl["slot"] = matchSlots[sl]
-							pl["id"] = matchSlots[sl]
-						}
-					}
-				}
-				if standings, ok := m["standings"].([]int); ok {
-					for i, st := range standings {
-						if st >= 0 && st < len(matchSlots) { standings[i] = matchSlots[st] }
-					}
-				}
-			}
 		}
 		ack := make([]int, len(room.Players))
 		for i, p := range room.Players {
@@ -170,39 +156,35 @@ func tickRooms(reg *rooms.Registry, elapsed float64) {
 				ack[i] = -1
 			}
 		}
-		bin, ok := encodeSnapshotBinary(snap, ack)
-		var jsonData []byte
-		if !ok {
-			msg := map[string]any{"type": "snapshot", "ack": ack}
-			if m, ok := snap.(map[string]any); ok {
-				for k, v := range m {
-					if k == "type" || k == "ack" {
-						continue
-					}
-					msg[k] = v
-				}
+		bin, err := encodeSnapshotBinary(room.Match.NetworkSnapshot(ack, room.MatchSlots))
+		clients := make([]*rooms.Client, 0, len(room.Players))
+		for _, p := range room.Players {
+			if p != nil && p.WS != nil {
+				clients = append(clients, p.WS)
 			}
-			jsonData, _ = json.Marshal(msg)
 		}
-		players := append([]*rooms.Player(nil), room.Players...)
 		standings := room.Standings
 		room.Mu().Unlock()
 
-		for _, p := range players {
-			if p != nil && p.WS != nil {
-				if ok {
-					p.WS.QueueSnapshot(websocket.MessageBinary, bin)
-				} else {
-					p.WS.QueueSnapshot(websocket.MessageText, jsonData)
+		if err != nil {
+			log.Printf("room snapshot encoding failed: %v", err)
+		} else {
+			var compact []byte
+			for _, client := range clients {
+				frame := bin
+				if client.CompactSnapshots {
+					if compact == nil {
+						compact = compactSnapshot(bin)
+					}
+					frame = compact
 				}
+				client.QueueSnapshot(websocket.MessageBinary, frame)
 			}
 		}
 		if standings != nil {
 			state := room.State()
-			for _, p := range players {
-				if p != nil && p.WS != nil {
-					_ = p.WS.SendJSON(state)
-				}
+			for _, client := range clients {
+				_ = client.SendJSON(state)
 			}
 		}
 	}

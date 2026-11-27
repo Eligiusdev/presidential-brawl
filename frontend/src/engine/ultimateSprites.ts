@@ -13,6 +13,21 @@ const FRAME_SIZE = 256;
 const FRAME_COLUMNS = 4;
 const FRAME_ROWS = 3;
 
+export function ultimateArtSource(id: string) {
+  const animated = animatedSheets[`../art/ultimates/${id}.webp`];
+  if (animated) return { url: animated, frames: 12 };
+  const entry = entries[id];
+  if (entry) return {
+    url: `${import.meta.env.BASE_URL}assets/ultimates/sheet-${entry.sheet}.webp`,
+    frames: 1,
+    box: entry.box,
+  };
+}
+
+export function ultimateArtRegion(frame: number) {
+  return [frame % FRAME_COLUMNS * FRAME_SIZE, Math.floor(frame / FRAME_COLUMNS) * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE];
+}
+
 function getAnimatedSprite(id: string, frame: number) {
   const url = animatedSheets[`../art/ultimates/${id}.webp`];
   if (!url || typeof Image === 'undefined') return;
@@ -112,6 +127,41 @@ export function ultimateSpriteFrame(t: number, duration: number, triggered: bool
   return 8 + Math.min(3, Math.floor((progress - .8) * 20 + 1e-8));
 }
 
+type UltimateVisualState = NonNullable<RenderUltEffect['specialized']>;
+type GoUltimateVisualState = {
+  [Key in keyof UltimateVisualState as Capitalize<Key>]: UltimateVisualState[Key];
+};
+const normalizedStates = new WeakMap<GoUltimateVisualState, UltimateVisualState>();
+
+export function ultimateVisualState(state: UltimateVisualState | GoUltimateVisualState | undefined) {
+  if (!state || 'ultimate' in state) return state;
+  let visual = normalizedStates.get(state);
+  if (!visual) {
+    visual = {
+      ultimate: state.Ultimate, origin: state.Origin, point: state.Point, box: state.Box,
+      contact: state.Contact, originStock: state.OriginStock, targetStock: state.TargetStock,
+      triggered: state.Triggered, active: state.Active, landed: state.Landed,
+    };
+    normalizedStates.set(state, visual);
+  }
+  return visual;
+}
+
+type Ultimate = NonNullable<RenderUltEffect['specialized']>['ultimate'];
+
+export function ultimateArtMoves({ spec, profile }: Ultimate) {
+  return Boolean(profile.travel) || spec.primitive === 'dashStrike' ||
+    spec.primitive === 'spawnEntity' || spec.primitive === 'spawnProjectile';
+}
+
+export function ultimateArtFrame(ultimate: Ultimate, time: number, duration: number, triggered: boolean) {
+  const { spec, profile } = ultimate;
+  const opening = ultimateArtMoves(ultimate) ? 0
+    : spec.hits > 1 ? (profile.tempo ? .12 : .25) / spec.hits
+    : profile.tempo ? .38 : .65;
+  return ultimateSpriteFrame(time, duration, triggered, opening);
+}
+
 const illustratedAnime = new Set(['ult_bolivar', 'ult_gengis', 'ult_lincoln']);
 
 function paintAnimeAccent(ctx: CanvasRenderingContext2D, primitive: CombatPrimitive, colors: readonly [string, string],
@@ -162,14 +212,12 @@ function paintAnimeAccent(ctx: CanvasRenderingContext2D, primitive: CombatPrimit
 }
 
 export function paintUltimateSprite(ctx: CanvasRenderingContext2D, u: RenderUltEffect, placement: Placement) {
-  if (!u.specialized) return false;
-  const { ultimate: { spec, profile }, origin, active, triggered } = u.specialized;
+  const state = ultimateVisualState(u.specialized);
+  if (!state) return false;
+  const { ultimate: { spec, profile }, origin, active, triggered } = state;
   const progress = Math.min(1, u.t / Math.max(1, u.dur));
-  const moving = Boolean(profile.travel) || ['dashStrike', 'spawnEntity', 'spawnProjectile'].includes(spec.primitive);
-  const opening = moving ? 0
-    : spec.hits > 1 ? (profile.tempo ? .12 : .25) / spec.hits
-    : profile.tempo ? .38 : .65;
-  const frame = ultimateSpriteFrame(u.t, u.dur, triggered, opening);
+  const moving = ultimateArtMoves(state.ultimate);
+  const frame = ultimateArtFrame(state.ultimate, u.t, u.dur, triggered);
   const animated = getAnimatedSprite(spec.id, frame);
   const sprite = animated ?? getSprite(spec.id);
   const { x, y, hitWidth, hitHeight, unit } = placement;
