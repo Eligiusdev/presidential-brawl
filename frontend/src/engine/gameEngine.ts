@@ -877,6 +877,8 @@ export class GameEngine {
       this.keys[prefix + 'down'] = ay > dz || bound('down');
       this.keys[prefix + 'light'] = bound('light');
       this.keys[prefix + 'heavy'] = bound('heavy');
+      this.keys[prefix + 'medium'] = bound('medium');
+      this.keys[prefix + 'special'] = bound('special');
       this.keys[prefix + 'dash'] = bound('dash');
       this.keys[prefix + 'ult'] = bound('ult');
       this.keys[prefix + 'reload'] = bound('reload');

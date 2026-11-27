@@ -32,15 +32,15 @@ export const DEFAULT_P2_KEYS: KeyBindings = {
 export const DEFAULT_GAMEPAD_BINDINGS: GamepadBindings = {
   left: [14],
   right: [15],
-  jump: [12, 0, 3],
+  jump: [12, 0],
   down: [13],
   light: [2],
   heavy: [1],
-  dash: [4, 5],
+  dash: [4],
   ult: [6, 7],
   reload: [11],
-  medium: [],
-  special: [],
+  medium: [3],
+  special: [5],
 };
 
 export const PAD_BUTTON_LABELS = [
@@ -126,6 +126,17 @@ export function loadConfig(): GameConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return structuredClone(DEFAULT_CONFIG);
     const parsed = JSON.parse(raw);
+    const saved = parsed.controls?.gamepadBindings;
+    const gamepadBindings = { ...DEFAULT_GAMEPAD_BINDINGS, ...saved };
+    // Upgrade the exact defaults that shipped before M and S had bindings.
+    if (JSON.stringify(saved?.jump) === '[12,0,3]' && !saved?.medium?.length) {
+      gamepadBindings.jump = DEFAULT_GAMEPAD_BINDINGS.jump;
+      gamepadBindings.medium = DEFAULT_GAMEPAD_BINDINGS.medium;
+    }
+    if (JSON.stringify(saved?.dash) === '[4,5]' && !saved?.special?.length) {
+      gamepadBindings.dash = DEFAULT_GAMEPAD_BINDINGS.dash;
+      gamepadBindings.special = DEFAULT_GAMEPAD_BINDINGS.special;
+    }
     return {
       video: { ...DEFAULT_CONFIG.video, ...(parsed.video || {}) },
       match: { ...DEFAULT_CONFIG.match, ...(parsed.match || {}) },
@@ -135,7 +146,7 @@ export function loadConfig(): GameConfig {
         ...(parsed.controls || {}),
         p1: { ...DEFAULT_P1_KEYS, ...(parsed.controls?.p1 || {}) },
         p2: { ...DEFAULT_P2_KEYS, ...(parsed.controls?.p2 || {}) },
-        gamepadBindings: { ...DEFAULT_GAMEPAD_BINDINGS, ...(parsed.controls?.gamepadBindings || {}) },
+        gamepadBindings,
         gamepadDeadzone: typeof parsed.controls?.gamepadDeadzone === 'number' ? parsed.controls.gamepadDeadzone : 0.25,
       },
     };

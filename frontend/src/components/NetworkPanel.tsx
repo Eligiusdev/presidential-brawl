@@ -1,3 +1,4 @@
+import { readGamepadActions } from '../input/gamepadActions';
 import type { createPixiCombat } from '../render/pixiCombat';
 import { isCompactSnapshot, unpackSnapshot } from '../network/compactSnapshot';
 import { LiveRollback, type SyncReply } from '../network/liveRollback';
@@ -124,6 +125,10 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
     (config.controls.touchMode === 'auto' && ('ontouchstart' in window || navigator.maxTouchPoints > 0));
   const actions = () => {
     const held = new Set([...pressed.current.values(), ...touch.current]);
+    if (playing && !document.hidden && document.hasFocus()) {
+      const pad = Array.from(navigator.getGamepads?.() ?? []).find(item => item?.connected);
+      if (pad) readGamepadActions(pad, config.controls, action => held.add(action));
+    }
     if (!techniqueSupport.current) {
       held.delete('medium');
       held.delete('special');

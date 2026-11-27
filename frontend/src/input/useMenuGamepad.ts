@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 
 type Direction = 'left' | 'right' | 'up' | 'down';
 
-const controls = 'button, a[href], input:not([type="hidden"]), select, textarea, [role="button"][tabindex]';
+const controls = 'button, a[href], input:not([type="hidden"]), select, textarea, summary, [role="button"][tabindex]';
 const repeatDelay = 320;
 const repeatInterval = 115;
 
@@ -139,12 +139,22 @@ export function useMenuGamepad(
       if (!root) return;
       if (root.querySelector('[data-gamepad-capturing]')) { clearFocus(); return; }
       const { screen, configOpen, onPause } = currentState.current;
+      const duel = root.querySelector<HTMLElement>('[data-gamepad-tag]');
+      const duelPause = duel?.querySelector<HTMLDialogElement>('dialog[open]');
+      if (duel?.hasAttribute('data-gamepad-playing')) {
+        if (start) {
+          duel.querySelector<HTMLElement>(duelPause ? '[data-gamepad-back]' : '[data-gamepad-tag-pause]')?.click();
+          return;
+        }
+        if (!duelPause) { clearFocus(); return; }
+      }
       const online = root.querySelector<HTMLElement>('[data-gamepad-online]');
       if (online?.hasAttribute('data-gamepad-playing')) {
         clearFocus();
         return;
       }
       const scope = (configOpen ? root.querySelector<HTMLElement>('[data-gamepad-config]') : null)
+        ?? duelPause ?? duel
         ?? online
         ?? root.querySelector<HTMLElement>('[data-gamepad-overlay]');
       if (!online && !configOpen && start && (screen === 'PLAYING' || screen === 'PAUSED')) {
