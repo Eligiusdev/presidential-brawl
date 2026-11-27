@@ -54,6 +54,7 @@ func clonePointers[T any](values []*T, clone func(*T) *T) []*T {
 func cloneMatch(m *Match, copyDefinitions bool) *Match {
 	out := *m
 	out.OnEnd = nil
+	out.Tag = copyValue(m.Tag)
 	out.RNG = copyValue(m.RNG)
 	out.VisRNG = copyValue(m.VisRNG)
 	out.Plats = slices.Clone(m.Plats)
@@ -268,6 +269,7 @@ func DecodeCheckpoint(data []byte) (Checkpoint, error) {
 			f.Pl.BaseY = contact.BaseY
 		}
 	}
+	if !m.validTagState() { return Checkpoint{}, fmt.Errorf("invalid tag checkpoint") }
 	for i, p := range m.Projectiles {
 		if p == nil {
 			return Checkpoint{}, fmt.Errorf("invalid projectile checkpoint")

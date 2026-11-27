@@ -62,7 +62,15 @@ func main() {
 		}
 		mode := "versus"
 		if len(args) > 4 && args[4].String() != "" { mode = args[4].String() }
-		m, err := sim.NewLocalMatch(ids, stage, seed, cfg, mode)
+		var m *sim.Match
+		var err error
+		if mode == "tag" {
+			if len(ids) != 6 { return map[string]any{"error": "tag requires six fighters"} }
+			teams := [2][3]string{[3]string(ids[:3]), [3]string(ids[3:])}
+			m, err = sim.NewTagMatch(teams, stage, seed, cfg)
+		} else {
+			m, err = sim.NewLocalMatch(ids, stage, seed, cfg, mode)
+		}
 		if err != nil { return map[string]any{"error": err.Error()} }
 		id := nextID
 		nextID++

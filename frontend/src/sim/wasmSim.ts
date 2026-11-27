@@ -1,7 +1,7 @@
-import { createRenderReader } from '../render/wasmBridge';
+import { createRenderReader, createTagHUDReader } from '../render/wasmBridge';
 import type { OnlineWasm } from '../network/liveRollback';
 export interface WasmConfig {
-  mode?: 'versus' | 'training' | 'campaign' | 'attract';
+  mode?: 'versus' | 'training' | 'campaign' | 'attract' | 'tag';
   stocks?: number; knockback?: number; gravity?: number;
   hazard?: string; items?: string; voteGain?: number;
   startFullVote?: boolean; aiDifficulty?: number;
@@ -10,6 +10,7 @@ export interface WasmConfig {
 
 export interface WasmSim {
   online?: OnlineWasm;
+  tagHUDView?(id: number): Uint32Array | null;
   onlineRenderView?(id: number): Float32Array | null;
   create(ids: string[], stage: number, seed: number, config?: WasmConfig, mode?: string): number;
   step(id: number, inputs: string[][]): number;
@@ -86,6 +87,9 @@ export function loadWasmSim(): Promise<WasmSim> {
       } : {}),
       ...(typeof g.pbOnlineRenderBuffer === 'function' && inst.exports.mem instanceof WebAssembly.Memory ? {
         onlineRenderView: createRenderReader(inst.exports.mem, id => g.pbOnlineRenderBuffer(id)),
+      } : {}),
+      ...(typeof g.pbTagHUD === 'function' && inst.exports.mem instanceof WebAssembly.Memory ? {
+        tagHUDView: createTagHUDReader(inst.exports.mem, id => g.pbTagHUD(id)),
       } : {}),
       leave: (id, slot) => g.pbSimLeave(id, slot),
       free: (id) => g.pbSimFree(id),
