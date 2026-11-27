@@ -676,7 +676,11 @@ export function NetworkPanel({ config, onActive, onOpenConfig, openSignal = 0, c
         {room.hostSlot === seat.slot && <button onClick={() => send({ type: 'lobby' })}>{room.mode === 'champion' && (room.championNext ?? 0) > 0 && (room.championNext ?? 0) < (room.championSize ?? 0) ? 'Siguiente duelo' : 'Volver a la sala'}</button>}
       </section>}
     </div>
-    <footer><span role="status">{status || `J${seat.slot + 1} · WASD · J/K/L · C: definitiva`}</span>{reloadButton}<button data-gamepad-back onClick={leave}>Salir</button></footer>
+    <footer>
+      <span role="status">{status || (!showTouch && `J${seat.slot + 1} · WASD · J/K/L · C: definitiva`)}</span>
+      {reloadButton}
+      <button data-gamepad-back onClick={leave}>Salir</button>
+    </footer>
   </section>;
 
   return <div data-gamepad-online className="console-modal-overlay" role="dialog" aria-modal="true" aria-label="Salas en línea" onMouseDown={(e) => { if (e.target === e.currentTarget) leave(); }}>
