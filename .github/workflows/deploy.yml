@@ -40,8 +40,9 @@ jobs:
 
       - name: Validate and build the Wasm engine
         run: |
-          bash scripts/check-rollback-parity.sh
-          bash scripts/check-rollback-network.sh
+          # Go/Wasm has a small argument and environment buffer.
+          env -i HOME="$HOME" PATH="$PATH" bash scripts/check-rollback-parity.sh
+          env -i HOME="$HOME" PATH="$PATH" bash scripts/check-rollback-network.sh
           mkdir -p frontend/public/sim
           (cd engine && GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -o ../frontend/public/sim/sim.wasm ./cmd/sim-wasm)
           cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" frontend/public/sim/
